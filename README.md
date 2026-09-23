@@ -15,23 +15,25 @@ Error-правила блокируют (exit 1, write-time gate бросает 
 ## Точки приложения
 
 1. **OpenCode write-time плагин** — `plugin/comment-gate.ts` перехватывает `write`/`edit`/`multiedit` и отклоняет правку с error-находками в момент записи. Монтируется в `~/.config/opencode/plugins/` стабом-реэкспортом.
-2. **Pre-commit через `--install`** — одна команда вшивает `node .../scan.mjs --staged` в `.git/hooks/pre-commit` (идемпотентно, дописывает блок с маркером, не затирая существующий hook) и добавляет npm scripts `stop-ai-slop` / `stop-ai-slop:all` в package.json.
+2. **Pre-commit через `--install`** — одна команда вшивает `node .../scan.mjs --staged` в `.git/hooks/pre-commit` (идемпотентно, дописывает блок с маркером, не затирая существующий hook) и добавляет npm scripts `stop-ai-slop` / `stop-ai-slop:all` в package.json. Hook и npm scripts содержат абсолютный путь к сканеру на момент установки — после переноса или повторного клонирования сканера запустите `--install` заново.
 3. **Agent skill** — `skill/SKILL.md` (name: `stop-ai-slop`): политика, таблица правил, режимы запуска. Монтируется в OpenCode и Claude Code.
 4. **Baseline для легаси** — `--baseline-write` записывает `stop-ai-slop.baseline.txt` (записи `relpath:line`, строки с `#` — комментарии). Записи вычитаются из вывода обоих режимов: старый код не мешает, новый слоп не проходит.
 
 ## Быстрый старт
 
 ```
+git clone https://github.com/WhiteBite/stop-ai-slop && cd stop-ai-slop
 node skill/scripts/scan.mjs --self-test       # саботаж-тест детектора
 node skill/scripts/scan.mjs scan .            # полное сканирование (.ts .tsx .js .jsx .mjs .cjs .py)
 node skill/scripts/scan.mjs --staged          # только добавленные строки из git diff --cached
 node skill/scripts/scan.mjs --diff <ref>      # добавленные строки файлов, отслеживаемых в репо, относительно ref; неотслеживаемые файлы не видны
 node skill/scripts/scan.mjs --strict          # warning тоже блокируют гейт (exit 1)
 node skill/scripts/scan.mjs --install         # npm scripts + pre-commit hook в текущем репо
-node skill/scripts/scan.mjs --install --strict# то же самое, но hook запускает --strict
+node skill/scripts/scan.mjs --install --strict  # то же самое, но hook запускает --strict
+node skill/scripts/scan.mjs --help              # справка по всем флагам
 ```
 
-Exit 1 — есть error-находки вне baseline; иначе 0.
+Exit 1 — есть error-находки вне baseline; иначе 0. Exit 2 — ошибка использования или git (неверный флаг, несуществующий ref).
 
 ## CI (GitHub Actions)
 
@@ -52,13 +54,13 @@ Action сам подтягивает базовый реф, поэтому ст�
 
 ```
 git clone https://github.com/WhiteBite/stop-ai-slop <path>
-mklink /J "%USERPROFILE%\.config\opencode\skills\stop-ai-slop" "<path>\skill"
-mklink /J "%USERPROFILE%\.claude\skills\stop-ai-slop" "<path>\skill"
+New-Item -ItemType Junction -Path "$env:USERPROFILE\.config\opencode\skills\stop-ai-slop" -Target "<path>\skill"
+New-Item -ItemType Junction -Path "$env:USERPROFILE\.claude\skills\stop-ai-slop" -Target "<path>\skill"
 ```
 
 Write-time плагин OpenCode: файл `%USERPROFILE%\.config\opencode\plugins\comment-gate.ts` из одной строки
 `export { CommentGate, detectCommentSlop } from "<path>/plugin/comment-gate.ts"`.
-На Linux/macOS вместо `mklink /J` — `ln -s`. В любом git-репо без агентов работает `scan.mjs --install`.
+Эквивалент для cmd.exe — `mklink /J`; на Linux/macOS — `ln -s`. В любом git-репо без агентов работает `scan.mjs --install`.
 
 ## Правила
 
@@ -80,7 +82,7 @@ Write-time плагин OpenCode: файл `%USERPROFILE%\.config\opencode\plugi
 node skill/scripts/scan.mjs --explain <rule-id>
 ```
 
-JSX-комментарии в блоковых комментариях (`/* */`) детектируются. HTML-комментарии, а также `.vue`, `.svelte`, `.html` — вне области сканирования. `--staged` и `--diff` видят только отслеживаемые изменения (неотслеживаемые файлы невидимы). Warning не блокируют гейт, если не указан `--strict`.
+JSX-комментарии в блоковых комментариях (`/* */`) детектируются. HTML-комментарии, а также `.vue`, `.svelte`, `.html` — вне области сканирования. `--staged` и `--diff` видят только отслеживаемые изменения (неотслеживаемые файлы невидимы). Warning не блокируют гейт, если не указан `--strict`. Имена файлов с не-ASCII поддерживаются в diff-режимах.
 
 ## Сравнение с аналогами
 

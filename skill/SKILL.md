@@ -11,10 +11,10 @@ description: Comment-slop policy and mechanical gate — single source of truth 
 
 ## Когда запускать
 
-Перед каждым коммитом:
+Перед каждым коммитом. Путь к сканеру — `scripts/scan.mjs` относительно корня скилла; подставьте свой `<SKILL_DIR>` (например, `~/.config/opencode/skills/stop-ai-slop`):
 
 ```
-node C:/Users/Mind/.config/opencode/skills/stop-ai-slop/scripts/scan.mjs --staged
+node <SKILL_DIR>/scripts/scan.mjs --staged
 ```
 
 В OpenCode-сессиях write/edit/multiedit дополнительно блокируются на записи плагином comment-gate (error-правила). В Claude Code и вне сессий — через pre-commit hook (`--install` ниже) или вручную.
@@ -35,7 +35,7 @@ node C:/Users/Mind/.config/opencode/skills/stop-ai-slop/scripts/scan.mjs --stage
 
 Error блокирует (exit 1, write-time gate бросает). Warning — учитель: выводится, не блокирует.
 
-Полное обоснование по правилу: `node .../scan.mjs --explain <rule-id>` — выводит Why / Instead of / Write / Ignore-it-when из той же таблицы.
+Полное обоснование по правилу: `node <SKILL_DIR>/scripts/scan.mjs --explain <rule-id>` — выводит Why / Instead of / Write / Ignore-it-when из той же таблицы.
 
 ## Режимы scan.mjs
 
@@ -55,4 +55,4 @@ Error блокирует (exit 1, write-time gate бросает). Warning — �
   instead: <что написать вместо>
 ```
 
-Exit 1 — есть error-находки вне baseline; иначе 0.
+Коды выхода: 0 — чисто; 1 — сработал гейт (error-находки вне baseline; warnings — при `--strict`); 2 — ошибка использования или git (неверный флаг, несуществующий ref).
