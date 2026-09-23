@@ -131,10 +131,23 @@ function finding(id, lineNo, lines) {
 }
 
 export function detectCommentSlop(addedLines) {
+  let inJsxBlock = false
+  const isComment = (line) => {
+    const t = line.trim()
+    if (inJsxBlock) {
+      if (t.endsWith("*/}")) inJsxBlock = false
+      return true
+    }
+    if (t.startsWith("{/*")) {
+      if (!t.endsWith("*/}")) inJsxBlock = true
+      return true
+    }
+    return isCommentLine(line)
+  }
   const violations = []
   let runStart = -1
   for (let i = 0; i <= addedLines.length; i++) {
-    const inRun = i < addedLines.length && isCommentLine(addedLines[i] ?? "")
+    const inRun = i < addedLines.length && isComment(addedLines[i] ?? "")
     if (inRun && runStart === -1) runStart = i
     if (!inRun && runStart !== -1) {
       if (i - runStart >= 2) {
@@ -144,11 +157,11 @@ export function detectCommentSlop(addedLines) {
     }
   }
   let headerEnd = 0
-  while (headerEnd < addedLines.length && isCommentLine(addedLines[headerEnd] ?? "")) headerEnd++
+  while (headerEnd < addedLines.length && isComment(addedLines[headerEnd] ?? "")) headerEnd++
   if (headerEnd >= 2) violations.push(finding("vend/file-summary-header", 1, addedLines.slice(0, headerEnd)))
   for (let i = 0; i < addedLines.length; i++) {
     const line = addedLines[i] ?? ""
-    if (!isCommentLine(line)) continue
+    if (!isComment(line)) continue
     const t = line.trim()
     if (CHANGELOG_MARKER.test(line)) violations.push(finding("changelog-marker", i + 1, [line]))
     if (line.length > MAX_COMMENT_LENGTH) violations.push(finding("long-comment", i + 1, [line]))
