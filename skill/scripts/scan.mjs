@@ -483,7 +483,7 @@ function cmdInstall(strict = false) {
   const hookPath = join(hooksDir, "pre-commit")
   const MARK = "# >>> slop-gate >>>"
   const block = `${MARK}\n${stagedCmd}\n# <<< slop-gate <<<\n`
-  const blockRe = /# >>> slop-gate >>>[\s\S]*?# <<< slop-gate <<<\n/
+  const blockRe = /# >>> slop-gate >>>[\s\S]*?# <<< slop-gate <<<\r?\n?/
   if (existsSync(hookPath)) {
     const current = readFileSync(hookPath, "utf8")
     if (blockRe.test(current)) {
