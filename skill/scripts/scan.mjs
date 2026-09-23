@@ -564,6 +564,16 @@ function cmdSelfTest() {
     writeFileSync(join(dir, "md.ts"), "// **bold** note\nconst x = 1\n")
     writeFileSync(join(dir, "opener.ts"), "// This function normalizes the payload\nconst x = 1\n")
     writeFileSync(join(dir, "todo.ts"), "// TODO fix this later\nconst x = 1\n")
+    writeFileSync(join(dir, "inline.ts"), "const x = 1 // было так, стало иначе\n")
+    writeFileSync(join(dir, "block.ts"), "/* removeSource rewrites every row\nwith fresh uuids all vanish at once\nand incremental has no centroids left */\nconst x = 1\n")
+    writeFileSync(join(dir, "docstring.py"), 'def f():\n    """This function normalizes the payload\n    and validates input\n    """\n    return 1\n')
+    writeFileSync(join(dir, "zwsp.ts"), "// с\u200Bтало иначе\nconst x = 1\n")
+    writeFileSync(
+      join(dir, "utf16.ts"),
+      Buffer.concat([Buffer.from([0xff, 0xfe]), Buffer.from("// было так, стало иначе\nconst x = 1\n", "utf16le")]),
+    )
+    writeFileSync(join(dir, "supp.ts"), "// stop-ai-slop-ignore-next-line changelog-marker\n// стало иначе\nconst x = 1\n")
+    writeFileSync(join(dir, "suppfile.ts"), "// stop-ai-slop-ignore-file\n// стало иначе\n// и ещё было\nconst x = 1\n")
     const findings = scanFiles(collectFiles([dir], dir), dir)
     const byRel = (rel) => findings.filter((f) => f.rel === rel)
     const sabotageRules = byRel("sabotage.ts").map((f) => f.rule)
@@ -588,6 +598,17 @@ function cmdSelfTest() {
     check("md: vend/markdown-in-comment [warning]", byRel("md.ts").some((f) => f.rule === "vend/markdown-in-comment"), byRel("md.ts"))
     check("opener: vend/this-function-opener [warning]", byRel("opener.ts").some((f) => f.rule === "vend/this-function-opener"), byRel("opener.ts"))
     check("todo: vend/generic-todo [warning]", byRel("todo.ts").some((f) => f.rule === "vend/generic-todo"), byRel("todo.ts"))
+    check("inline: changelog-marker в trailing-комменте [error]", byRel("inline.ts").some((f) => f.rule === "changelog-marker"), byRel("inline.ts"))
+    check("block: /* */ без * на средних строках [error]", byRel("block.ts").some((f) => f.rule === "multi-line-comment"), byRel("block.ts"))
+    check(
+      "docstring: vend/this-function-opener [warning]",
+      byRel("docstring.py").some((f) => f.rule === "vend/this-function-opener" && f.severity === "warning"),
+      byRel("docstring.py"),
+    )
+    check("zwsp: changelog-marker сквозь zero-width [error]", byRel("zwsp.ts").some((f) => f.rule === "changelog-marker"), byRel("zwsp.ts"))
+    check("utf16: changelog-marker в UTF-16 файле [error]", byRel("utf16.ts").some((f) => f.rule === "changelog-marker"), byRel("utf16.ts"))
+    check("supp: ignore-next-line гасит changelog-marker", !byRel("supp.ts").some((f) => f.rule === "changelog-marker"), byRel("supp.ts"))
+    check("supp: ignore-file гасит всё", byRel("suppfile.ts").length === 0, byRel("suppfile.ts"))
     const repoDir = mkdtempSync(join(tmpdir(), "slop-gate-diff-"))
     try {
       const git = (args) =>
