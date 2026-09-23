@@ -1,0 +1,36 @@
+name: stop-ai-slop
+description: Comment-slop gate for pull requests — fails on slop comments in lines added versus a base ref
+
+inputs:
+  base:
+    description: Base ref to diff added lines against
+    required: false
+    default: ""
+  strict:
+    description: "true to fail on warnings too"
+    required: false
+    default: "false"
+
+runs:
+  using: composite
+  steps:
+    - name: Fetch base ref
+      shell: bash
+      run: |
+        if [ -n "$BASE_REF" ]; then
+          git fetch --no-tags --depth=1 origin "$BASE_REF"
+        fi
+      env:
+        BASE_REF: "${{ inputs.base != '' && inputs.base || github.base_ref }}"
+    - name: Scan added lines
+      shell: bash
+      run: |
+        args=(--diff FETCH_HEAD)
+        if [ "$STRICT" = "true" ]; then args+=(--strict); fi
+        node "$GITHUB_ACTION_PATH/skill/scripts/scan.mjs" "${args[@]}"
+      env:
+        STRICT: "${{ inputs.strict }}"
+
+branding:
+  icon: alert-octagon
+  color: red
