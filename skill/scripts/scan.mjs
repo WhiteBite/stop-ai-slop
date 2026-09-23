@@ -118,6 +118,8 @@ function stripCommentMarker(line) {
     .trim()
     .replace(/^(?:\/\/+|\/\*+|\*+|#+)\s?/, "")
     .replace(/\*\/\s*$/, "")
+    .replace(/^[rbf]?"""/, "")
+    .replace(/"""$/, "")
 }
 
 function isDividerLine(trimmed) {
@@ -130,49 +132,122 @@ function finding(id, lineNo, lines) {
   return { rule: id, lineNo, lines, severity: RULE_BY_ID.get(id).severity }
 }
 
+const SUPPRESS_NEXT = /stop-ai-slop-ignore-next-line\b(.*)$/
+const SUPPRESS_LINE = /stop-ai-slop-ignore-line\b(.*)$/
+const SUPPRESS_FILE = /stop-ai-slop-ignore-file\b/
+
+function collectSuppressions(lines) {
+  const perLine = new Map()
+  let file = false
+  const rulesOf = (tail) => {
+    const ids = tail.split("--")[0].trim().split(/\s+/).filter((w) => w !== "")
+    return ids.length === 0 ? null : new Set(ids)
+  }
+  lines.forEach((raw, i) => {
+    const next = SUPPRESS_NEXT.exec(raw)
+    if (next !== null) perLine.set(i + 2, rulesOf(next[1]))
+    const same = SUPPRESS_LINE.exec(raw)
+    if (same !== null) perLine.set(i + 1, rulesOf(same[1]))
+    if (SUPPRESS_FILE.test(raw)) file = true
+  })
+  return { file, perLine }
+}
+
+function decodeText(buf) {
+  if (buf.length >= 2 && buf[0] === 0xff && buf[1] === 0xfe) return new TextDecoder("utf-16le").decode(buf.subarray(2))
+  if (buf.length >= 2 && buf[0] === 0xfe && buf[1] === 0xff) return new TextDecoder("utf-16be").decode(buf.subarray(2))
+  return buf.toString("utf8")
+}
+
+function inlineComment(line) {
+  for (const marker of ["//", " #"]) {
+    const idx = line.indexOf(marker)
+    if (idx <= 0) continue
+    const prefix = line.slice(0, idx)
+    if (marker === "//" && prefix.trimEnd().endsWith(":")) continue
+    if ((prefix.match(/["'`]/g) ?? []).length % 2 !== 0) continue
+    return marker === "//" ? line.slice(idx) : "//" + line.slice(idx + 1).trimStart()
+  }
+  return null
+}
+
 export function detectCommentSlop(addedLines) {
-  let inJsxBlock = false
-  const isComment = (line) => {
-    const t = line.trim()
-    if (inJsxBlock) {
-      if (t.endsWith("*/}")) inJsxBlock = false
-      return true
+  const lines = addedLines.map((l) => (l ?? "").replace(/[​-‏﻿]/g, ""))
+  const suppress = collectSuppressions(lines)
+  if (suppress.file) return []
+  const makeClassify = () => {
+    let inJsxBlock = false
+    let inBlock = false
+    let inDoc = false
+    return (line) => {
+      const t = line.trim()
+      if (inJsxBlock) {
+        if (t.endsWith("*/}")) inJsxBlock = false
+        return { comment: true, doc: false }
+      }
+      if (inBlock) {
+        if (t.includes("*/")) inBlock = false
+        return { comment: true, doc: false }
+      }
+      if (inDoc) {
+        if (t.includes('"""')) inDoc = false
+        return { comment: false, doc: true }
+      }
+      if (t.startsWith("{/*")) {
+        if (!t.endsWith("*/}")) inJsxBlock = true
+        return { comment: true, doc: false }
+      }
+      if (t.startsWith("/*") && !t.includes("*/")) {
+        inBlock = true
+        return { comment: true, doc: false }
+      }
+      if (/^[rbf]?"""/.test(t)) {
+        if (!t.slice(3).includes('"""')) inDoc = true
+        return { comment: false, doc: true }
+      }
+      return { comment: isCommentLine(line), doc: false }
     }
-    if (t.startsWith("{/*")) {
-      if (!t.endsWith("*/}")) inJsxBlock = true
-      return true
-    }
-    return isCommentLine(line)
   }
   const violations = []
+  const push = (v) => {
+    const s = suppress.perLine.get(v.lineNo)
+    if (s === null || (s !== undefined && s.has(v.rule))) return
+    violations.push(v)
+  }
+  const testLine = (raw, i) => {
+    const t = raw.trim()
+    if (CHANGELOG_MARKER.test(raw)) push(finding("changelog-marker", i + 1, [raw]))
+    if (raw.length > MAX_COMMENT_LENGTH) push(finding("long-comment", i + 1, [raw]))
+    if (STEP_NUMBERED.test(t)) push(finding("vend/step-numbered", i + 1, [raw]))
+    if (isDividerLine(t)) push(finding("vend/section-divider", i + 1, [raw]))
+    if (MARKDOWN_BOLD.test(t) || MARKDOWN_LIST.test(t) || MARKDOWN_TABLE.test(t)) {
+      push(finding("vend/markdown-in-comment", i + 1, [raw]))
+    }
+    if (THIS_OPENER.test(stripCommentMarker(t))) push(finding("vend/this-function-opener", i + 1, [raw]))
+    if (TODO_WORD.test(t) && !TICKET_REF.test(t) && !ISSUE_LINK.test(t)) push(finding("vend/generic-todo", i + 1, [raw]))
+  }
   let runStart = -1
-  for (let i = 0; i <= addedLines.length; i++) {
-    const inRun = i < addedLines.length && isComment(addedLines[i] ?? "")
+  const classifyRun = makeClassify()
+  for (let i = 0; i <= lines.length; i++) {
+    const inRun = i < lines.length && classifyRun(lines[i] ?? "").comment
     if (inRun && runStart === -1) runStart = i
     if (!inRun && runStart !== -1) {
-      if (i - runStart >= 2) {
-        violations.push(finding("multi-line-comment", runStart + 1, addedLines.slice(runStart, i)))
-      }
+      if (i - runStart >= 2) push(finding("multi-line-comment", runStart + 1, lines.slice(runStart, i)))
       runStart = -1
     }
   }
   let headerEnd = 0
-  while (headerEnd < addedLines.length && isComment(addedLines[headerEnd] ?? "")) headerEnd++
-  if (headerEnd >= 2) violations.push(finding("vend/file-summary-header", 1, addedLines.slice(0, headerEnd)))
-  for (let i = 0; i < addedLines.length; i++) {
-    const line = addedLines[i] ?? ""
-    if (!isComment(line)) continue
-    const t = line.trim()
-    if (CHANGELOG_MARKER.test(line)) violations.push(finding("changelog-marker", i + 1, [line]))
-    if (line.length > MAX_COMMENT_LENGTH) violations.push(finding("long-comment", i + 1, [line]))
-    if (STEP_NUMBERED.test(t)) violations.push(finding("vend/step-numbered", i + 1, [line]))
-    if (isDividerLine(t)) violations.push(finding("vend/section-divider", i + 1, [line]))
-    if (MARKDOWN_BOLD.test(t) || MARKDOWN_LIST.test(t) || MARKDOWN_TABLE.test(t)) {
-      violations.push(finding("vend/markdown-in-comment", i + 1, [line]))
-    }
-    if (THIS_OPENER.test(stripCommentMarker(t))) violations.push(finding("vend/this-function-opener", i + 1, [line]))
-    if (TODO_WORD.test(t) && !TICKET_REF.test(t) && !ISSUE_LINK.test(t)) {
-      violations.push(finding("vend/generic-todo", i + 1, [line]))
+  const classifyHeader = makeClassify()
+  while (headerEnd < lines.length && classifyHeader(lines[headerEnd] ?? "").comment) headerEnd++
+  if (headerEnd >= 2) push(finding("vend/file-summary-header", 1, lines.slice(0, headerEnd)))
+  const classifyEach = makeClassify()
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i] ?? ""
+    const cls = classifyEach(line)
+    if (cls.comment || cls.doc) testLine(line, i)
+    else {
+      const inline = inlineComment(line)
+      if (inline !== null) testLine(inline, i)
     }
   }
   return violations
@@ -200,7 +275,7 @@ export function isCodePath(filePath, extraSkippedSegments = []) {
 
 function readDisk(filePath) {
   try {
-    return readFileSync(filePath, "utf8")
+    return decodeText(readFileSync(filePath))
   } catch (error) {
     return error instanceof Error && "code" in error && error.code === "ENOENT" ? null : undefined
   }
@@ -262,7 +337,7 @@ function scanFiles(files, root) {
   for (const file of files) {
     let text
     try {
-      text = readFileSync(file, "utf8")
+      text = decodeText(readFileSync(file))
     } catch {
       continue
     }
