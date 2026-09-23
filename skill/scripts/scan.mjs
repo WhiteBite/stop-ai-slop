@@ -848,6 +848,33 @@ function cmdSelfTest() {
     mkdirSync(join(dir, "adir.ts"))
     const unreadable = addedFromToolArgs("write", { filePath: join(dir, "adir.ts"), content: narrative + "\nconst x = 1\n" })
     check("readDisk: нечитаемый файл проверяется целиком, а не пропускается", unreadable !== null && unreadable.added.length > 0, unreadable)
+    const pruneDir = mkdtempSync(join(tmpdir(), "slop-gate-prune-"))
+    try {
+      writeFileSync(join(pruneDir, "slop.ts"), narrative + "\nconst x = 1\n")
+      runCli(["--baseline-write"], pruneDir)
+      writeFileSync(join(pruneDir, "slop.ts"), "const x = 1\n")
+      const pruned = runCli(["--baseline-prune"], pruneDir)
+      check("prune: --baseline-prune [exit 0]", pruned.status === 0, pruned.out)
+      writeFileSync(join(pruneDir, "slop.ts"), narrative + "\nconst x = 1\n")
+      const resurfaced = runCli(["scan", "."], pruneDir)
+      check("prune: удалённый легаси не маскирует новый слоп [exit 1]", resurfaced.status === 1, resurfaced.out)
+    } finally {
+      rmSync(pruneDir, { recursive: true, force: true })
+    }
+    const subDir = mkdtempSync(join(tmpdir(), "slop-gate-root-"))
+    try {
+      execFileSync("git", ["-c", "user.email=slop@test", "-c", "user.name=slop", "init", "-q", "-b", "main"], {
+        cwd: subDir,
+        stdio: "pipe",
+      })
+      mkdirSync(join(subDir, "deep"))
+      writeFileSync(join(subDir, "deep", "slop.ts"), narrative + "\nconst x = 1\n")
+      runCli(["--baseline-write"], subDir)
+      const fromSub = runCli(["scan", "."], join(subDir, "deep"))
+      check("root: baseline из корня git работает из подкаталога [exit 0]", fromSub.status === 0, fromSub.out)
+    } finally {
+      rmSync(subDir, { recursive: true, force: true })
+    }
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }
