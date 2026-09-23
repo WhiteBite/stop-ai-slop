@@ -333,7 +333,7 @@ function gitStagedDiff(root) {
   }
 }
 
-function parseStagedDiff(diff) {
+function parseUnifiedDiff(diff) {
   const byFile = new Map()
   let file = null
   let inHunk = false
@@ -369,6 +369,8 @@ function parseStagedDiff(diff) {
   return byFile
 }
 
+const parseStagedDiff = parseUnifiedDiff
+
 function consecutiveRuns(lines) {
   const runs = []
   let current = []
@@ -383,15 +385,9 @@ function consecutiveRuns(lines) {
   return runs
 }
 
-function cmdStaged() {
-  const root = process.cwd()
-  const diff = gitStagedDiff(root)
-  if (diff === null) {
-    console.log("slop-gate: не git-репозиторий — staged-проверка пропущена")
-    return 0
-  }
+function runDiffGate(diffText, root, strict) {
   const findings = []
-  for (const [file, lines] of parseStagedDiff(diff)) {
+  for (const [file, lines] of parseUnifiedDiff(diffText)) {
     if (!isCodePath(file, [...CLI_SKIPPED_SEGMENTS])) continue
     for (const run of consecutiveRuns(lines)) {
       for (const v of detectCommentSlop(run.map((r) => r.text))) {
@@ -403,6 +399,40 @@ function cmdStaged() {
   const fresh = findings.filter((f) => !baseline.has(baselineKey(f)))
   printFindings(fresh)
   return fresh.some((f) => f.severity === "error") ? 1 : 0
+}
+
+function cmdStaged() {
+  const root = process.cwd()
+  const diff = gitStagedDiff(root)
+  if (diff === null) {
+    console.log("slop-gate: не git-репозиторий — staged-проверка пропущена")
+    return 0
+  }
+  return runDiffGate(diff, root, false)
+}
+
+function gitDiffRef(ref, root) {
+  try {
+    execFileSync("git", ["rev-parse", "--is-inside-work-tree"], { cwd: root, stdio: "pipe" })
+    return execFileSync("git", ["diff", ref, "-U0", "--no-color"], {
+      cwd: root,
+      encoding: "utf8",
+      maxBuffer: 64 * 1024 * 1024,
+      stdio: ["ignore", "pipe", "pipe"],
+    })
+  } catch {
+    return null
+  }
+}
+
+function cmdDiff(ref) {
+  const root = process.cwd()
+  const diff = gitDiffRef(ref, root)
+  if (diff === null) {
+    console.log("slop-gate: не git-репозиторий — diff-проверка пропущена")
+    return 0
+  }
+  return runDiffGate(diff, root, false)
 }
 
 function cmdExplain(ruleId) {
@@ -580,6 +610,8 @@ function main(argv) {
   if (explainIdx !== -1) return cmdExplain(argv[explainIdx + 1])
   if (argv.includes("--install")) return cmdInstall()
   if (argv.includes("--staged")) return cmdStaged()
+  const diffIdx = argv.indexOf("--diff")
+  if (diffIdx !== -1) return cmdDiff(argv[diffIdx + 1])
   const paths = argv.filter((a) => a !== "scan" && !a.startsWith("--"))
   return cmdScan(paths.length > 0 ? paths : ["."], { writeBaseline: argv.includes("--baseline-write") })
 }
