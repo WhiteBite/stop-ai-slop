@@ -23,6 +23,8 @@
   },
   "scripts": {
     "prepublishOnly": "node skill/scripts/scan.mjs --self-test",
-    "self-test": "node skill/scripts/scan.mjs --self-test"
+    "self-test": "node skill/scripts/scan.mjs --self-test",
+    "stop-ai-slop": "node ./skill/scripts/scan.mjs --staged --strict",
+    "stop-ai-slop:all": "node ./skill/scripts/scan.mjs scan"
   }
 }

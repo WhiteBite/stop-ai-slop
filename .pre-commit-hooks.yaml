@@ -1,0 +1,6 @@
+- id: stop-ai-slop
+  name: stop-ai-slop
+  entry: skill/scripts/scan.mjs --staged
+  language: node
+  files: \.(ts|tsx|js|jsx|mjs|cjs|py)$
+  pass_filenames: false
