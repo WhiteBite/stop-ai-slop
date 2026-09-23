@@ -1,5 +1,9 @@
 # stop-ai-slop
 
+[![license](https://img.shields.io/github/license/WhiteBite/stop-ai-slop)](LICENSE)
+[![node](https://img.shields.io/badge/node-%3E%3D18-brightgreen)](package.json)
+[![zero-deps](https://img.shields.io/badge/dependencies-0-brightgreen)](package.json)
+
 > English abstract: stop-ai-slop is a zero-dependency comment-slop gate. One scanner (`skill/scripts/scan.mjs`, const `RULES`) is the single source of truth for a one-line/why-only comment policy. It is enforced at four points: an OpenCode write-time plugin that blocks `write`/`edit`/`multiedit`, a pre-commit hook installed via `--install`, a cross-agent skill (`skill/SKILL.md`), and a baseline file that grandfathers legacy code. Node >= 18, works on win32.
 
 ## Что и зачем
@@ -26,6 +30,18 @@ node skill/scripts/scan.mjs --install         # npm scripts + pre-commit hook в
 ```
 
 Exit 1 — есть error-находки вне baseline; иначе 0.
+
+## Монтаж на другую машину
+
+```
+git clone https://github.com/WhiteBite/stop-ai-slop <path>
+mklink /J "%USERPROFILE%\.config\opencode\skills\stop-ai-slop" "<path>\skill"
+mklink /J "%USERPROFILE%\.claude\skills\stop-ai-slop" "<path>\skill"
+```
+
+Write-time плагин OpenCode: файл `%USERPROFILE%\.config\opencode\plugins\comment-gate.ts` из одной строки
+`export { CommentGate, detectCommentSlop } from "<path>/plugin/comment-gate.ts"`.
+На Linux/macOS вместо `mklink /J` — `ln -s`. В любом git-репо без агентов работает `scan.mjs --install`.
 
 ## Правила
 
