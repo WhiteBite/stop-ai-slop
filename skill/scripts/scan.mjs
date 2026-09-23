@@ -21,7 +21,7 @@ export const RULES = [
     message: "комментарий пересказывает дифф (было/стало/раньше/вместо/fixes)",
     why: "История изменений живёт в гите. «Было/стало» в коде устаревает в момент коммита и дальше только врёт.",
     instead: "убрать комментарий; «почему» — в сообщение коммита",
-    write: "git commit -m 'переводим reindex на полный пересчёт: identity mapping ломается'",
+    write: "ничего в коде — причину пишем в сообщение коммита",
     ignoreWhen: "дословная цитата внешней спеки, где формулировка зафиксирована",
   },
   {
@@ -48,7 +48,7 @@ export const RULES = [
     message: "строка-разделитель из символов -=#*",
     why: "Баннеры — признак файла-простыни. Навигацию даёт структура кода, а не линейки.",
     instead: "разбить файл или убрать разделитель",
-    write: "отдельный модуль user/validation.ts",
+    write: "ничего — навигацию даёт структура модулей",
     ignoreWhen: "сгенерированный файл",
   },
   {
@@ -381,14 +381,31 @@ function failsGate(findings, strict) {
   return strict ? findings.length > 0 : findings.some((f) => f.severity === "error")
 }
 
-function cmdScan(paths, { writeBaseline = false, strict = false } = {}) {
-  const root = process.cwd()
+function gitToplevel(root) {
+  try {
+    return execFileSync("git", ["rev-parse", "--show-toplevel"], { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim()
+  } catch {
+    return root
+  }
+}
+
+function cmdScan(paths, { writeBaseline = false, strict = false, prune = false } = {}) {
+  const root = gitToplevel(process.cwd())
   const findings = scanFiles(collectFiles(paths, root), root)
   if (writeBaseline) {
     const lines = [...new Set(findings.map(baselineKey))].sort()
     const body = ["# slop-gate baseline: relpath:line", ...lines].join("\n") + "\n"
     writeFileSync(join(root, "stop-ai-slop.baseline.txt"), body)
     console.log(`slop-gate: baseline записан (${lines.length} записей) -> stop-ai-slop.baseline.txt`)
+    return 0
+  }
+  if (prune) {
+    const baseline = loadBaseline(root)
+    const keys = new Set(findings.map(baselineKey))
+    const kept = [...baseline].filter((k) => keys.has(k)).sort()
+    const body = ["# slop-gate baseline: relpath:line", ...kept].join("\n") + "\n"
+    writeFileSync(join(root, "stop-ai-slop.baseline.txt"), body)
+    console.log(`slop-gate: baseline прорежен (${baseline.size - kept.length} записей удалено)`)
     return 0
   }
   const baseline = loadBaseline(root)
@@ -488,7 +505,7 @@ function runDiffGate(diffText, root, strict) {
 }
 
 function cmdStaged(strict = false) {
-  const root = process.cwd()
+  const root = gitToplevel(process.cwd())
   let diff
   try {
     diff = gitStagedDiff(root)
@@ -519,7 +536,7 @@ function gitDiffRef(ref, root) {
 }
 
 function cmdDiff(ref, strict = false) {
-  const root = process.cwd()
+  const root = gitToplevel(process.cwd())
   let diff
   try {
     diff = gitDiffRef(ref, root)
@@ -881,7 +898,17 @@ function cmdSelfTest() {
   return failures === 0 ? 0 : 1
 }
 
-const KNOWN_FLAGS = new Set(["--self-test", "--explain", "--strict", "--install", "--staged", "--diff", "--baseline-write", "--help"])
+const KNOWN_FLAGS = new Set([
+  "--self-test",
+  "--explain",
+  "--strict",
+  "--install",
+  "--staged",
+  "--diff",
+  "--baseline-write",
+  "--baseline-prune",
+  "--help",
+])
 
 function cmdUsage() {
   console.log(
@@ -893,6 +920,7 @@ function cmdUsage() {
       "  --staged            добавленные строки из git diff --cached",
       "  --diff <ref>        добавленные строки относительно ref",
       "  --baseline-write    записать текущие находки в baseline",
+      "  --baseline-prune    удалить из baseline записи без живых находок",
       "  --install           npm scripts + pre-commit hook в текущем репо",
       "  --explain <rule-id> обоснование правила",
       "  --self-test         саботаж-тест детектора",
@@ -928,6 +956,10 @@ function main(argv) {
     return cmdDiff(ref, strict)
   }
   if (argv.includes("--help")) return cmdUsage()
+  if (argv.includes("--baseline-prune")) {
+    const paths = argv.filter((a) => a !== "scan" && !a.startsWith("--"))
+    return cmdScan(paths.length > 0 ? paths : ["."], { prune: true })
+  }
   const unknown = argv.filter((a) => a.startsWith("--") && !KNOWN_FLAGS.has(a))
   if (unknown.length > 0) {
     console.error(`slop-gate: неизвестный флаг ${unknown[0]}`)
