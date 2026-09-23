@@ -62,3 +62,18 @@ Write-time плагин OpenCode: файл `%USERPROFILE%\.config\opencode\plugi
 ```
 node skill/scripts/scan.mjs --explain <rule-id>
 ```
+
+## Сравнение с аналогами
+
+Факты по README конкурентов (aislop, ai-slop-linter, vibecheck-slop-stopper, slop-scan), сентябрь 2026.
+
+| | stop-ai-slop | aislop | ai-slop-linter | vibecheck | slop-scan |
+| --- | --- | --- | --- | --- | --- |
+| Что сканирует | комментарии в коде, 9 правил | код-слоп: 50+ правил, 10 языков | проза: коммиты, PR, docs, 20 правил | 78 grep-правил всех категорий | JS/TS: error-handling, моки |
+| Блокирует в момент правки | да: OpenCode-плагин отклоняет edit/write | хуки claude/cursor/gemini/pi, OpenCode нет | нет | нет: skill просит LLM самому прогнать grep | нет |
+| Русский язык | changelog-маркеры ru+en | правила EN | правила EN; их же бенч: em-dash на корректной русской прозе — 24 срабатывания на 1000 слов | EN | EN |
+| Зависимости | 0: один .mjs, Node >= 18 | npm-пакет + внешние движки (biome, ruff, oxlint) | npm-пакет | Python + ripgrep | npm-пакет |
+| Модель гейта | политика: правило → exit 1 | скор 0–100 и порог failBelow | взвешенный скор на 1000 слов | уровни severity | скор и delta-сравнение |
+| Своя политика | таблица RULES в одном файле, `--explain` по правилу | severity на правило, новые правила — только в их репо | ignore/only по файлам | rules.toml | config и плагины |
+
+Где мы уже и не претендуем: только политика комментариев. Проглоченные исключения, `as any`, мёртвый код — территория aislop и grain; EN-проза и сообщения коммитов — ai-slop-linter. stop-ai-slop дополняет их в точках, куда они не достают: момент правки в OpenCode и русские changelog-маркеры.
