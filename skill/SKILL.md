@@ -1,0 +1,55 @@
+---
+name: stop-ai-slop
+description: Comment-slop policy and mechanical gate — single source of truth for comment rules. Use when checking comment policy, slop comments, before commit, deslop, stop-ai-slop — multi-line narrative comments, changelog markers (было/стало/instead/fixes) in code, banner divider lines, step-numbered comments, TODO without ticket, markdown inside comments.
+---
+
+# stop-ai-slop — гейт против slop-комментариев
+
+Единый источник правды по политике комментариев: таблица правил и детектор живут в `scripts/scan.mjs` (const `RULES`). OpenCode comment-gate plugin импортирует детекцию отсюда — править правила надо здесь, а не в плагине.
+
+Политика: комментарий — максимум одна строка и только неочевидное внешнее ограничение, инвариант или воркэраунд. Пересказ диффа живёт в коммите, why теста — в имени теста.
+
+## Когда запускать
+
+Перед каждым коммитом:
+
+```
+node C:/Users/Mind/.config/opencode/skills/stop-ai-slop/scripts/scan.mjs --staged
+```
+
+В OpenCode-сессиях write/edit/multiedit дополнительно блокируются на записи плагином comment-gate (error-правила). В Claude Code и вне сессий — через pre-commit hook (`--install` ниже) или вручную.
+
+## Правила
+
+| Правило | Severity | Why | Write | Ignore-when |
+| --- | --- | --- | --- | --- |
+| `multi-line-comment` | error | Многострочный комментарий — почти всегда пересказ кода или диффа. Через год его никто не перечитает, а рассинхрон с кодом не заметит никто. | `// сбрасываем здесь, т.к. ниже освобождаем слот` | Никогда для нового кода; легаси — через baseline. |
+| `changelog-marker` | error | История изменений живёт в гите. «Было/стало» в коде устаревает в момент коммита и дальше только врёт. | `git commit -m 'переводим reindex на полный пересчёт: identity mapping ломается'` | Дословная цитата внешней спеки, где формулировка зафиксирована. |
+| `long-comment` | error | Длинная строка — признак простыни. Ограничение, достойное комментария, формулируется коротко. | `// сбрасываем здесь, т.к. ниже освобождаем слот` | Единственная строка с длинной ссылкой на спеку/issue. |
+| `vend/step-numbered` | warning | Нумерация дублирует порядок строк кода. После первой правки шаги вставляются между — номера врут. | `const normalized = normalize(payload)` | Протокол из внешнего документа с фиксированной нумерацией шагов. |
+| `vend/section-divider` | warning | Баннеры — признак файла-простыни. Навигацию даёт структура кода, а не линейки. | отдельный модуль `user/validation.ts` | Сгенерированный файл. |
+| `vend/markdown-in-comment` | warning | Markdown в комментарии — документация, которую никто не читает рядом с кодом; она устаревает. | `// сбрасываем здесь, т.к. ниже освобождаем слот` | Docstring, который реально рендерится генератором доков. |
+| `vend/this-function-opener` | warning | «This function does X» пересказывает сигнатуру. Ценность только в неочевидном ограничении. | `// дедупликация по id, т.к. источник шлёт повторы` | Публичный API с обязательным JSDoc по внешнему требованию. |
+| `vend/file-summary-header` | warning | Оглавление файла устаревает при первой же правке. Структуру видно по символам файла. | ничего — файл начинается с кода | Лицензионная шапка, требуемая политикой репо. |
+| `vend/generic-todo` | warning | TODO без тикета — вечный долг: некому искать и некогда чинить. | `// TODO KRY-482 снять воркэраунд после фикса upstream` | Локальный черновик до первого коммита. |
+
+Error блокирует (exit 1, write-time gate бросает). Warning — учитель: выводится, не блокирует.
+
+Полное обоснование по правилу: `node .../scan.mjs --explain <rule-id>` — выводит Why / Instead of / Write / Ignore-it-when из той же таблицы.
+
+## Режимы scan.mjs
+
+- `scan [paths...]` — полное сканирование файлов `.ts .tsx .js .jsx .mjs .cjs .py` (по умолчанию cwd; `node_modules dist coverage .git` пропускаются). Нулевые зависимости, Node >= 18, работает на win32.
+- `--staged` — только добавленные строки из `git diff --cached -U0`. Вне git-репозитория: exit 0 с пометкой.
+- `--baseline-write` — перезаписать `stop-ai-slop.baseline.txt` текущими находками. Baseline — способ закрыть легаси: записи `relpath:line` (строки с `#` — комментарии) вычитаются из вывода обоих режимов.
+- `--self-test` — саботаж-тест на временных фикстурах; exit != 0 при любом расхождении.
+- `--install` — в репозитории: добавить npm scripts `stop-ai-slop` / `stop-ai-slop:all` (если есть package.json) и подключить `.git/hooks/pre-commit` с `node .../scan.mjs --staged`. Идемпотентно; существующее тело hook не перезаписывает — дописывает блок с маркером.
+
+## Вывод
+
+```
+<relpath>:<line> <rule-id> [<severity>] <сообщение>
+  instead: <что написать вместо>
+```
+
+Exit 1 — есть error-находки вне baseline; иначе 0.

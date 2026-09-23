@@ -1,0 +1,11 @@
+{
+  "name": "stop-ai-slop",
+  "version": "0.1.0",
+  "license": "MIT",
+  "bin": {
+    "stop-ai-slop": "./skill/scripts/scan.mjs"
+  },
+  "scripts": {
+    "self-test": "node skill/scripts/scan.mjs --self-test"
+  }
+}
