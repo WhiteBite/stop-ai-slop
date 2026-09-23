@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { execFileSync } from "node:child_process"
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs"
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { extname, join, relative, resolve, sep } from "node:path"
 import { fileURLToPath, pathToFileURL } from "node:url"
@@ -212,10 +212,9 @@ export function addedFromToolArgs(tool, args) {
   if (tool === "write") {
     if (typeof args.content !== "string") return null
     const disk = readDisk(filePath)
-    if (disk === undefined) return null
     return {
       filePath,
-      added: disk === null ? args.content.replaceAll("\r\n", "\n").split("\n") : multisetDiff(disk, args.content),
+      added: multisetDiff(disk ?? "", args.content),
     }
   }
   if (tool === "edit") {
@@ -323,17 +322,27 @@ function cmdScan(paths, { writeBaseline = false, strict = false } = {}) {
   return failsGate(fresh, strict) ? 1 : 0
 }
 
+function isNotARepoError(error) {
+  return error.code === "ENOENT" || /not a git repository/i.test(String(error.stderr ?? ""))
+}
+
+function gitErrorText(error) {
+  const stderr = String(error.stderr ?? "").trim()
+  return stderr === "" ? String(error.message ?? error) : stderr
+}
+
 function gitStagedDiff(root) {
   try {
-    execFileSync("git", ["rev-parse", "--is-inside-work-tree"], { cwd: root, stdio: "pipe" })
-    return execFileSync("git", ["diff", "--cached", "-U0", "--no-color"], {
+    execFileSync("git", ["-c", "core.quotepath=false", "rev-parse", "--is-inside-work-tree"], { cwd: root, stdio: "pipe" })
+    return execFileSync("git", ["-c", "core.quotepath=false", "diff", "--cached", "-U0", "--no-color"], {
       cwd: root,
       encoding: "utf8",
       maxBuffer: 64 * 1024 * 1024,
       stdio: ["ignore", "pipe", "pipe"],
     })
-  } catch {
-    return null
+  } catch (error) {
+    if (isNotARepoError(error)) return null
+    throw new Error(gitErrorText(error))
   }
 }
 
@@ -362,7 +371,7 @@ function parseUnifiedDiff(diff) {
     if (!inHunk || file === null) continue
     if (raw.startsWith("+")) {
       if (!byFile.has(file)) byFile.set(file, [])
-      byFile.get(file).push({ lineNo: newLine, text: raw.slice(1) })
+      byFile.get(file).push({ lineNo: newLine, text: raw.slice(1).replace(/\r$/, "") })
       newLine++
     } else if (raw.startsWith("-") || raw.startsWith("\\")) {
       continue
@@ -372,8 +381,6 @@ function parseUnifiedDiff(diff) {
   }
   return byFile
 }
-
-const parseStagedDiff = parseUnifiedDiff
 
 function consecutiveRuns(lines) {
   const runs = []
@@ -407,7 +414,13 @@ function runDiffGate(diffText, root, strict) {
 
 function cmdStaged(strict = false) {
   const root = process.cwd()
-  const diff = gitStagedDiff(root)
+  let diff
+  try {
+    diff = gitStagedDiff(root)
+  } catch (error) {
+    console.error(`slop-gate: git error: ${error.message}`)
+    return 2
+  }
   if (diff === null) {
     console.log("slop-gate: не git-репозиторий — staged-проверка пропущена")
     return 0
@@ -417,21 +430,28 @@ function cmdStaged(strict = false) {
 
 function gitDiffRef(ref, root) {
   try {
-    execFileSync("git", ["rev-parse", "--is-inside-work-tree"], { cwd: root, stdio: "pipe" })
-    return execFileSync("git", ["diff", ref, "-U0", "--no-color"], {
+    execFileSync("git", ["-c", "core.quotepath=false", "rev-parse", "--is-inside-work-tree"], { cwd: root, stdio: "pipe" })
+    return execFileSync("git", ["-c", "core.quotepath=false", "diff", ref, "-U0", "--no-color"], {
       cwd: root,
       encoding: "utf8",
       maxBuffer: 64 * 1024 * 1024,
       stdio: ["ignore", "pipe", "pipe"],
     })
-  } catch {
-    return null
+  } catch (error) {
+    if (isNotARepoError(error)) return null
+    throw new Error(gitErrorText(error))
   }
 }
 
 function cmdDiff(ref, strict = false) {
   const root = process.cwd()
-  const diff = gitDiffRef(ref, root)
+  let diff
+  try {
+    diff = gitDiffRef(ref, root)
+  } catch (error) {
+    console.error(`slop-gate: git error: ${error.message}`)
+    return 2
+  }
   if (diff === null) {
     console.log("slop-gate: не git-репозиторий — diff-проверка пропущена")
     return 0
@@ -446,6 +466,7 @@ function cmdExplain(ruleId) {
     return 2
   }
   console.log(`${rule.id} [${rule.severity}]`)
+  console.log(`Message: ${rule.message}`)
   console.log(`Why: ${rule.why}`)
   console.log(`Instead of: ${rule.instead}`)
   console.log(`Write: ${rule.write}`)
@@ -484,17 +505,21 @@ function cmdInstall(strict = false) {
   const MARK = "# >>> slop-gate >>>"
   const block = `${MARK}\n${stagedCmd}\n# <<< slop-gate <<<\n`
   const blockRe = /# >>> slop-gate >>>[\s\S]*?# <<< slop-gate <<<\r?\n?/
+  const writeHook = (content) => {
+    writeFileSync(hookPath, content)
+    chmodSync(hookPath, 0o755)
+  }
   if (existsSync(hookPath)) {
     const current = readFileSync(hookPath, "utf8")
     if (blockRe.test(current)) {
-      writeFileSync(hookPath, current.replace(blockRe, block))
+      writeHook(current.replace(blockRe, block))
       console.log("slop-gate: pre-commit hook — slop-gate блок обновлён")
     } else {
-      writeFileSync(hookPath, current.replace(/\n?$/, "\n") + block)
+      writeHook(current.replace(/\n?$/, "\n") + block)
       console.log("slop-gate: pre-commit hook — добавлен блок после существующего содержимого")
     }
   } else {
-    writeFileSync(hookPath, `#!/bin/sh\n${block}`)
+    writeHook(`#!/bin/sh\n${block}`)
     console.log("slop-gate: pre-commit hook создан")
   }
   return 0
@@ -733,15 +758,58 @@ function cmdSelfTest() {
   return failures === 0 ? 0 : 1
 }
 
+const KNOWN_FLAGS = new Set(["--self-test", "--explain", "--strict", "--install", "--staged", "--diff", "--baseline-write", "--help"])
+
+function cmdUsage() {
+  console.log(
+    [
+      "slop-gate — гейт против slop-комментариев",
+      "",
+      "Режимы:",
+      "  scan [paths...]     сканировать файлы (по умолчанию текущий каталог)",
+      "  --staged            добавленные строки из git diff --cached",
+      "  --diff <ref>        добавленные строки относительно ref",
+      "  --baseline-write    записать текущие находки в baseline",
+      "  --install           npm scripts + pre-commit hook в текущем репо",
+      "  --explain <rule-id> обоснование правила",
+      "  --self-test         саботаж-тест детектора",
+      "",
+      "Флаги: --strict (warning тоже блокируют), --help",
+      "Коды выхода: 0 — чисто; 1 — гейт сработал; 2 — ошибка использования или git",
+    ].join("\n"),
+  )
+  return 0
+}
+
 function main(argv) {
   if (argv.includes("--self-test")) return cmdSelfTest()
   const explainIdx = argv.indexOf("--explain")
-  if (explainIdx !== -1) return cmdExplain(argv[explainIdx + 1])
+  if (explainIdx !== -1) {
+    const ruleId = argv[explainIdx + 1]
+    if (ruleId === undefined || ruleId.startsWith("--")) {
+      console.error("slop-gate: --explain требует id правила")
+      return 2
+    }
+    return cmdExplain(ruleId)
+  }
   const strict = argv.includes("--strict")
   if (argv.includes("--install")) return cmdInstall(strict)
   if (argv.includes("--staged")) return cmdStaged(strict)
   const diffIdx = argv.indexOf("--diff")
-  if (diffIdx !== -1) return cmdDiff(argv[diffIdx + 1], strict)
+  if (diffIdx !== -1) {
+    const ref = argv[diffIdx + 1]
+    if (ref === undefined || ref.startsWith("--")) {
+      console.error("slop-gate: --diff требует ref (например, main)")
+      return 2
+    }
+    return cmdDiff(ref, strict)
+  }
+  if (argv.includes("--help")) return cmdUsage()
+  const unknown = argv.filter((a) => a.startsWith("--") && !KNOWN_FLAGS.has(a))
+  if (unknown.length > 0) {
+    console.error(`slop-gate: неизвестный флаг ${unknown[0]}`)
+    return 2
+  }
   const paths = argv.filter((a) => a !== "scan" && !a.startsWith("--"))
   return cmdScan(paths.length > 0 ? paths : ["."], { writeBaseline: argv.includes("--baseline-write"), strict })
 }
