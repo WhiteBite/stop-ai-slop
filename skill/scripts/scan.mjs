@@ -503,10 +503,18 @@ function cmdInstall(strict = false) {
 function cmdSelfTest() {
   const dir = mkdtempSync(join(tmpdir(), "slop-gate-"))
   let failures = 0
-  const check = (name, ok, detail) => {
-    console.log(`${ok ? "PASS" : "FAIL"} ${name}${ok ? "" : " — " + JSON.stringify(detail)}`)
-    if (!ok) failures++
-  }
+    const check = (name, ok, detail) => {
+      console.log(`${ok ? "PASS" : "FAIL"} ${name}${ok ? "" : " — " + JSON.stringify(detail)}`)
+      if (!ok) failures++
+    }
+    const selfPath = fileURLToPath(import.meta.url)
+    const runCli = (args, cwd) => {
+      try {
+        return { status: 0, out: execFileSync(process.execPath, [selfPath, ...args], { cwd, encoding: "utf8", stdio: "pipe" }) }
+      } catch (error) {
+        return { status: error.status ?? 1, out: `${error.stdout ?? ""}${error.stderr ?? ""}` }
+      }
+    }
   try {
     const narrative = [
       "// removeSource+reindex (spike scripts, re-clones) rewrites every symbol row",
@@ -526,6 +534,11 @@ function cmdSelfTest() {
     ].join("\n")
     writeFileSync(join(dir, "jsx-sabotage.tsx"), jsxNarrative + "\nconst x = 1\n")
     writeFileSync(join(dir, "jsx-legit.tsx"), "{/* сбрасываем здесь, т.к. ниже освобождаем слот */}\nconst x = 1\n")
+    writeFileSync(join(dir, "long.ts"), "// " + "y".repeat(118) + "\nconst x = 1\n")
+    writeFileSync(join(dir, "div.ts"), "// ----------\nconst x = 1\n")
+    writeFileSync(join(dir, "md.ts"), "// **bold** note\nconst x = 1\n")
+    writeFileSync(join(dir, "opener.ts"), "// This function normalizes the payload\nconst x = 1\n")
+    writeFileSync(join(dir, "todo.ts"), "// TODO fix this later\nconst x = 1\n")
     const findings = scanFiles(collectFiles([dir], dir), dir)
     const byRel = (rel) => findings.filter((f) => f.rel === rel)
     const sabotageRules = byRel("sabotage.ts").map((f) => f.rule)
@@ -545,7 +558,11 @@ function cmdSelfTest() {
     check("jsx-sabotage: multi-line-comment [error]", jsxSabotageRules.includes("multi-line-comment"), jsxSabotage)
     check("jsx-sabotage: changelog-marker [error]", jsxSabotageRules.includes("changelog-marker"), jsxSabotage)
     check("jsx-legit: однострочный JSX-комментарий проходит", byRel("jsx-legit.tsx").length === 0, byRel("jsx-legit.tsx"))
-    const selfPath = fileURLToPath(import.meta.url)
+    check("long: long-comment [error]", byRel("long.ts").some((f) => f.rule === "long-comment"), byRel("long.ts"))
+    check("div: vend/section-divider [warning]", byRel("div.ts").some((f) => f.rule === "vend/section-divider"), byRel("div.ts"))
+    check("md: vend/markdown-in-comment [warning]", byRel("md.ts").some((f) => f.rule === "vend/markdown-in-comment"), byRel("md.ts"))
+    check("opener: vend/this-function-opener [warning]", byRel("opener.ts").some((f) => f.rule === "vend/this-function-opener"), byRel("opener.ts"))
+    check("todo: vend/generic-todo [warning]", byRel("todo.ts").some((f) => f.rule === "vend/generic-todo"), byRel("todo.ts"))
     const repoDir = mkdtempSync(join(tmpdir(), "slop-gate-diff-"))
     try {
       const git = (args) =>
@@ -604,6 +621,112 @@ function cmdSelfTest() {
     } finally {
       rmSync(warnDir, { recursive: true, force: true })
     }
+    const crlfDir = mkdtempSync(join(tmpdir(), "slop-gate-crlf-"))
+    try {
+      const gitC = (args) =>
+        execFileSync(
+          "git",
+          ["-c", "core.autocrlf=false", "-c", "user.email=slop@test", "-c", "user.name=slop", "-c", "commit.gpgsign=false", ...args],
+          { cwd: crlfDir, stdio: "pipe" },
+        )
+      gitC(["init", "-q", "-b", "main"])
+      writeFileSync(join(crlfDir, "crlf.ts"), "const a = 1\r\nconst b = 2\r\n")
+      gitC(["add", "crlf.ts"])
+      gitC(["commit", "-q", "-m", "init"])
+      writeFileSync(join(crlfDir, "crlf.ts"), "const a = 1\r\n// " + "x".repeat(117) + "\r\nconst b = 2\r\n")
+      gitC(["add", "crlf.ts"])
+      const crlfRun = runCli(["--staged"], crlfDir)
+      check("crlf: комментарий ровно 120 символов в CRLF-файле проходит [exit 0]", crlfRun.status === 0, crlfRun.out)
+    } finally {
+      rmSync(crlfDir, { recursive: true, force: true })
+    }
+    const uniDir = mkdtempSync(join(tmpdir(), "slop-gate-quotepath-"))
+    try {
+      const gitU = (args) =>
+        execFileSync("git", ["-c", "user.email=slop@test", "-c", "user.name=slop", "-c", "commit.gpgsign=false", ...args], {
+          cwd: uniDir,
+          stdio: "pipe",
+        })
+      gitU(["init", "-q", "-b", "main"])
+      writeFileSync(join(uniDir, "clean.ts"), "const x = 1\n")
+      gitU(["add", "clean.ts"])
+      gitU(["commit", "-q", "-m", "init"])
+      writeFileSync(join(uniDir, "файл.ts"), "// первая строка блока\n// вторая строка блока\nconst x = 1\n")
+      gitU(["add", "файл.ts"])
+      const beforeBaseline = runCli(["--staged"], uniDir)
+      check("quotepath: --staged печатает читаемый не-ASCII путь", beforeBaseline.out.includes("файл.ts:1"), beforeBaseline.out)
+      runCli(["--baseline-write"], uniDir)
+      const afterBaseline = runCli(["--staged"], uniDir)
+      check("quotepath: --staged видит baseline по не-ASCII пути [exit 0]", afterBaseline.status === 0, afterBaseline.out)
+    } finally {
+      rmSync(uniDir, { recursive: true, force: true })
+    }
+    const hookDir = mkdtempSync(join(tmpdir(), "slop-gate-hookbit-"))
+    try {
+      execFileSync("git", ["-c", "user.email=slop@test", "-c", "user.name=slop", "init", "-q", "-b", "main"], {
+        cwd: hookDir,
+        stdio: "pipe",
+      })
+      runCli(["--install"], hookDir)
+      runCli(["--install"], hookDir)
+      const hookMode = statSync(join(hookDir, ".git", "hooks", "pre-commit")).mode
+      check("install: pre-commit hook исполняемый на POSIX", process.platform === "win32" || (hookMode & 0o111) !== 0, hookMode.toString(8))
+    } finally {
+      rmSync(hookDir, { recursive: true, force: true })
+    }
+    const errDir = mkdtempSync(join(tmpdir(), "slop-gate-errors-"))
+    try {
+      execFileSync("git", ["-c", "user.email=slop@test", "-c", "user.name=slop", "init", "-q", "-b", "main"], {
+        cwd: errDir,
+        stdio: "pipe",
+      })
+      writeFileSync(join(errDir, "a.ts"), "const a = 1\n")
+      execFileSync("git", ["add", "a.ts"], { cwd: errDir, stdio: "pipe" })
+      execFileSync("git", ["-c", "user.email=slop@test", "-c", "user.name=slop", "commit", "-q", "-m", "init"], {
+        cwd: errDir,
+        stdio: "pipe",
+      })
+      const badRef = runCli(["--diff", "nonexistent-ref-xyz"], errDir)
+      check(
+        "errors: --diff с несуществующим ref [exit 2]",
+        badRef.status === 2 && badRef.out.includes("git error") && badRef.out.includes("nonexistent-ref-xyz"),
+        `exit ${badRef.status}: ${badRef.out}`,
+      )
+      const noRef = runCli(["--diff"], errDir)
+      check("errors: --diff без ref [exit 2]", noRef.status === 2 && noRef.out.includes("ref"), `exit ${noRef.status}: ${noRef.out}`)
+      const help = runCli(["--help"], errDir)
+      check(
+        "help: --help [exit 0] печатает режимы",
+        help.status === 0 && help.out.includes("--staged") && help.out.includes("--diff"),
+        `exit ${help.status}`,
+      )
+      const bogus = runCli(["--bogus-flag-xyz"], errDir)
+      check("errors: неизвестный флаг [exit 2]", bogus.status === 2 && bogus.out.includes("--bogus-flag-xyz"), `exit ${bogus.status}: ${bogus.out}`)
+      const explainNoArg = runCli(["--explain"], errDir)
+      check(
+        "errors: --explain без аргумента [exit 2]",
+        explainNoArg.status === 2 && !explainNoArg.out.includes("undefined"),
+        `exit ${explainNoArg.status}: ${explainNoArg.out}`,
+      )
+    } finally {
+      rmSync(errDir, { recursive: true, force: true })
+    }
+    const baseDir = mkdtempSync(join(tmpdir(), "slop-gate-baseline-"))
+    try {
+      writeFileSync(join(baseDir, "slop.ts"), narrative + "\nconst x = 1\n")
+      const written = runCli(["--baseline-write"], baseDir)
+      check("baseline: --baseline-write [exit 0]", written.status === 0, written.out)
+      const cleanRun = runCli(["scan", "."], baseDir)
+      check("baseline: после записи скан чист [exit 0]", cleanRun.status === 0, cleanRun.out)
+      writeFileSync(join(baseDir, "slop.ts"), narrative + "\nconst x = 1\n" + narrative + "\n")
+      const newRun = runCli(["scan", "."], baseDir)
+      check("baseline: новый слоп поверх легаси блокирует [exit 1]", newRun.status === 1, newRun.out)
+    } finally {
+      rmSync(baseDir, { recursive: true, force: true })
+    }
+    mkdirSync(join(dir, "adir.ts"))
+    const unreadable = addedFromToolArgs("write", { filePath: join(dir, "adir.ts"), content: narrative + "\nconst x = 1\n" })
+    check("readDisk: нечитаемый файл проверяется целиком, а не пропускается", unreadable !== null && unreadable.added.length > 0, unreadable)
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }
