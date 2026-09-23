@@ -1,11 +1,28 @@
 {
   "name": "stop-ai-slop",
   "version": "0.1.0",
+  "description": "Mechanical gate against AI slop comments: one zero-dependency scanner enforced as an OpenCode write-time plugin, an agent skill and a pre-commit hook installer.",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/WhiteBite/stop-ai-slop.git"
+  },
   "bin": {
     "stop-ai-slop": "./skill/scripts/scan.mjs"
   },
+  "files": [
+    "skill/",
+    "plugin/",
+    "action.yml"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
+    "prepublishOnly": "node skill/scripts/scan.mjs --self-test",
     "self-test": "node skill/scripts/scan.mjs --self-test"
   }
 }
