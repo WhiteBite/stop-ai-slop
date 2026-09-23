@@ -1,6 +1,6 @@
 ---
 name: stop-ai-slop
-description: Comment-slop policy and mechanical gate — single source of truth for comment rules. Use when checking comment policy, slop comments, before commit, deslop, stop-ai-slop — multi-line narrative comments, changelog markers (было/стало/instead/fixes) in code, banner divider lines, step-numbered comments, TODO without ticket, markdown inside comments.
+description: Comment-slop policy and mechanical gate — single source of truth for comment rules. Use when checking comment policy, slop comments, before commit, PR review, deslop, stop-ai-slop — multi-line narrative comments, changelog markers (было/стало/instead/fixes) in code, banner divider lines, step-numbered comments, TODO without ticket, markdown inside comments.
 ---
 
 # stop-ai-slop — гейт против slop-комментариев
@@ -44,6 +44,9 @@ Error блокирует (exit 1, write-time gate бросает). Warning — �
 - `--baseline-write` — перезаписать `stop-ai-slop.baseline.txt` текущими находками. Baseline — способ закрыть легаси: записи `relpath:line` (строки с `#` — комментарии) вычитаются из вывода обоих режимов.
 - `--self-test` — саботаж-тест на временных фикстурах; exit != 0 при любом расхождении.
 - `--install` — в репозитории: добавить npm scripts `stop-ai-slop` / `stop-ai-slop:all` (если есть package.json) и подключить `.git/hooks/pre-commit` с `node .../scan.mjs --staged`. Идемпотентно; существующее тело hook не перезаписывает — дописывает блок с маркером.
+- `--install --strict` — то же самое, но hook запускает `--strict`, так что warning тоже блокируют гейт.
+- `--diff <ref>` — добавленные строки файлов, отслеживаемых в репо, относительно ref; неотслеживаемые файлы не видны.
+- `--strict` — warning тоже блокируют гейт (exit 1).
 
 ## Вывод
 

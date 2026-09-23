@@ -25,11 +25,28 @@ Error-правила блокируют (exit 1, write-time gate бросает 
 node skill/scripts/scan.mjs --self-test       # саботаж-тест детектора
 node skill/scripts/scan.mjs scan .            # полное сканирование (.ts .tsx .js .jsx .mjs .cjs .py)
 node skill/scripts/scan.mjs --staged          # только добавленные строки из git diff --cached
-node skill/scripts/scan.mjs --baseline-write  # записать текущие находки в baseline
+node skill/scripts/scan.mjs --diff <ref>      # добавленные строки файлов, отслеживаемых в репо, относительно ref; неотслеживаемые файлы не видны
+node skill/scripts/scan.mjs --strict          # warning тоже блокируют гейт (exit 1)
 node skill/scripts/scan.mjs --install         # npm scripts + pre-commit hook в текущем репо
+node skill/scripts/scan.mjs --install --strict# то же самое, но hook запускает --strict
 ```
 
 Exit 1 — есть error-находки вне baseline; иначе 0.
+
+## CI (GitHub Actions)
+
+```yaml
+jobs:
+  slop:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: WhiteBite/stop-ai-slop@main
+        with:
+          base: ${{ github.base_ref }}
+```
+
+Action сам подтягивает базовый реф, поэтому стандартного shallow checkout достаточно; `strict: "true"` включает режим warnings-as-errors.
 
 ## Монтаж на другую машину
 
@@ -62,6 +79,8 @@ Write-time плагин OpenCode: файл `%USERPROFILE%\.config\opencode\plugi
 ```
 node skill/scripts/scan.mjs --explain <rule-id>
 ```
+
+JSX-комментарии в блоковых комментариях (`/* */`) детектируются. HTML-комментарии, а также `.vue`, `.svelte`, `.html` — вне области сканирования. `--staged` и `--diff` видят только отслеживаемые изменения (неотслеживаемые файлы невидимы). Warning не блокируют гейт, если не указан `--strict`.
 
 ## Сравнение с аналогами
 
