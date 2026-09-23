@@ -469,6 +469,14 @@ function cmdSelfTest() {
     writeFileSync(join(dir, "legit.ts"), "// сбрасываем здесь, т.к. ниже освобождаем слот\nconst x = 1\n")
     writeFileSync(join(dir, "clean.ts"), "const x = 1\nif (x > 0) {\n  console.log(x)\n}\n")
     writeFileSync(join(dir, "step.ts"), "// Step 3: normalize the payload\nconst x = 1\n")
+    const jsxNarrative = [
+      "{/* removeSource+reindex (spike scripts, re-clones) rewrites every row",
+      "with fresh uuids: all zone members vanish at once and incremental has no",
+      "centroids left to assign the new ids to. Pruning to empty is not",
+      "maintenance - the identity mapping broke, so full recompute must take over. */}",
+    ].join("\n")
+    writeFileSync(join(dir, "jsx-sabotage.tsx"), jsxNarrative + "\nconst x = 1\n")
+    writeFileSync(join(dir, "jsx-legit.tsx"), "{/* сбрасываем здесь, т.к. ниже освобождаем слот */}\nconst x = 1\n")
     const findings = scanFiles(collectFiles([dir], dir), dir)
     const byRel = (rel) => findings.filter((f) => f.rel === rel)
     const sabotageRules = byRel("sabotage.ts").map((f) => f.rule)
@@ -483,6 +491,70 @@ function cmdSelfTest() {
       step,
     )
     check("step: без error-находок", !step.some((f) => f.severity === "error"), step)
+    const jsxSabotage = byRel("jsx-sabotage.tsx")
+    const jsxSabotageRules = jsxSabotage.map((f) => f.rule)
+    check("jsx-sabotage: multi-line-comment [error]", jsxSabotageRules.includes("multi-line-comment"), jsxSabotage)
+    check("jsx-sabotage: changelog-marker [error]", jsxSabotageRules.includes("changelog-marker"), jsxSabotage)
+    check("jsx-legit: однострочный JSX-комментарий проходит", byRel("jsx-legit.tsx").length === 0, byRel("jsx-legit.tsx"))
+    const selfPath = fileURLToPath(import.meta.url)
+    const repoDir = mkdtempSync(join(tmpdir(), "slop-gate-diff-"))
+    try {
+      const git = (args) =>
+        execFileSync(
+          "git",
+          ["-c", "user.email=slop@test", "-c", "user.name=slop", "-c", "commit.gpgsign=false", ...args],
+          { cwd: repoDir, stdio: "pipe" },
+        )
+      git(["init", "-q", "-b", "main"])
+      writeFileSync(join(repoDir, "clean.ts"), "const x = 1\n")
+      git(["add", "clean.ts"])
+      git(["commit", "-q", "-m", "init"])
+      git(["checkout", "-q", "-b", "slop"])
+      writeFileSync(join(repoDir, "clean.ts"), "const x = 1\n" + narrative + "\n")
+      git(["add", "clean.ts"])
+      git(["commit", "-q", "-m", "slop"])
+      let diffBlocked = false
+      try {
+        execFileSync(process.execPath, [selfPath, "--diff", "main"], { cwd: repoDir, stdio: "pipe" })
+      } catch (error) {
+        diffBlocked = error.status === 1
+      }
+      check("diff: slop-ветка против main блокируется [exit 1]", diffBlocked)
+      git(["checkout", "-q", "main"])
+      let diffClean = true
+      let diffCleanDetail = null
+      try {
+        execFileSync(process.execPath, [selfPath, "--diff", "main"], { cwd: repoDir, stdio: "pipe" })
+      } catch (error) {
+        diffClean = false
+        diffCleanDetail = `exit ${error.status}`
+      }
+      check("diff: main без diff против себя проходит [exit 0]", diffClean, diffCleanDetail)
+    } finally {
+      rmSync(repoDir, { recursive: true, force: true })
+    }
+    const warnDir = mkdtempSync(join(tmpdir(), "slop-gate-strict-"))
+    try {
+      writeFileSync(join(warnDir, "warn.ts"), "// Step 3: normalize the payload\nconst x = 1\n")
+      let strictDefault = true
+      let strictDefaultDetail = null
+      try {
+        execFileSync(process.execPath, [selfPath], { cwd: warnDir, stdio: "pipe" })
+      } catch (error) {
+        strictDefault = false
+        strictDefaultDetail = `exit ${error.status}`
+      }
+      check("strict: warning без --strict не блокирует [exit 0]", strictDefault, strictDefaultDetail)
+      let strictBlocked = false
+      try {
+        execFileSync(process.execPath, [selfPath, "--strict"], { cwd: warnDir, stdio: "pipe" })
+      } catch (error) {
+        strictBlocked = error.status === 1
+      }
+      check("strict: --strict превращает warning в блокировку [exit 1]", strictBlocked)
+    } finally {
+      rmSync(warnDir, { recursive: true, force: true })
+    }
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }
