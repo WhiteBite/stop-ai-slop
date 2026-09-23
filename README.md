@@ -17,7 +17,7 @@ Error-правила блокируют (exit 1, write-time gate бросает 
 1. **OpenCode write-time плагин** — `plugin/comment-gate.ts` перехватывает `write`/`edit`/`multiedit` и отклоняет правку с error-находками в момент записи. Монтируется в `~/.config/opencode/plugins/` стабом-реэкспортом.
 2. **Pre-commit через `--install`** — одна команда вшивает `node .../scan.mjs --staged` в `.git/hooks/pre-commit` (идемпотентно, дописывает блок с маркером, не затирая существующий hook) и добавляет npm scripts `stop-ai-slop` / `stop-ai-slop:all` в package.json. Hook и npm scripts содержат абсолютный путь к сканеру на момент установки — после переноса или повторного клонирования сканера запустите `--install` заново.
 3. **Agent skill** — `skill/SKILL.md` (name: `stop-ai-slop`): политика, таблица правил, режимы запуска. Монтируется в OpenCode и Claude Code.
-4. **Baseline для легаси** — `--baseline-write` записывает `stop-ai-slop.baseline.txt` (записи `relpath:line`, строки с `#` — комментарии). Записи вычитаются из вывода обоих режимов: старый код не мешает, новый слоп не проходит.
+4. **Baseline для легаси** — 1) `--install`, 2) `--baseline-write` (записывает текущие находки), 3) закоммитить baseline, 4) дальше гейт видит только новое; правки выше baselined-строк сдвигают номера и воскрешают легаси — лечится `--baseline-prune`, который удаляет из baseline записи без живых находок; повторный `--baseline-write` амнистирует и новый слоп — не делать.
 
 ## Быстрый старт
 
@@ -30,8 +30,12 @@ node skill/scripts/scan.mjs --diff <ref>      # добавленные стро�
 node skill/scripts/scan.mjs --strict          # warning тоже блокируют гейт (exit 1)
 node skill/scripts/scan.mjs --install         # npm scripts + pre-commit hook в текущем репо
 node skill/scripts/scan.mjs --install --strict  # то же самое, но hook запускает --strict
+node skill/scripts/scan.mjs --baseline-write    # записать текущие находки в baseline
+node skill/scripts/scan.mjs --baseline-prune    # удалить из baseline записи без живых находок
 node skill/scripts/scan.mjs --help              # справка по всем флагам
 ```
+
+Директивы подавления: `// stop-ai-slop-ignore-next-line [rule-id]` (следующая строка), `// stop-ai-slop-ignore-line [rule-id]` (текущая строка), `// stop-ai-slop-ignore-file` (весь файл); после `--` — причина.
 
 Exit 1 — есть error-находки вне baseline; иначе 0. Exit 2 — ошибка использования или git (неверный флаг, несуществующий ref).
 
@@ -82,7 +86,9 @@ Write-time плагин OpenCode: файл `%USERPROFILE%\.config\opencode\plugi
 node skill/scripts/scan.mjs --explain <rule-id>
 ```
 
-JSX-комментарии в блоковых комментариях (`/* */`) детектируются. HTML-комментарии, а также `.vue`, `.svelte`, `.html` — вне области сканирования. `--staged` и `--diff` видят только отслеживаемые изменения (неотслеживаемые файлы невидимы). Warning не блокируют гейт, если не указан `--strict`. Имена файлов с не-ASCII поддерживаются в diff-режимах.
+id правил и служебные лейблы — EN; сообщения и обоснования — RU. Префикс `vend/` = правила, вендоренные из внешних каталогов паттернов.
+
+Детектор видит inline-комментарии после кода (`const x = 1 // было`), блоковые `/* */` без `*` на средних строках, Python-docstrings `"""` (односторонние правила), файлы в UTF-16 с BOM; zero-width символы игнорируются при матчинге. По-прежнему не видит: `.vue`, `.svelte`, `.html`, HTML-комментарии; `--staged` и `--diff` не видят неотслеживаемые файлы. Warning не блокируют гейт, если не указан `--strict`. Имена файлов с не-ASCII поддерживаются в diff-режимах.
 
 ## Сравнение с аналогами
 
@@ -93,8 +99,9 @@ JSX-комментарии в блоковых комментариях (`/* */`
 | Что сканирует | комментарии в коде, 9 правил | код-слоп: 50+ правил, 10 языков | проза: коммиты, PR, docs, 20 правил | 78 grep-правил всех категорий | JS/TS: error-handling, моки |
 | Блокирует в момент правки | да: OpenCode-плагин отклоняет edit/write | хуки claude/cursor/gemini/pi, OpenCode нет | нет | нет: skill просит LLM самому прогнать grep | нет |
 | Русский язык | changelog-маркеры ru+en | правила EN | правила EN; их же бенч: em-dash на корректной русской прозе — 24 срабатывания на 1000 слов | EN | EN |
-| Зависимости | 0: один .mjs, Node >= 18 | npm-пакет + внешние движки (biome, ruff, oxlint) | npm-пакет | Python + ripgrep | npm-пакет |
+| Зависимости | 0: сканер — один .mjs; плагин OpenCode — .ts | npm-пакет + внешние движки (biome, ruff, oxlint) | npm-пакет | Python + ripgrep | npm-пакет |
 | Модель гейта | политика: правило → exit 1 | скор 0–100 и порог failBelow | взвешенный скор на 1000 слов | уровни severity | скор и delta-сравнение |
 | Своя политика | таблица RULES в одном файле, `--explain` по правилу | severity на правило, новые правила — только в их репо | ignore/only по файлам | rules.toml | config и плагины |
+| Источник фактов | README конкурентов: scanaislop/aislop, Bubblegunn/ai-slop-linter, qinnovates/vibecheck-slop-stopper, modem-dev/slop-scan (сентябрь 2026) | — | — | — | — |
 
 Где мы уже и не претендуем: только политика комментариев. Проглоченные исключения, `as any`, мёртвый код — территория aislop и grain; EN-проза и сообщения коммитов — ai-slop-linter. stop-ai-slop дополняет их в точках, куда они не достают: момент правки в OpenCode и русские changelog-маркеры.

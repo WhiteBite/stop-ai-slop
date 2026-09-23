@@ -1,6 +1,6 @@
 ---
 name: stop-ai-slop
-description: Comment-slop policy and mechanical gate — single source of truth for comment rules. Use when checking comment policy, slop comments, before commit, PR review, deslop, stop-ai-slop — multi-line narrative comments, changelog markers (было/стало/instead/fixes) in code, banner divider lines, step-numbered comments, TODO without ticket, markdown inside comments.
+description: Comment-slop policy and mechanical gate — single source of truth for comment rules. Use when checking comment policy, slop comments, before commit, PR review, deslop, stop-ai-slop, writing code comments, documenting a function, adding TODO — multi-line narrative comments, changelog markers (было/стало/instead/fixes) in code, banner divider lines, step-numbered comments, TODO without ticket, markdown inside comments.
 ---
 
 # stop-ai-slop — гейт против slop-комментариев
@@ -35,6 +35,10 @@ node <SKILL_DIR>/scripts/scan.mjs --staged
 
 Error блокирует (exit 1, write-time gate бросает). Warning — учитель: выводится, не блокирует.
 
+## Если гейт заблокировал правку
+
+1) убрать комментарий или сжать до одной строки WHY, 2) перезаписать правку, 3) легитимный случай — критерий ignore-when правила (`--explain <id>`), suppression-директива с причиной или baseline только для легаси; гейт не отключать.
+
 Полное обоснование по правилу: `node <SKILL_DIR>/scripts/scan.mjs --explain <rule-id>` — выводит Why / Instead of / Write / Ignore-it-when из той же таблицы.
 
 ## Режимы scan.mjs
@@ -42,11 +46,14 @@ Error блокирует (exit 1, write-time gate бросает). Warning — �
 - `scan [paths...]` — полное сканирование файлов `.ts .tsx .js .jsx .mjs .cjs .py` (по умолчанию cwd; `node_modules dist coverage .git` пропускаются). Нулевые зависимости, Node >= 18, работает на win32.
 - `--staged` — только добавленные строки из `git diff --cached -U0`. Вне git-репозитория: exit 0 с пометкой.
 - `--baseline-write` — перезаписать `stop-ai-slop.baseline.txt` текущими находками. Baseline — способ закрыть легаси: записи `relpath:line` (строки с `#` — комментарии) вычитаются из вывода обоих режимов.
+- `--baseline-prune` — удалить из baseline записи без живых находок; амнистирует удалённое легаси, не трогая новый слоп.
 - `--self-test` — саботаж-тест на временных фикстурах; exit != 0 при любом расхождении.
 - `--install` — в репозитории: добавить npm scripts `stop-ai-slop` / `stop-ai-slop:all` (если есть package.json) и подключить `.git/hooks/pre-commit` с `node .../scan.mjs --staged`. Идемпотентно; существующее тело hook не перезаписывает — дописывает блок с маркером.
 - `--install --strict` — то же самое, но hook запускает `--strict`, так что warning тоже блокируют гейт.
 - `--diff <ref>` — добавленные строки файлов, отслеживаемых в репо, относительно ref; неотслеживаемые файлы не видны.
 - `--strict` — warning тоже блокируют гейт (exit 1).
+
+Директивы подавления: `// stop-ai-slop-ignore-next-line [rule-id]`, `// stop-ai-slop-ignore-line [rule-id]`, `// stop-ai-slop-ignore-file` (после `--` — причина). Детектор видит inline-комментарии после кода, блоковые `/* */` без `*` на средних строках, Python-docstrings `"""`, UTF-16 с BOM; zero-width символы игнорируются при матчинге.
 
 ## Вывод
 
