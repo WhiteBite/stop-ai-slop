@@ -303,7 +303,11 @@ function printFindings(findings) {
   else console.log(`slop-gate: ${findings.length} находок, ошибок: ${errors}`)
 }
 
-function cmdScan(paths, { writeBaseline = false } = {}) {
+function failsGate(findings, strict) {
+  return strict ? findings.length > 0 : findings.some((f) => f.severity === "error")
+}
+
+function cmdScan(paths, { writeBaseline = false, strict = false } = {}) {
   const root = process.cwd()
   const findings = scanFiles(collectFiles(paths, root), root)
   if (writeBaseline) {
@@ -316,7 +320,7 @@ function cmdScan(paths, { writeBaseline = false } = {}) {
   const baseline = loadBaseline(root)
   const fresh = findings.filter((f) => !baseline.has(baselineKey(f)))
   printFindings(fresh)
-  return fresh.some((f) => f.severity === "error") ? 1 : 0
+  return failsGate(fresh, strict) ? 1 : 0
 }
 
 function gitStagedDiff(root) {
@@ -398,17 +402,17 @@ function runDiffGate(diffText, root, strict) {
   const baseline = loadBaseline(root)
   const fresh = findings.filter((f) => !baseline.has(baselineKey(f)))
   printFindings(fresh)
-  return fresh.some((f) => f.severity === "error") ? 1 : 0
+  return failsGate(fresh, strict) ? 1 : 0
 }
 
-function cmdStaged() {
+function cmdStaged(strict = false) {
   const root = process.cwd()
   const diff = gitStagedDiff(root)
   if (diff === null) {
     console.log("slop-gate: не git-репозиторий — staged-проверка пропущена")
     return 0
   }
-  return runDiffGate(diff, root, false)
+  return runDiffGate(diff, root, strict)
 }
 
 function gitDiffRef(ref, root) {
@@ -425,14 +429,14 @@ function gitDiffRef(ref, root) {
   }
 }
 
-function cmdDiff(ref) {
+function cmdDiff(ref, strict = false) {
   const root = process.cwd()
   const diff = gitDiffRef(ref, root)
   if (diff === null) {
     console.log("slop-gate: не git-репозиторий — diff-проверка пропущена")
     return 0
   }
-  return runDiffGate(diff, root, false)
+  return runDiffGate(diff, root, strict)
 }
 
 function cmdExplain(ruleId) {
@@ -449,10 +453,10 @@ function cmdExplain(ruleId) {
   return 0
 }
 
-function cmdInstall() {
+function cmdInstall(strict = false) {
   const root = process.cwd()
   const abs = fileURLToPath(import.meta.url).split(sep).join("/")
-  const stagedCmd = `node "${abs}" --staged`
+  const stagedCmd = `node "${abs}" --staged${strict ? " --strict" : ""}`
   const allCmd = `node "${abs}" scan`
   const pkgPath = join(root, "package.json")
   if (existsSync(pkgPath)) {
@@ -479,10 +483,12 @@ function cmdInstall() {
   const hookPath = join(hooksDir, "pre-commit")
   const MARK = "# >>> slop-gate >>>"
   const block = `${MARK}\n${stagedCmd}\n# <<< slop-gate <<<\n`
+  const blockRe = /# >>> slop-gate >>>[\s\S]*?# <<< slop-gate <<<\n/
   if (existsSync(hookPath)) {
     const current = readFileSync(hookPath, "utf8")
-    if (current.includes(MARK)) {
-      console.log("slop-gate: pre-commit hook — slop-gate уже подключён")
+    if (blockRe.test(current)) {
+      writeFileSync(hookPath, current.replace(blockRe, block))
+      console.log("slop-gate: pre-commit hook — slop-gate блок обновлён")
     } else {
       writeFileSync(hookPath, current.replace(/\n?$/, "\n") + block)
       console.log("slop-gate: pre-commit hook — добавлен блок после существующего содержимого")
@@ -608,12 +614,13 @@ function main(argv) {
   if (argv.includes("--self-test")) return cmdSelfTest()
   const explainIdx = argv.indexOf("--explain")
   if (explainIdx !== -1) return cmdExplain(argv[explainIdx + 1])
-  if (argv.includes("--install")) return cmdInstall()
-  if (argv.includes("--staged")) return cmdStaged()
+  const strict = argv.includes("--strict")
+  if (argv.includes("--install")) return cmdInstall(strict)
+  if (argv.includes("--staged")) return cmdStaged(strict)
   const diffIdx = argv.indexOf("--diff")
-  if (diffIdx !== -1) return cmdDiff(argv[diffIdx + 1])
+  if (diffIdx !== -1) return cmdDiff(argv[diffIdx + 1], strict)
   const paths = argv.filter((a) => a !== "scan" && !a.startsWith("--"))
-  return cmdScan(paths.length > 0 ? paths : ["."], { writeBaseline: argv.includes("--baseline-write") })
+  return cmdScan(paths.length > 0 ? paths : ["."], { writeBaseline: argv.includes("--baseline-write"), strict })
 }
 
 const isMain = (() => {
