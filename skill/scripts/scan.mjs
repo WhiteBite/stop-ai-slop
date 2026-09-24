@@ -135,6 +135,7 @@ function finding(id, lineNo, lines) {
 const SUPPRESS_NEXT = /stop-ai-slop-ignore-next-line\b(.*)$/
 const SUPPRESS_LINE = /stop-ai-slop-ignore-line\b(.*)$/
 const SUPPRESS_FILE = /stop-ai-slop-ignore-file\b/
+const SUPPRESS_ANY = /stop-ai-slop-ignore-(?:next-line|line|file)\b/
 
 function collectSuppressions(lines) {
   const perLine = new Map()
@@ -229,7 +230,8 @@ export function detectCommentSlop(addedLines) {
   let runStart = -1
   const classifyRun = makeClassify()
   for (let i = 0; i <= lines.length; i++) {
-    const inRun = i < lines.length && classifyRun(lines[i] ?? "").comment
+    const cls = i < lines.length ? classifyRun(lines[i] ?? "") : null
+    const inRun = cls !== null && cls.comment && !SUPPRESS_ANY.test(lines[i] ?? "")
     if (inRun && runStart === -1) runStart = i
     if (!inRun && runStart !== -1) {
       if (i - runStart >= 2) push(finding("multi-line-comment", runStart + 1, lines.slice(runStart, i)))
@@ -238,12 +240,17 @@ export function detectCommentSlop(addedLines) {
   }
   let headerEnd = 0
   const classifyHeader = makeClassify()
-  while (headerEnd < lines.length && classifyHeader(lines[headerEnd] ?? "").comment) headerEnd++
+  while (headerEnd < lines.length) {
+    const line = lines[headerEnd] ?? ""
+    if (!classifyHeader(line).comment || SUPPRESS_ANY.test(line)) break
+    headerEnd++
+  }
   if (headerEnd >= 2) push(finding("vend/file-summary-header", 1, lines.slice(0, headerEnd)))
   const classifyEach = makeClassify()
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i] ?? ""
     const cls = classifyEach(line)
+    if (SUPPRESS_ANY.test(line)) continue
     if (cls.comment || cls.doc) testLine(line, i)
     else {
       const inline = inlineComment(line)
@@ -666,6 +673,7 @@ function cmdSelfTest() {
     )
     writeFileSync(join(dir, "supp.ts"), "// stop-ai-slop-ignore-next-line changelog-marker\n// стало иначе\nconst x = 1\n")
     writeFileSync(join(dir, "suppfile.ts"), "// stop-ai-slop-ignore-file\n// стало иначе\n// и ещё было\nconst x = 1\n")
+    writeFileSync(join(dir, "supp2.ts"), "// stop-ai-slop-ignore-next-line -- было легаси\n// стало иначе\nconst x = 1\n")
     const findings = scanFiles(collectFiles([dir], dir), dir)
     const byRel = (rel) => findings.filter((f) => f.rel === rel)
     const sabotageRules = byRel("sabotage.ts").map((f) => f.rule)
@@ -701,6 +709,7 @@ function cmdSelfTest() {
     check("utf16: changelog-marker в UTF-16 файле [error]", byRel("utf16.ts").some((f) => f.rule === "changelog-marker"), byRel("utf16.ts"))
     check("supp: ignore-next-line гасит changelog-marker", !byRel("supp.ts").some((f) => f.rule === "changelog-marker"), byRel("supp.ts"))
     check("supp: ignore-file гасит всё", byRel("suppfile.ts").length === 0, byRel("suppfile.ts"))
+    check("supp: директива с причиной не флагает сама себя", byRel("supp2.ts").length === 0, byRel("supp2.ts"))
     const repoDir = mkdtempSync(join(tmpdir(), "slop-gate-diff-"))
     try {
       const git = (args) =>
