@@ -66,6 +66,17 @@ Write-time плагин OpenCode: файл `%USERPROFILE%\.config\opencode\plugi
 `export { CommentGate, detectCommentSlop } from "<path>/plugin/comment-gate.ts"`.
 Эквивалент для cmd.exe — `mklink /J`; на Linux/macOS — `ln -s`. В любом git-репо без агентов работает `scan.mjs --install`.
 
+## Отладка
+
+Плагин OpenCode пишет каждое решение гейта в JSONL-лог (`~/.config/opencode/logs/comment-gate.jsonl`, путь переопределяется переменной `STOP_AI_SLOP_LOG`): события `loaded`, `blocked` и `passed` с инструментом, файлом и правилами. Смотреть:
+
+```
+node skill/scripts/scan.mjs --audit        # счётчики + последние 20 записей
+node skill/scripts/scan.mjs --audit 50     # последние 50
+```
+
+Плагин загружается процессом OpenCode на старте сессии: после правок `plugin/comment-gate.ts` перезапустите OpenCode, иначе работает старая версия (аудит-лог это сразу покажет отсутствием новых записей).
+
 ## Правила
 
 | Правило | Severity | Суть |

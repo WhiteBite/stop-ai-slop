@@ -47,6 +47,7 @@ Error блокирует (exit 1, write-time gate бросает). Warning — �
 - `--staged` — только добавленные строки из `git diff --cached -U0`. Вне git-репозитория: exit 0 с пометкой.
 - `--baseline-write` — перезаписать `stop-ai-slop.baseline.txt` текущими находками. Baseline — способ закрыть легаси: записи `relpath:line` (строки с `#` — комментарии) вычитаются из вывода обоих режимов.
 - `--baseline-prune` — удалить из baseline записи без живых находок; амнистирует удалённое легаси, не трогая новый слоп.
+- `--audit [N]` — последние N записей аудит-лога решений write-time плагина (`loaded`/`blocked`/`passed` с файлом и правилами); путь лога — переменная `STOP_AI_SLOP_LOG`, по умолчанию `~/.config/opencode/logs/comment-gate.jsonl`. Плагин загружается на старте сессии OpenCode: после правок плагина нужен рестарт.
 - `--self-test` — саботаж-тест на временных фикстурах; exit != 0 при любом расхождении.
 - `--install` — в репозитории: добавить npm scripts `stop-ai-slop` / `stop-ai-slop:all` (если есть package.json) и подключить `.git/hooks/pre-commit` с `node .../scan.mjs --staged`. Идемпотентно; существующее тело hook не перезаписывает — дописывает блок с маркером.
 - `--install --strict` — то же самое, но hook запускает `--strict`, так что warning тоже блокируют гейт.
