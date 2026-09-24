@@ -81,15 +81,17 @@ node skill/scripts/scan.mjs --audit 50     # последние 50
 
 | Правило | Severity | Суть |
 | --- | --- | --- |
-| `multi-line-comment` | error | комментарий занимает 2+ строки подряд |
+| `multi-line-comment` | error | комментарий занимает 2+ строки подряд (doc-блоки исключены) |
 | `changelog-marker` | error | комментарий пересказывает дифф (было/стало/раньше/вместо/fixes) |
-| `long-comment` | error | строка комментария длиннее 120 символов |
+| `long-comment` | error | строка комментария длиннее 120 символов (doc-блоки исключены) |
 | `vend/step-numbered` | warning | нумерованный шаг в комментарии (// Step N или // N.) |
 | `vend/section-divider` | warning | строка-разделитель из символов -=#* |
 | `vend/markdown-in-comment` | warning | markdown-разметка внутри комментария (**, -, \|) |
 | `vend/this-function-opener` | warning | комментарий начинается с «This function/class/method/component» |
 | `vend/file-summary-header` | warning | шапка-резюме из 2+ строк комментария в начале файла |
 | `vend/generic-todo` | warning | TODO без ссылки на тикет |
+
+Error-правила не применяются к doc-блокам (JSDoc `/** … */` и Python-docstring): контрактная документация классов и функций допустима любой длины. Внутри doc-блоков по-прежнему ловятся changelog-маркеры (error) и пересказ сигнатуры «This function…» (warning).
 
 Полное обоснование по правилу (Why / Instead of / Write / Ignore it when из той же таблицы `RULES`):
 

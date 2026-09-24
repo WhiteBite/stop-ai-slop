@@ -13,7 +13,7 @@ export const RULES = [
     why: "Многострочный комментарий — почти всегда пересказ кода или диффа. Через год его никто не перечитает, а рассинхрон с кодом не заметит никто.",
     instead: "удалить или сжать до одной строки: только неочевидное внешнее ограничение, инвариант или воркэраунд",
     write: "// сбрасываем здесь, т.к. ниже освобождаем слот",
-    ignoreWhen: "никогда для нового кода; легаси — через baseline",
+    ignoreWhen: "doc-блок (JSDoc/docstring) с контрактной документацией; легаси — через baseline",
   },
   {
     id: "changelog-marker",
@@ -31,7 +31,7 @@ export const RULES = [
     why: "Длинная строка — признак простыни. Ограничение, достойное комментария, формулируется коротко.",
     instead: "сжать мысль до одной короткой строки или удалить",
     write: "// сбрасываем здесь, т.к. ниже освобождаем слот",
-    ignoreWhen: "единственная строка с длинной ссылкой на спеку/issue",
+    ignoreWhen: "doc-блок; строка с длинной ссылкой на спеку/issue",
   },
   {
     id: "vend/step-numbered",
@@ -180,11 +180,16 @@ export function detectCommentSlop(addedLines) {
     let inJsxBlock = false
     let inBlock = false
     let inDoc = false
+    let inDocBlock = false
     return (line) => {
       const t = line.trim()
       if (inJsxBlock) {
         if (t.endsWith("*/}")) inJsxBlock = false
         return { comment: true, doc: false }
+      }
+      if (inDocBlock) {
+        if (t.endsWith("*/")) inDocBlock = false
+        return { comment: false, doc: true }
       }
       if (inBlock) {
         if (t.includes("*/")) inBlock = false
@@ -197,6 +202,10 @@ export function detectCommentSlop(addedLines) {
       if (t.startsWith("{/*")) {
         if (!t.endsWith("*/}")) inJsxBlock = true
         return { comment: true, doc: false }
+      }
+      if (t.startsWith("/**") && !t.includes("*/")) {
+        inDocBlock = true
+        return { comment: false, doc: true }
       }
       if (t.startsWith("/*") && !t.includes("*/")) {
         inBlock = true
@@ -215,10 +224,10 @@ export function detectCommentSlop(addedLines) {
     if (s === null || (s !== undefined && s.has(v.rule))) return
     violations.push(v)
   }
-  const testLine = (raw, i) => {
+  const testLine = (raw, i, doc) => {
     const t = raw.trim()
     if (CHANGELOG_MARKER.test(raw)) push(finding("changelog-marker", i + 1, [raw]))
-    if (raw.length > MAX_COMMENT_LENGTH) push(finding("long-comment", i + 1, [raw]))
+    if (!doc && raw.length > MAX_COMMENT_LENGTH) push(finding("long-comment", i + 1, [raw]))
     if (STEP_NUMBERED.test(t)) push(finding("vend/step-numbered", i + 1, [raw]))
     if (isDividerLine(t)) push(finding("vend/section-divider", i + 1, [raw]))
     if (MARKDOWN_BOLD.test(t) || MARKDOWN_LIST.test(t) || MARKDOWN_TABLE.test(t)) {
@@ -251,10 +260,10 @@ export function detectCommentSlop(addedLines) {
     const line = lines[i] ?? ""
     const cls = classifyEach(line)
     if (SUPPRESS_ANY.test(line)) continue
-    if (cls.comment || cls.doc) testLine(line, i)
+    if (cls.comment || cls.doc) testLine(line, i, cls.doc)
     else {
       const inline = inlineComment(line)
-      if (inline !== null) testLine(inline, i)
+      if (inline !== null) testLine(inline, i, false)
     }
   }
   return violations
