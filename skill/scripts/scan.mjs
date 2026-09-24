@@ -677,6 +677,30 @@ function cmdSelfTest() {
     writeFileSync(join(dir, "supp.ts"), "// stop-ai-slop-ignore-next-line changelog-marker\n// стало иначе\nconst x = 1\n")
     writeFileSync(join(dir, "suppfile.ts"), "// stop-ai-slop-ignore-file\n// стало иначе\n// и ещё было\nconst x = 1\n")
     writeFileSync(join(dir, "supp2.ts"), "// stop-ai-slop-ignore-next-line -- было легаси\n// стало иначе\nconst x = 1\n")
+    writeFileSync(
+      join(dir, "jsdoc-doc.ts"),
+      [
+        "/**",
+        " * Validates and normalizes the incoming payload.",
+        " * Throws ValidationError on contract breach; caller must not retry.",
+        " * @param raw untrusted input from transport",
+        " */",
+        "export function normalize(raw) {}",
+        "",
+      ].join("\n"),
+    )
+    writeFileSync(join(dir, "doclong.py"), 'def f(raw):\n    """' + "x".repeat(130) + '\n    """\n    return raw\n')
+    writeFileSync(
+      join(dir, "jsdoc-slop.ts"),
+      [
+        "/**",
+        " * Pruning to empty is not maintenance - the identity mapping broke, so recompute takes over.",
+        " */",
+        "export function prune() {}",
+        "",
+      ].join("\n"),
+    )
+    writeFileSync(join(dir, "jsdoc-opener.ts"), "/** This function normalizes the payload */\nexport function normalize() {}\n")
     const findings = scanFiles(collectFiles([dir], dir), dir)
     const byRel = (rel) => findings.filter((f) => f.rel === rel)
     const sabotageRules = byRel("sabotage.ts").map((f) => f.rule)
@@ -713,6 +737,18 @@ function cmdSelfTest() {
     check("supp: ignore-next-line гасит changelog-marker", !byRel("supp.ts").some((f) => f.rule === "changelog-marker"), byRel("supp.ts"))
     check("supp: ignore-file гасит всё", byRel("suppfile.ts").length === 0, byRel("suppfile.ts"))
     check("supp: директива с причиной не флагает сама себя", byRel("supp2.ts").length === 0, byRel("supp2.ts"))
+    check("jsdoc: контрактный JSDoc не блокируется", !byRel("jsdoc-doc.ts").some((f) => f.severity === "error"), byRel("jsdoc-doc.ts"))
+    check("doclong: длинная строка docstring не блокируется", !byRel("doclong.py").some((f) => f.rule === "long-comment"), byRel("doclong.py"))
+    check(
+      "jsdoc-slop: чейнджлог внутри JSDoc блокируется",
+      byRel("jsdoc-slop.ts").some((f) => f.rule === "changelog-marker" && f.severity === "error"),
+      byRel("jsdoc-slop.ts"),
+    )
+    check(
+      "jsdoc-opener: пересказ сигнатуры в JSDoc [warning]",
+      byRel("jsdoc-opener.ts").some((f) => f.rule === "vend/this-function-opener"),
+      byRel("jsdoc-opener.ts"),
+    )
     const auditPath = join(dir, "audit.jsonl")
     appendAudit({ verdict: "blocked", tool: "write", filePath: "a.ts", rules: ["multi-line-comment"] }, auditPath)
     appendAudit({ verdict: "passed", tool: "edit", filePath: "b.ts", added: 3 }, auditPath)
