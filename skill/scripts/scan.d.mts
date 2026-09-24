@@ -26,3 +26,5 @@ export declare function addedFromToolArgs(
   tool: string,
   args: Record<string, unknown>,
 ): { filePath: string; added: string[] } | null
+export declare function auditLogPath(): string
+export declare function appendAudit(entry: Record<string, unknown>, path?: string): void

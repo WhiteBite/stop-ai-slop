@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 import { execFileSync } from "node:child_process"
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs"
-import { tmpdir } from "node:os"
-import { extname, join, relative, resolve, sep } from "node:path"
+import { appendFileSync, chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs"
+import { homedir, tmpdir } from "node:os"
+import { dirname, extname, join, relative, resolve, sep } from "node:path"
 import { fileURLToPath, pathToFileURL } from "node:url"
 
 export const RULES = [
@@ -632,9 +632,12 @@ function cmdSelfTest() {
       if (!ok) failures++
     }
     const selfPath = fileURLToPath(import.meta.url)
-    const runCli = (args, cwd) => {
+    const runCli = (args, cwd, env) => {
       try {
-        return { status: 0, out: execFileSync(process.execPath, [selfPath, ...args], { cwd, encoding: "utf8", stdio: "pipe" }) }
+        return {
+          status: 0,
+          out: execFileSync(process.execPath, [selfPath, ...args], { cwd, encoding: "utf8", stdio: "pipe", env }),
+        }
       } catch (error) {
         return { status: error.status ?? 1, out: `${error.stdout ?? ""}${error.stderr ?? ""}` }
       }
@@ -710,6 +713,18 @@ function cmdSelfTest() {
     check("supp: ignore-next-line гасит changelog-marker", !byRel("supp.ts").some((f) => f.rule === "changelog-marker"), byRel("supp.ts"))
     check("supp: ignore-file гасит всё", byRel("suppfile.ts").length === 0, byRel("suppfile.ts"))
     check("supp: директива с причиной не флагает сама себя", byRel("supp2.ts").length === 0, byRel("supp2.ts"))
+    const auditPath = join(dir, "audit.jsonl")
+    appendAudit({ verdict: "blocked", tool: "write", filePath: "a.ts", rules: ["multi-line-comment"] }, auditPath)
+    appendAudit({ verdict: "passed", tool: "edit", filePath: "b.ts", added: 3 }, auditPath)
+    const auditEnv = { ...process.env, STOP_AI_SLOP_LOG: auditPath }
+    const auditRun = runCli(["--audit"], dir, auditEnv)
+    check(
+      "audit: --audit печатает счётчики и записи",
+      auditRun.status === 0 && auditRun.out.includes("blocked: 1") && auditRun.out.includes("passed: 1") && auditRun.out.includes("a.ts"),
+      auditRun.out,
+    )
+    const auditEmpty = runCli(["--audit"], dir, { ...process.env, STOP_AI_SLOP_LOG: join(dir, "nope.jsonl") })
+    check("audit: пустой лог [exit 0]", auditEmpty.status === 0 && auditEmpty.out.includes("аудит-лог пуст"), auditEmpty.out)
     const repoDir = mkdtempSync(join(tmpdir(), "slop-gate-diff-"))
     try {
       const git = (args) =>
@@ -916,8 +931,56 @@ const KNOWN_FLAGS = new Set([
   "--diff",
   "--baseline-write",
   "--baseline-prune",
+  "--audit",
   "--help",
 ])
+
+export function auditLogPath() {
+  return process.env.STOP_AI_SLOP_LOG ?? join(homedir(), ".config", "opencode", "logs", "comment-gate.jsonl")
+}
+
+export function appendAudit(entry, path = auditLogPath()) {
+  try {
+    mkdirSync(dirname(path), { recursive: true })
+    appendFileSync(path, JSON.stringify({ ts: new Date().toISOString(), ...entry }) + "\n")
+  } catch {
+    return
+  }
+}
+
+function cmdAudit(limit) {
+  const path = auditLogPath()
+  if (!existsSync(path)) {
+    console.log("slop-gate: аудит-лог пуст")
+    return 0
+  }
+  const entries = readFileSync(path, "utf8")
+    .split(/\r?\n/)
+    .filter((l) => l.trim() !== "")
+    .map((l) => {
+      try {
+        return JSON.parse(l)
+      } catch {
+        return null
+      }
+    })
+    .filter((e) => e !== null)
+  const counts = {}
+  for (const e of entries) {
+    const key = e.verdict ?? e.event ?? "?"
+    counts[key] = (counts[key] ?? 0) + 1
+  }
+  console.log(
+    `slop-gate: аудит ${path}: ${entries.length} записей (${Object.entries(counts)
+      .map(([k, v]) => `${k}: ${v}`)
+      .join(", ")})`,
+  )
+  for (const e of entries.slice(-limit)) {
+    const rules = Array.isArray(e.rules) && e.rules.length > 0 ? ` [${e.rules.join(",")}]` : ""
+    console.log(`${e.ts} ${e.verdict ?? e.event} ${e.tool ?? ""} ${e.filePath ?? ""}${rules}`)
+  }
+  return 0
+}
 
 function cmdUsage() {
   console.log(
@@ -932,6 +995,7 @@ function cmdUsage() {
       "  --baseline-prune    удалить из baseline записи без живых находок",
       "  --install           npm scripts + pre-commit hook в текущем репо",
       "  --explain <rule-id> обоснование правила",
+      "  --audit [N]         последние N записей аудит-лога решений гейта",
       "  --self-test         саботаж-тест детектора",
       "",
       "Флаги: --strict (warning тоже блокируют), --help",
@@ -965,6 +1029,11 @@ function main(argv) {
     return cmdDiff(ref, strict)
   }
   if (argv.includes("--help")) return cmdUsage()
+  const auditIdx = argv.indexOf("--audit")
+  if (auditIdx !== -1) {
+    const n = Number(argv[auditIdx + 1])
+    return cmdAudit(Number.isInteger(n) && n > 0 ? n : 20)
+  }
   if (argv.includes("--baseline-prune")) {
     const paths = argv.filter((a) => a !== "scan" && !a.startsWith("--"))
     return cmdScan(paths.length > 0 ? paths : ["."], { prune: true })
