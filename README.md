@@ -24,7 +24,7 @@ Error-правила блокируют (exit 1, write-time gate бросает 
 ```
 git clone https://github.com/WhiteBite/stop-ai-slop && cd stop-ai-slop
 node skill/scripts/scan.mjs --self-test       # саботаж-тест детектора
-node skill/scripts/scan.mjs scan .            # полное сканирование (.ts .tsx .js .jsx .mjs .cjs .py .kt .kts .java .go .rs .cs .c .h .cc .cpp .hpp .rb .php)
+node skill/scripts/scan.mjs scan .            # полное сканирование всех поддерживаемых языков (см. «Языковые профили»)
 node skill/scripts/scan.mjs --staged          # только добавленные строки из git diff --cached
 node skill/scripts/scan.mjs --diff <ref>      # добавленные строки файлов, отслеживаемых в репо, относительно ref; неотслеживаемые файлы не видны
 node skill/scripts/scan.mjs --strict          # warning тоже блокируют гейт (exit 1)
@@ -77,6 +77,27 @@ node skill/scripts/scan.mjs --audit 50     # последние 50
 
 Плагин загружается процессом OpenCode на старте сессии: после правок `plugin/comment-gate.ts` перезапустите OpenCode, иначе работает старая версия (аудит-лог это сразу покажет отсутствием новых записей).
 
+## Языковые профили
+
+Синтаксис комментариев берётся из профиля языка, а не из общего списка: `#` — комментарий в `.py/.sh/.yaml`, но препроцессор в `.c` и атрибут в `.rs`. Поддержано ~90 расширений и файлы без расширения (`Dockerfile`, `Makefile`, `Jenkinsfile`, `CMakeLists.txt`, `Vagrantfile`, `Gemfile`):
+
+| Профиль | Линейный комментарий | Блок / doc | Примеры |
+| --- | --- | --- | --- |
+| c-family | `//` | `/* */`, `/** */`, `{/* */}` | ts, js, kt, java, go, rs, cs, c, cpp, swift, dart, scala |
+| css | `//`, `/*` | `/* */` | css, scss, less |
+| hash | `#` | — | py (`"""` doc), rb, php, sh, yaml, toml, tf, ex, Dockerfile, Makefile |
+| powershell | `#` | `<# #>` | ps1, psm1 |
+| sql | `--` | `/* */` | sql |
+| lua / haskell | `--` | `--[[ ]]` / `{- -}` | lua, hs |
+| lisp | `;` | — | clj, el, scm, rkt |
+| percent | `%` | — | tex, bib, erl |
+| fortran / vb / batch / vim | `!` / `'` / `::`, `REM` / `"` | — | f90, vb, bat, vim |
+| markup | `<!--` | `<!-- -->` | html, xml, svg, md, vue, svelte |
+| ocaml / pascal | `(*` | `(* *)` | ml, mli, pas, fs (F#) |
+| ini / properties | `;`, `#` / `#`, `!` | — | ini, properties |
+
+`.m` не сканируется: расширение неоднозначно (Objective-C против MATLAB). Новый язык добавляется одной строкой в таблицу профилей `scan.mjs`.
+
 ## Правила
 
 | Правило | Severity | Суть |
@@ -101,7 +122,7 @@ node skill/scripts/scan.mjs --explain <rule-id>
 
 id правил и служебные лейблы — EN; сообщения и обоснования — RU. Префикс `vend/` = правила, вендоренные из внешних каталогов паттернов.
 
-Детектор видит inline-комментарии после кода (`const x = 1 // было`), блоковые `/* */` без `*` на средних строках, Python-docstrings `"""` (односторонние правила), файлы в UTF-16 с BOM; zero-width символы игнорируются при матчинге. `#` считается комментарием только в `.py`, `.rb`, `.php` — препроцессор C и атрибуты Rust не задеваются. По-прежнему не видит: `.vue`, `.svelte`, `.html`, HTML-комментарии; `--staged` и `--diff` не видят неотслеживаемые файлы. Warning не блокируют гейт, если не указан `--strict`. Имена файлов с не-ASCII поддерживаются в diff-режимах.
+Детектор видит inline-комментарии после кода (`const x = 1 // было`), блоковые комментарии без маркера на средних строках, doc-блоки любой длины (контрактные JSDoc/docstring), файлы в UTF-16 с BOM; zero-width символы игнорируются при матчинге. Не сканируются: языки без профиля (см. таблицу выше; `.m` неоднозначно), бинарные и офисные форматы; `--staged` и `--diff` не видят неотслеживаемые файлы. Warning не блокируют гейт, если не указан `--strict`. Имена файлов с не-ASCII поддерживаются в diff-режимах.
 
 ## Сравнение с аналогами
 

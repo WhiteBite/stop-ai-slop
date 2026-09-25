@@ -54,7 +54,7 @@ Error блокирует (exit 1, write-time gate бросает). Warning — �
 - `--diff <ref>` — добавленные строки файлов, отслеживаемых в репо, относительно ref; неотслеживаемые файлы не видны.
 - `--strict` — warning тоже блокируют гейт (exit 1).
 
-Директивы подавления: `// stop-ai-slop-ignore-next-line [rule-id]`, `// stop-ai-slop-ignore-line [rule-id]`, `// stop-ai-slop-ignore-file` (после `--` — причина). Детектор видит inline-комментарии после кода, блоковые `/* */` без `*` на средних строках, Python-docstrings `"""`, UTF-16 с BOM; zero-width символы игнорируются при матчинге.
+Директивы подавления: `// stop-ai-slop-ignore-next-line [rule-id]`, `// stop-ai-slop-ignore-line [rule-id]`, `// stop-ai-slop-ignore-file` (после `--` — причина). Синтаксис комментариев берётся из профиля языка (~90 расширений + Dockerfile/Makefile/Jenkinsfile): `#` — комментарий в py/sh/yaml, но препроцессор в C и атрибут в Rust; детектор видит inline-комментарии после кода, блоковые комментарии без маркера на средних строках, doc-блоки, UTF-16 с BOM; zero-width символы игнорируются при матчинге.
 
 ## Вывод
 
