@@ -108,7 +108,7 @@ const PROFILES = {
   lua: P(["--"], [["--[[", "]]"]]),
   haskell: P(["--"], [["{-", "-}"]]),
   lisp: P([";"]),
-  tex: P(["%"]),
+  percent: P(["%"]),
   fortran: P(["!"]),
   vb: P(["'"]),
   batch: P(["::"], [], [], [], [/^rem\b/i]),
@@ -131,12 +131,12 @@ const EXT_PROFILE = {
   ".rb": "hash", ".php": "hash", ".sh": "hash", ".bash": "hash", ".zsh": "hash", ".ksh": "hash", ".fish": "hash",
   ".ex": "hash", ".exs": "hash", ".cr": "hash", ".pl": "hash", ".pm": "hash", ".r": "hash",
   ".yaml": "hash", ".yml": "hash", ".toml": "hash", ".conf": "hash", ".cfg": "hash",
-  ".tf": "hash", ".tfvars": "hash", ".graphql": "hash", ".gql": "hash", ".mk": "hash", ".cmake": "hash",
+  ".tf": "hash", ".tfvars": "hash", ".graphql": "hash", ".gql": "hash", ".mk": "hash", ".cmake": "hash", ".bzl": "hash",
   ".ps1": "powershell", ".psm1": "powershell", ".psd1": "powershell",
   ".jl": "julia", ".nim": "nim",
   ".sql": "sql", ".lua": "lua", ".hs": "haskell", ".lhs": "haskell",
   ".clj": "lisp", ".cljs": "lisp", ".cljc": "lisp", ".edn": "lisp", ".lisp": "lisp", ".el": "lisp", ".scm": "lisp", ".rkt": "lisp",
-  ".tex": "tex", ".bib": "tex", ".sty": "tex", ".cls": "tex",
+  ".tex": "percent", ".bib": "percent", ".sty": "percent", ".cls": "percent", ".erl": "percent", ".hrl": "percent",
   ".f": "fortran", ".f90": "fortran", ".f95": "fortran", ".f03": "fortran", ".for": "fortran", ".fpp": "fortran",
   ".vb": "vb", ".bat": "batch", ".cmd": "batch", ".vim": "vim",
   ".html": "markup", ".htm": "markup", ".xml": "markup", ".svg": "markup", ".xhtml": "markup", ".md": "markup", ".mdx": "markup",
@@ -146,10 +146,15 @@ const EXT_PROFILE = {
 }
 const FILENAME_PROFILE = {
   dockerfile: "hash",
+  containerfile: "hash",
   makefile: "hash",
   gnumakefile: "hash",
   justfile: "hash",
+  vagrantfile: "hash",
+  gemfile: "hash",
+  rakefile: "hash",
   "cmakelists.txt": "hash",
+  jenkinsfile: "cfamily",
 }
 
 export function profileFor(filePath) {
@@ -182,18 +187,13 @@ export function isCommentLine(line, profile = PROFILES.legacy) {
   return profile.regexPrefixes.some((re) => re.test(t))
 }
 
-export function hashComments(filePath) {
-  const profile = profileFor(filePath)
-  return profile !== null && profile.prefixes.includes("#")
-}
-
 function stripCommentMarker(line) {
   return line
     .trim()
-    .replace(/^(?:\/\/+|\/\*+|\*+|#+)\s?/, "")
+    .replace(/^(?:\/\/+|\/\*+|\*+|#+|--+|;+|%+|!+)\s?/, "")
     .replace(/\*\/\s*$/, "")
-    .replace(/^[rbf]?"""/, "")
-    .replace(/"""$/, "")
+    .replace(/^[rbf]?(?:"""|''')/, "")
+    .replace(/(?:"""|''')$/, "")
 }
 
 function isDividerLine(trimmed) {
