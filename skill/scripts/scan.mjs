@@ -91,7 +91,29 @@ export const RULES = [
 
 const RULE_BY_ID = new Map(RULES.map((r) => [r.id, r]))
 
-const CODE_EXTENSIONS = new Set([".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".py"])
+const CODE_EXTENSIONS = new Set([
+  ".ts",
+  ".tsx",
+  ".js",
+  ".jsx",
+  ".mjs",
+  ".cjs",
+  ".py",
+  ".kt",
+  ".kts",
+  ".java",
+  ".go",
+  ".rs",
+  ".cs",
+  ".c",
+  ".h",
+  ".cc",
+  ".cpp",
+  ".hpp",
+  ".rb",
+  ".php",
+])
+const HASH_COMMENT_EXTENSIONS = new Set([".py", ".rb", ".php"])
 const SKIPPED_SEGMENTS = new Set(["node_modules", "dist"])
 const CLI_SKIPPED_SEGMENTS = new Set([...SKIPPED_SEGMENTS, "coverage", ".git"])
 const MAX_COMMENT_LENGTH = 120
@@ -108,9 +130,14 @@ const TODO_WORD = /\bTODO\b/
 const TICKET_REF = /[A-Z]+-\d+/
 const ISSUE_LINK = /https?:\/\/\S+|#\d+/
 
-export function isCommentLine(line) {
+export function isCommentLine(line, hashComment = true) {
   const t = line.trim()
+  if (t.startsWith("#") && !hashComment) return false
   return t.startsWith("//") || t.startsWith("#") || t.startsWith("/*") || t.startsWith("*") || t.endsWith("*/")
+}
+
+export function hashComments(filePath) {
+  return HASH_COMMENT_EXTENSIONS.has(extname(filePath).toLowerCase())
 }
 
 function stripCommentMarker(line) {
@@ -172,7 +199,7 @@ function inlineComment(line) {
   return null
 }
 
-export function detectCommentSlop(addedLines) {
+export function detectCommentSlop(addedLines, hashComment = true) {
   const lines = addedLines.map((l) => (l ?? "").replace(/[​-‏﻿]/g, ""))
   const suppress = collectSuppressions(lines)
   if (suppress.file) return []
@@ -215,7 +242,7 @@ export function detectCommentSlop(addedLines) {
         if (!t.slice(3).includes('"""')) inDoc = true
         return { comment: false, doc: true }
       }
-      return { comment: isCommentLine(line), doc: false }
+      return { comment: isCommentLine(line, hashComment), doc: false }
     }
   }
   const violations = []
@@ -358,7 +385,7 @@ function scanFiles(files, root) {
       continue
     }
     const rel = toRel(root, file)
-    for (const v of detectCommentSlop(text.replaceAll("\r\n", "\n").split("\n"))) {
+    for (const v of detectCommentSlop(text.replaceAll("\r\n", "\n").split("\n"), hashComments(file))) {
       findings.push({ rel, ...v })
     }
   }
@@ -509,7 +536,7 @@ function runDiffGate(diffText, root, strict) {
   for (const [file, lines] of parseUnifiedDiff(diffText)) {
     if (!isCodePath(file, [...CLI_SKIPPED_SEGMENTS])) continue
     for (const run of consecutiveRuns(lines)) {
-      for (const v of detectCommentSlop(run.map((r) => r.text))) {
+      for (const v of detectCommentSlop(run.map((r) => r.text), hashComments(file))) {
         findings.push({ rel: file, ...v, lineNo: run[0].lineNo + v.lineNo - 1 })
       }
     }
@@ -710,6 +737,9 @@ function cmdSelfTest() {
       ].join("\n"),
     )
     writeFileSync(join(dir, "jsdoc-opener.ts"), "/** This function normalizes the payload */\nexport function normalize() {}\n")
+    writeFileSync(join(dir, "kotlin.kt"), "// removeSource rewrites every symbol row\n// with fresh uuids so zones vanish at once\nfun main() {}\n")
+    writeFileSync(join(dir, "cproc.c"), "#include <a.h>\n#include <b.h>\nint main(void) { return 0; }\n")
+    writeFileSync(join(dir, "rustattr.rs"), "#[derive(Debug)]\n#[derive(Clone)]\nstruct S;\n")
     const findings = scanFiles(collectFiles([dir], dir), dir)
     const byRel = (rel) => findings.filter((f) => f.rel === rel)
     const sabotageRules = byRel("sabotage.ts").map((f) => f.rule)
@@ -758,6 +788,9 @@ function cmdSelfTest() {
       byRel("jsdoc-opener.ts").some((f) => f.rule === "vend/this-function-opener"),
       byRel("jsdoc-opener.ts"),
     )
+    check("kotlin: slop в .kt блокируется [error]", byRel("kotlin.kt").some((f) => f.severity === "error"), byRel("kotlin.kt"))
+    check("cproc: препроцессор C не комментарий", byRel("cproc.c").length === 0, byRel("cproc.c"))
+    check("rustattr: атрибуты Rust не комментарий", byRel("rustattr.rs").length === 0, byRel("rustattr.rs"))
     const auditPath = join(dir, "audit.jsonl")
     appendAudit({ verdict: "blocked", tool: "write", filePath: "a.ts", rules: ["multi-line-comment"] }, auditPath)
     appendAudit({ verdict: "passed", tool: "edit", filePath: "b.ts", added: 3 }, auditPath)

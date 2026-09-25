@@ -18,8 +18,9 @@ export interface Rule {
 }
 
 export declare const RULES: Rule[]
-export declare function isCommentLine(line: string): boolean
-export declare function detectCommentSlop(addedLines: string[]): Violation[]
+export declare function isCommentLine(line: string, hashComment?: boolean): boolean
+export declare function hashComments(filePath: string): boolean
+export declare function detectCommentSlop(addedLines: string[], hashComment?: boolean): Violation[]
 export declare function multisetDiff(oldText: string, newText: string): string[]
 export declare function isCodePath(filePath: string, extraSkippedSegments?: string[]): boolean
 export declare function addedFromToolArgs(
