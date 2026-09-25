@@ -790,6 +790,9 @@ function cmdSelfTest() {
       Dockerfile: "# removeSource rewrites rows\n# with fresh uuids zones vanish\nRUN true\n",
       "notes.md": "<!-- removeSource rewrites rows\nwith fresh uuids zones vanish\n-->\ntext\n",
       "a.ini": "; removeSource rewrites rows\n; with fresh uuids zones vanish\nk=1\n",
+      "e.erl": "% removeSource rewrites rows\n% with fresh uuids zones vanish\nmod(x) -> x.\n",
+      Containerfile: "# removeSource rewrites rows\n# with fresh uuids zones vanish\nRUN true\n",
+      "w.bzl": "# removeSource rewrites rows\n# with fresh uuids zones vanish\nx = 1\n",
     }
     for (const [name, body] of Object.entries(langFixtures)) writeFileSync(join(dir, name), body)
     const findings = scanFiles(collectFiles([dir], dir), dir)
