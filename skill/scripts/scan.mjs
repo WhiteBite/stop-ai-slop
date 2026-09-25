@@ -740,6 +740,24 @@ function cmdSelfTest() {
     writeFileSync(join(dir, "kotlin.kt"), "// removeSource rewrites every symbol row\n// with fresh uuids so zones vanish at once\nfun main() {}\n")
     writeFileSync(join(dir, "cproc.c"), "#include <a.h>\n#include <b.h>\nint main(void) { return 0; }\n")
     writeFileSync(join(dir, "rustattr.rs"), "#[derive(Debug)]\n#[derive(Clone)]\nstruct S;\n")
+    const langFixtures = {
+      "q.sql": "-- removeSource rewrites rows\n-- with fresh uuids zones vanish\nSELECT 1;\n",
+      "p.html": "<!-- removeSource rewrites rows\nwith fresh uuids zones vanish\n-->\n<p>x</p>\n",
+      "r.sh": "# removeSource rewrites rows\n# with fresh uuids zones vanish\necho 1\n",
+      "c.yaml": "# removeSource rewrites rows\n# with fresh uuids zones vanish\nkey: 1\n",
+      "core.clj": "; removeSource rewrites rows\n; with fresh uuids zones vanish\n(def x 1)\n",
+      "d.tex": "% removeSource rewrites rows\n% with fresh uuids zones vanish\n\\x\n",
+      "j.bat": ":: removeSource rewrites rows\n:: with fresh uuids zones vanish\necho 1\n",
+      "m.ps1": "<# removeSource rewrites rows\nwith fresh uuids zones vanish\n#>\n$x = 1\n",
+      "l.lua": "--[[ removeSource rewrites rows\nwith fresh uuids zones vanish\n]]\nlocal x = 1\n",
+      "o.ml": "(* removeSource rewrites rows\nwith fresh uuids zones vanish\n*)\nlet x = 1\n",
+      "h.hs": "{- removeSource rewrites rows\nwith fresh uuids zones vanish\n-}\nmain = return ()\n",
+      "n.f90": "! removeSource rewrites rows\n! with fresh uuids zones vanish\nprogram p\nend\n",
+      Dockerfile: "# removeSource rewrites rows\n# with fresh uuids zones vanish\nRUN true\n",
+      "notes.md": "<!-- removeSource rewrites rows\nwith fresh uuids zones vanish\n-->\ntext\n",
+      "a.ini": "; removeSource rewrites rows\n; with fresh uuids zones vanish\nk=1\n",
+    }
+    for (const [name, body] of Object.entries(langFixtures)) writeFileSync(join(dir, name), body)
     const findings = scanFiles(collectFiles([dir], dir), dir)
     const byRel = (rel) => findings.filter((f) => f.rel === rel)
     const sabotageRules = byRel("sabotage.ts").map((f) => f.rule)
@@ -791,6 +809,13 @@ function cmdSelfTest() {
     check("kotlin: slop в .kt блокируется [error]", byRel("kotlin.kt").some((f) => f.severity === "error"), byRel("kotlin.kt"))
     check("cproc: препроцессор C не комментарий", byRel("cproc.c").length === 0, byRel("cproc.c"))
     check("rustattr: атрибуты Rust не комментарий", byRel("rustattr.rs").length === 0, byRel("rustattr.rs"))
+    for (const name of Object.keys(langFixtures)) {
+      check(
+        `lang ${name}: slop-блок блокируется [error]`,
+        byRel(name).some((f) => f.rule === "multi-line-comment" && f.severity === "error"),
+        byRel(name),
+      )
+    }
     const auditPath = join(dir, "audit.jsonl")
     appendAudit({ verdict: "blocked", tool: "write", filePath: "a.ts", rules: ["multi-line-comment"] }, auditPath)
     appendAudit({ verdict: "passed", tool: "edit", filePath: "b.ts", added: 3 }, auditPath)
