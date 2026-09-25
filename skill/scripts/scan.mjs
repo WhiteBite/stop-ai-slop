@@ -91,29 +91,74 @@ export const RULES = [
 
 const RULE_BY_ID = new Map(RULES.map((r) => [r.id, r]))
 
-const CODE_EXTENSIONS = new Set([
-  ".ts",
-  ".tsx",
-  ".js",
-  ".jsx",
-  ".mjs",
-  ".cjs",
-  ".py",
-  ".kt",
-  ".kts",
-  ".java",
-  ".go",
-  ".rs",
-  ".cs",
-  ".c",
-  ".h",
-  ".cc",
-  ".cpp",
-  ".hpp",
-  ".rb",
-  ".php",
-])
-const HASH_COMMENT_EXTENSIONS = new Set([".py", ".rb", ".php"])
+const P = (prefixes, blocks = [], doc = [], suffixes = [], regexPrefixes = []) => ({ prefixes, blocks, doc, suffixes, regexPrefixes })
+const JSDOC = { openRe: /^\/\*\*/, close: "*/" }
+const PYDOC_DQ = { openRe: /^[rbf]?"""/, close: '"""' }
+const PYDOC_SQ = { openRe: /^[rbf]?'''/, close: "'''" }
+const PROFILES = {
+  legacy: P(["//", "#", "/*", "*"], [["/*", "*/"], ["{/*", "*/}"]], [JSDOC, PYDOC_DQ], ["*/"]),
+  cfamily: P(["//", "/*", "*"], [["/*", "*/"], ["{/*", "*/}"]], [JSDOC], ["*/"]),
+  css: P(["//", "/*", "*"], [["/*", "*/"]], [], ["*/"]),
+  py: P(["#"], [], [PYDOC_DQ, PYDOC_SQ]),
+  hash: P(["#"]),
+  powershell: P(["#"], [["<#", "#>"]]),
+  julia: P(["#"], [["#=", "=#"]]),
+  nim: P(["#"], [["#[", "]#"]]),
+  sql: P(["--", "/*", "*"], [["/*", "*/"]], [], ["*/"]),
+  lua: P(["--"], [["--[[", "]]"]]),
+  haskell: P(["--"], [["{-", "-}"]]),
+  lisp: P([";"]),
+  tex: P(["%"]),
+  fortran: P(["!"]),
+  vb: P(["'"]),
+  batch: P(["::"], [], [], [], [/^rem\b/i]),
+  vim: P(['"']),
+  markup: P(["<!--"], [["<!--", "-->"]]),
+  ocaml: P(["(*"], [["(*", "*)"]], [], ["*)"]),
+  pascal: P(["//", "(*"], [["(*", "*)"]], [], ["*)"]),
+  ini: P([";", "#"]),
+  properties: P(["#", "!"]),
+  vue: P(["//", "/*", "*", "<!--"], [["/*", "*/"], ["{/*", "*/}"], ["<!--", "-->"]], [JSDOC], ["*/"]),
+}
+const EXT_PROFILE = {
+  ".ts": "cfamily", ".tsx": "cfamily", ".js": "cfamily", ".jsx": "cfamily", ".mjs": "cfamily", ".cjs": "cfamily",
+  ".kt": "cfamily", ".kts": "cfamily", ".java": "cfamily", ".go": "cfamily", ".rs": "cfamily", ".cs": "cfamily",
+  ".c": "cfamily", ".h": "cfamily", ".cc": "cfamily", ".cpp": "cfamily", ".hh": "cfamily", ".hpp": "cfamily",
+  ".swift": "cfamily", ".dart": "cfamily", ".zig": "cfamily", ".scala": "cfamily", ".sc": "cfamily",
+  ".groovy": "cfamily", ".gradle": "cfamily", ".proto": "cfamily", ".jsonc": "cfamily",
+  ".css": "css", ".scss": "css", ".less": "css", ".sass": "css",
+  ".py": "py",
+  ".rb": "hash", ".php": "hash", ".sh": "hash", ".bash": "hash", ".zsh": "hash", ".ksh": "hash", ".fish": "hash",
+  ".ex": "hash", ".exs": "hash", ".cr": "hash", ".pl": "hash", ".pm": "hash", ".r": "hash",
+  ".yaml": "hash", ".yml": "hash", ".toml": "hash", ".conf": "hash", ".cfg": "hash",
+  ".tf": "hash", ".tfvars": "hash", ".graphql": "hash", ".gql": "hash", ".mk": "hash", ".cmake": "hash",
+  ".ps1": "powershell", ".psm1": "powershell", ".psd1": "powershell",
+  ".jl": "julia", ".nim": "nim",
+  ".sql": "sql", ".lua": "lua", ".hs": "haskell", ".lhs": "haskell",
+  ".clj": "lisp", ".cljs": "lisp", ".cljc": "lisp", ".edn": "lisp", ".lisp": "lisp", ".el": "lisp", ".scm": "lisp", ".rkt": "lisp",
+  ".tex": "tex", ".bib": "tex", ".sty": "tex", ".cls": "tex",
+  ".f": "fortran", ".f90": "fortran", ".f95": "fortran", ".f03": "fortran", ".for": "fortran", ".fpp": "fortran",
+  ".vb": "vb", ".bat": "batch", ".cmd": "batch", ".vim": "vim",
+  ".html": "markup", ".htm": "markup", ".xml": "markup", ".svg": "markup", ".xhtml": "markup", ".md": "markup", ".mdx": "markup",
+  ".ml": "ocaml", ".mli": "ocaml", ".pas": "pascal", ".pp": "pascal", ".fs": "pascal", ".fsx": "pascal", ".fsi": "pascal",
+  ".ini": "ini", ".inf": "ini", ".properties": "properties",
+  ".vue": "vue", ".svelte": "vue", ".astro": "vue",
+}
+const FILENAME_PROFILE = {
+  dockerfile: "hash",
+  makefile: "hash",
+  gnumakefile: "hash",
+  justfile: "hash",
+  "cmakelists.txt": "hash",
+}
+
+export function profileFor(filePath) {
+  const base = filePath.split(/[\\/]/).pop()?.toLowerCase() ?? ""
+  const byName = FILENAME_PROFILE[base]
+  if (byName !== undefined) return PROFILES[byName]
+  const byExt = EXT_PROFILE[extname(filePath).toLowerCase()]
+  return byExt === undefined ? null : PROFILES[byExt]
+}
 const SKIPPED_SEGMENTS = new Set(["node_modules", "dist"])
 const CLI_SKIPPED_SEGMENTS = new Set([...SKIPPED_SEGMENTS, "coverage", ".git"])
 const MAX_COMMENT_LENGTH = 120
@@ -130,14 +175,16 @@ const TODO_WORD = /\bTODO\b/
 const TICKET_REF = /[A-Z]+-\d+/
 const ISSUE_LINK = /https?:\/\/\S+|#\d+/
 
-export function isCommentLine(line, hashComment = true) {
+export function isCommentLine(line, profile = PROFILES.legacy) {
   const t = line.trim()
-  if (t.startsWith("#") && !hashComment) return false
-  return t.startsWith("//") || t.startsWith("#") || t.startsWith("/*") || t.startsWith("*") || t.endsWith("*/")
+  if (profile.prefixes.some((p) => t.startsWith(p))) return true
+  if (profile.suffixes.some((s) => t.endsWith(s))) return true
+  return profile.regexPrefixes.some((re) => re.test(t))
 }
 
 export function hashComments(filePath) {
-  return HASH_COMMENT_EXTENSIONS.has(extname(filePath).toLowerCase())
+  const profile = profileFor(filePath)
+  return profile !== null && profile.prefixes.includes("#")
 }
 
 function stripCommentMarker(line) {
@@ -199,50 +246,37 @@ function inlineComment(line) {
   return null
 }
 
-export function detectCommentSlop(addedLines, hashComment = true) {
+export function detectCommentSlop(addedLines, profile = PROFILES.legacy) {
   const lines = addedLines.map((l) => (l ?? "").replace(/[​-‏﻿]/g, ""))
   const suppress = collectSuppressions(lines)
   if (suppress.file) return []
   const makeClassify = () => {
-    let inJsxBlock = false
-    let inBlock = false
-    let inDoc = false
-    let inDocBlock = false
+    let blockClose = null
+    let docClose = null
     return (line) => {
       const t = line.trim()
-      if (inJsxBlock) {
-        if (t.endsWith("*/}")) inJsxBlock = false
-        return { comment: true, doc: false }
-      }
-      if (inDocBlock) {
-        if (t.endsWith("*/")) inDocBlock = false
+      if (docClose !== null) {
+        if (t.includes(docClose)) docClose = null
         return { comment: false, doc: true }
       }
-      if (inBlock) {
-        if (t.includes("*/")) inBlock = false
+      if (blockClose !== null) {
+        if (t.includes(blockClose)) blockClose = null
         return { comment: true, doc: false }
       }
-      if (inDoc) {
-        if (t.includes('"""')) inDoc = false
-        return { comment: false, doc: true }
+      for (const d of profile.doc) {
+        const m = t.match(d.openRe)
+        if (m !== null) {
+          if (!t.slice(m[0].length).includes(d.close)) docClose = d.close
+          return { comment: false, doc: true }
+        }
       }
-      if (t.startsWith("{/*")) {
-        if (!t.endsWith("*/}")) inJsxBlock = true
-        return { comment: true, doc: false }
+      for (const [open, close] of profile.blocks) {
+        if (t.startsWith(open) && !t.includes(close)) {
+          blockClose = close
+          return { comment: true, doc: false }
+        }
       }
-      if (t.startsWith("/**") && !t.includes("*/")) {
-        inDocBlock = true
-        return { comment: false, doc: true }
-      }
-      if (t.startsWith("/*") && !t.includes("*/")) {
-        inBlock = true
-        return { comment: true, doc: false }
-      }
-      if (/^[rbf]?"""/.test(t)) {
-        if (!t.slice(3).includes('"""')) inDoc = true
-        return { comment: false, doc: true }
-      }
-      return { comment: isCommentLine(line, hashComment), doc: false }
+      return { comment: isCommentLine(line, profile), doc: false }
     }
   }
   const violations = []
@@ -313,7 +347,7 @@ export function multisetDiff(oldText, newText) {
 export function isCodePath(filePath, extraSkippedSegments = []) {
   const skipped = extraSkippedSegments.length === 0 ? SKIPPED_SEGMENTS : new Set([...SKIPPED_SEGMENTS, ...extraSkippedSegments])
   if (filePath.split(/[\\/]/).some((segment) => skipped.has(segment))) return false
-  return CODE_EXTENSIONS.has(extname(filePath).toLowerCase())
+  return profileFor(filePath) !== null
 }
 
 function readDisk(filePath) {
@@ -370,7 +404,7 @@ function collectFiles(paths, root) {
     const abs = resolve(root, p)
     if (!existsSync(abs)) continue
     if (statSync(abs).isDirectory()) walk(abs)
-    else if (CODE_EXTENSIONS.has(extname(abs).toLowerCase())) out.push(abs)
+      else if (profileFor(toRel(root, full)) !== null) out.push(abs)
   }
   return out
 }
@@ -385,7 +419,7 @@ function scanFiles(files, root) {
       continue
     }
     const rel = toRel(root, file)
-    for (const v of detectCommentSlop(text.replaceAll("\r\n", "\n").split("\n"), hashComments(file))) {
+    for (const v of detectCommentSlop(text.replaceAll("\r\n", "\n").split("\n"), profileFor(file) ?? PROFILES.legacy)) {
       findings.push({ rel, ...v })
     }
   }
@@ -536,7 +570,7 @@ function runDiffGate(diffText, root, strict) {
   for (const [file, lines] of parseUnifiedDiff(diffText)) {
     if (!isCodePath(file, [...CLI_SKIPPED_SEGMENTS])) continue
     for (const run of consecutiveRuns(lines)) {
-      for (const v of detectCommentSlop(run.map((r) => r.text), hashComments(file))) {
+      for (const v of detectCommentSlop(run.map((r) => r.text), profileFor(file) ?? PROFILES.legacy)) {
         findings.push({ rel: file, ...v, lineNo: run[0].lineNo + v.lineNo - 1 })
       }
     }
