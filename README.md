@@ -24,7 +24,7 @@ Error-правила блокируют (exit 1, write-time gate бросает 
 ```
 git clone https://github.com/WhiteBite/stop-ai-slop && cd stop-ai-slop
 node skill/scripts/scan.mjs --self-test       # саботаж-тест детектора
-node skill/scripts/scan.mjs scan .            # полное сканирование (.ts .tsx .js .jsx .mjs .cjs .py)
+node skill/scripts/scan.mjs scan .            # полное сканирование (.ts .tsx .js .jsx .mjs .cjs .py .kt .kts .java .go .rs .cs .c .h .cc .cpp .hpp .rb .php)
 node skill/scripts/scan.mjs --staged          # только добавленные строки из git diff --cached
 node skill/scripts/scan.mjs --diff <ref>      # добавленные строки файлов, отслеживаемых в репо, относительно ref; неотслеживаемые файлы не видны
 node skill/scripts/scan.mjs --strict          # warning тоже блокируют гейт (exit 1)
@@ -101,7 +101,7 @@ node skill/scripts/scan.mjs --explain <rule-id>
 
 id правил и служебные лейблы — EN; сообщения и обоснования — RU. Префикс `vend/` = правила, вендоренные из внешних каталогов паттернов.
 
-Детектор видит inline-комментарии после кода (`const x = 1 // было`), блоковые `/* */` без `*` на средних строках, Python-docstrings `"""` (односторонние правила), файлы в UTF-16 с BOM; zero-width символы игнорируются при матчинге. По-прежнему не видит: `.vue`, `.svelte`, `.html`, HTML-комментарии; `--staged` и `--diff` не видят неотслеживаемые файлы. Warning не блокируют гейт, если не указан `--strict`. Имена файлов с не-ASCII поддерживаются в diff-режимах.
+Детектор видит inline-комментарии после кода (`const x = 1 // было`), блоковые `/* */` без `*` на средних строках, Python-docstrings `"""` (односторонние правила), файлы в UTF-16 с BOM; zero-width символы игнорируются при матчинге. `#` считается комментарием только в `.py`, `.rb`, `.php` — препроцессор C и атрибуты Rust не задеваются. По-прежнему не видит: `.vue`, `.svelte`, `.html`, HTML-комментарии; `--staged` и `--diff` не видят неотслеживаемые файлы. Warning не блокируют гейт, если не указан `--strict`. Имена файлов с не-ASCII поддерживаются в diff-режимах.
 
 ## Сравнение с аналогами
 
