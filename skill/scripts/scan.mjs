@@ -345,7 +345,9 @@ export function detectCommentSlop(addedLines, profile = PROFILES.legacy) {
     if (!classifyHeader(line).comment || SUPPRESS_ANY.test(line)) break
     headerEnd++
   }
-  if (headerEnd >= 2) push(finding("vend/file-summary-header", 1, lines.slice(0, headerEnd)))
+  if (headerEnd >= 2 && !isLicenseRun(lines.slice(0, headerEnd))) {
+    push(finding("vend/file-summary-header", 1, lines.slice(0, headerEnd)))
+  }
   const classifyEach = makeClassify()
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i] ?? ""
@@ -843,6 +845,7 @@ function cmdSelfTest() {
     writeFileSync(join(dir, "ru-ok.ts"), "// осталось реализовать\nconst x = 1\n")
     writeFileSync(join(dir, "ru-bad.ts"), "// стало иначе\nconst x = 1\n")
     writeFileSync(join(dir, "lic.ts"), "/*\n * Copyright (c) 2024 Foo Inc.\n * All rights reserved.\n */\nconst x = 1\n")
+    writeFileSync(join(dir, "lic2.ts"), "/*\n * Copyright (c) 2024 Foo Inc.\n * Pruning is not maintenance - the mapping broke, so recompute takes over.\n */\nconst x = 1\n")
     writeFileSync(join(dir, "stub.pyi"), 'def f(raw):\n    """This function normalizes the payload\n    """\n    return raw\n')
     const findings = scanFiles(collectFiles([dir], dir), dir)
     const byRel = (rel) => findings.filter((f) => f.rel === rel)
@@ -923,6 +926,12 @@ function cmdSelfTest() {
     check("ru-ok: «осталось» не матчится как «стало»", byRel("ru-ok.ts").length === 0, byRel("ru-ok.ts"))
     check("ru-bad: «стало иначе» блокируется [error]", byRel("ru-bad.ts").some((f) => f.rule === "changelog-marker"), byRel("ru-bad.ts"))
     check("lic: лицензионная шапка не блокируется multi-line-comment", !byRel("lic.ts").some((f) => f.rule === "multi-line-comment"), byRel("lic.ts"))
+    check("lic: лицензионная шапка не даёт file-summary-header", !byRel("lic.ts").some((f) => f.rule === "vend/file-summary-header"), byRel("lic.ts"))
+    check(
+      "lic2: чейнджлог внутри лицензионной шапки блокируется",
+      byRel("lic2.ts").some((f) => f.rule === "changelog-marker" && f.severity === "error"),
+      byRel("lic2.ts"),
+    )
     check(
       "pyi: docstring-опенер [warning], без error",
       byRel("stub.pyi").some((f) => f.rule === "vend/this-function-opener") && !byRel("stub.pyi").some((f) => f.severity === "error"),
