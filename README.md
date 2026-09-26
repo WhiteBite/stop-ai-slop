@@ -6,6 +6,15 @@
 
 > English abstract: stop-ai-slop is a zero-dependency comment-slop gate. One scanner (`skill/scripts/scan.mjs`, const `RULES`) is the single source of truth for a one-line/why-only comment policy. It is enforced at four points: an OpenCode write-time plugin that blocks `write`/`edit`/`multiedit`, a pre-commit hook installed via `--install`, a cross-agent skill (`skill/SKILL.md`), and a baseline file that grandfathers legacy code. Node >= 18, works on win32.
 
+## Установка из npm
+
+```
+npm i -D stop-ai-slop
+npx stop-ai-slop --install        # npm scripts + pre-commit hook в текущем репо
+```
+
+Write-time плагин OpenCode из установленного пакета: файл `~/.config/opencode/plugins/comment-gate.ts` из одной строки `export { CommentGate } from "<путь к node_modules>/stop-ai-slop/plugin/comment-gate.ts"`.
+
 ## Что и зачем
 
 Политика: комментарий — максимум одна строка и только неочевидное внешнее ограничение, инвариант или воркэраунд. Пересказ диффа живёт в сообщении коммита, why теста — в имени теста. Таблица правил и детектор живут в `skill/scripts/scan.mjs` (const `RULES`) — править правила надо там, всё остальное только применяет их.
