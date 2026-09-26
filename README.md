@@ -55,6 +55,10 @@ on: pull_request:
 
 Action сам подтягивает базовый реф, поэтому стандартного shallow checkout достаточно; `strict: "true"` включает режим warnings-as-errors. На push-событиях action не работает (нет `github.base_ref`) — используйте `pull_request` или передавайте base явно.
 
+## Релизы в npm
+
+Публикация идёт через OIDC trusted publishing: воркфлоу `.github/workflows/publish.yml` срабатывает на published-release, сравнивает версию в `package.json` с опубликованной и пушит с `--provenance`, только если версии различаются. Разовая настройка: npmjs.com → пакет → Trusted publishers → добавить `WhiteBite/stop-ai-slop` и workflow `publish.yml`; далее релиз `vX.Y.Z` в GitHub публикует пакет без токенов и 2FA на машине разработчика. Локальная публикация (`npm publish --otp=<код>`) остаётся запасным путём.
+
 ## Монтаж на другую машину
 
 ```
