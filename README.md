@@ -42,17 +42,18 @@ Exit 1 — есть error-находки вне baseline; иначе 0. Exit 2 �
 ## CI (GitHub Actions)
 
 ```yaml
-jobs:
-  slop:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: WhiteBite/stop-ai-slop@main
-        with:
-          base: ${{ github.base_ref }}
+on: pull_request:
+  jobs:
+    slop:
+      runs-on: ubuntu-latest
+      steps:
+        - uses: actions/checkout@v4
+        - uses: WhiteBite/stop-ai-slop@main
+          with:
+            base: ${{ github.base_ref }}
 ```
 
-Action сам подтягивает базовый реф, поэтому стандартного shallow checkout достаточно; `strict: "true"` включает режим warnings-as-errors.
+Action сам подтягивает базовый реф, поэтому стандартного shallow checkout достаточно; `strict: "true"` включает режим warnings-as-errors. На push-событиях action не работает (нет `github.base_ref`) — используйте `pull_request` или передавайте base явно.
 
 ## Монтаж на другую машину
 
@@ -68,6 +69,20 @@ Write-time плагин OpenCode: файл `%USERPROFILE%\.config\opencode\plugi
 
 ## Отладка
 
+### pre-commit framework
+
+```yaml
+repos:
+  - repo: https://github.com/WhiteBite/stop-ai-slop
+    rev: v0.2.0
+    hooks:
+      - id: stop-ai-slop
+```
+
+Хук запускает `--staged` при каждом коммите.
+
+## Отладка
+
 Плагин OpenCode пишет каждое решение гейта в JSONL-лог (`~/.config/opencode/logs/comment-gate.jsonl`, путь переопределяется переменной `STOP_AI_SLOP_LOG`): события `loaded`, `blocked` и `passed` с инструментом, файлом и правилами. Смотреть:
 
 ```
@@ -79,21 +94,27 @@ node skill/scripts/scan.mjs --audit 50     # последние 50
 
 ## Языковые профили
 
-Синтаксис комментариев берётся из профиля языка, а не из общего списка: `#` — комментарий в `.py/.sh/.yaml`, но препроцессор в `.c` и атрибут в `.rs`. Поддержано ~90 расширений и файлы без расширения (`Dockerfile`, `Makefile`, `Jenkinsfile`, `CMakeLists.txt`, `Vagrantfile`, `Gemfile`):
+Синтаксис комментариев берётся из профиля языка, а не из общего списка: `#` — комментарий в `.py/.sh/.yaml`, но препроцессор в `.c` и атрибут в `.rs`. Поддержано 120 расширений и 10 имён файлов: `Dockerfile`, `Containerfile`, `Makefile`, `GNUmakefile`, `Justfile`, `Rakefile`, `Vagrantfile`, `Gemfile`, `CMakeLists.txt`, `Jenkinsfile`; суффиксные варианты (`Dockerfile.dev`, `Makefile.am`) определяются по префиксу.
 
 | Профиль | Линейный комментарий | Блок / doc | Примеры |
 | --- | --- | --- | --- |
 | c-family | `//` | `/* */`, `/** */`, `{/* */}` | ts, js, kt, java, go, rs, cs, c, cpp, swift, dart, scala |
 | css | `//`, `/*` | `/* */` | css, scss, less |
-| hash | `#` | — | py (`"""` doc), rb, php, sh, yaml, toml, tf, ex, Dockerfile, Makefile |
+| py | `#` | `"""` / `'''` | py |
+| hash | `#` | — | rb, php, sh, yaml, toml, tf, ex, Dockerfile, Makefile |
 | powershell | `#` | `<# #>` | ps1, psm1 |
+| julia | `#` | `#= =#` | jl |
+| nim | `#` | `#[ ]#` | nim |
 | sql | `--` | `/* */` | sql |
 | lua / haskell | `--` | `--[[ ]]` / `{- -}` | lua, hs |
 | lisp | `;` | — | clj, el, scm, rkt |
 | percent | `%` | — | tex, bib, erl |
 | fortran / vb / batch / vim | `!` / `'` / `::`, `REM` / `"` | — | f90, vb, bat, vim |
-| markup | `<!--` | `<!-- -->` | html, xml, svg, md, vue, svelte |
-| ocaml / pascal | `(*` | `(* *)` | ml, mli, pas, fs (F#) |
+| rst | `..` | — | rst |
+| markup | `<!--` | `<!-- -->` | html, xml, svg, md, mdx |
+| vue | `//`, `/*`, `<!--` | `/* */`, `{/* */}`, `<!-- -->` | vue, svelte, astro |
+| ocaml | `(*` | `(* *)` | ml, mli |
+| pascal | `//`, `(*` | `(* *)` | pas, fs (F#) |
 | ini / properties | `;`, `#` / `#`, `!` | — | ini, properties |
 
 `.m` не сканируется: расширение неоднозначно (Objective-C против MATLAB). Новый язык добавляется одной строкой в таблицу профилей `scan.mjs`.
@@ -122,7 +143,7 @@ node skill/scripts/scan.mjs --explain <rule-id>
 
 id правил и служебные лейблы — EN; сообщения и обоснования — RU. Префикс `vend/` = правила, вендоренные из внешних каталогов паттернов.
 
-Детектор видит inline-комментарии после кода (`const x = 1 // было`), блоковые комментарии без маркера на средних строках, doc-блоки любой длины (контрактные JSDoc/docstring), файлы в UTF-16 с BOM; zero-width символы игнорируются при матчинге. Не сканируются: языки без профиля (см. таблицу выше; `.m` неоднозначно), бинарные и офисные форматы; `--staged` и `--diff` не видят неотслеживаемые файлы. Warning не блокируют гейт, если не указан `--strict`. Имена файлов с не-ASCII поддерживаются в diff-режимах.
+Детектор видит inline-комментарии после кода (`const x = 1 // было`), блоковые комментарии без маркера на средних строках, doc-блоки любой длины (контрактные JSDoc/docstring), файлы в UTF-16 с BOM; zero-width символы игнорируются при матчинге. Не сканируются: языки без профиля (см. таблицу выше; `.m` неоднозначно), бинарные и офисные форматы; `--staged` и `--diff` не видят неотслеживаемые файлы. Warning не блокируют гейт, если не указан `--strict`. Имена файлов с не-ASCII поддерживаются в diff-режимах. Пропускаются каталоги артефактов (`venv`, `build`, `.next`, `target`, `out`, `.gradle`, `Pods`, `__pycache__`, `.idea`, `site-packages`, `.dart_tool`). Лицензионные шапки exempt from multi-line rule. Inline-комментарии определяются по маркерам профиля (`//`, `#`, `--`, `%`, `;`, `!`) за исключением py/fs floor division (`//`).
 
 ## Сравнение с аналогами
 
