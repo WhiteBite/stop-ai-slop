@@ -404,7 +404,7 @@ function collectFiles(paths, root) {
     const abs = resolve(root, p)
     if (!existsSync(abs)) continue
     if (statSync(abs).isDirectory()) walk(abs)
-      else if (profileFor(toRel(root, full)) !== null) out.push(abs)
+    else if (profileFor(toRel(root, abs)) !== null) out.push(abs)
   }
   return out
 }
