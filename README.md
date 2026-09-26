@@ -70,7 +70,6 @@ Write-time плагин OpenCode: файл `%USERPROFILE%\.config\opencode\plugi
 ## Отладка
 
 ### pre-commit framework
-
 ```yaml
 repos:
   - repo: https://github.com/WhiteBite/stop-ai-slop
@@ -80,6 +79,17 @@ repos:
 ```
 
 Хук запускает `--staged` при каждом коммите.
+
+### Claude Code / Cursor / Codex
+
+Репозиторий — готовый marketplace плагинов Claude Code:
+
+```
+/plugin marketplace add WhiteBite/stop-ai-slop
+/plugin install stop-ai-slop
+```
+
+Плагин несёт скилл и PostToolUse-хук (`Write|Edit` → `scan.mjs --stdin-path`), который печатает находки по только что записанному файлу обратно в сессию. Cursor и Codex читают ту же схему хуков: скопируйте `.claude-plugin/stop-ai-slop/hooks/hooks.json` в `.cursor/hooks.json` / `.codex/hooks.json` своего репо, поправив путь к `scan.mjs`.
 
 ## IntelliJ IDEA
 
