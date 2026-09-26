@@ -1188,6 +1188,24 @@ function cmdSelfTest() {
     appendAudit({ verdict: "passed", tool: "write", filePath: "r.ts" }, rotatePath)
     const rotated = readFileSync(rotatePath, "utf8").split("\n").filter((l) => l.trim() !== "")
     check("audit: лог ротируется при превышении 10000 строк", rotated.length === 5000 && rotated[4999].includes("r.ts"), rotated.length)
+    const stdinPayload = JSON.stringify({ tool_input: { file_path: join(dir, "sabotage.ts") } })
+    let stdinBlocked = false
+    try {
+      execFileSync(process.execPath, [selfPath, "--stdin-path"], { input: stdinPayload, stdio: "pipe" })
+    } catch (error) {
+      stdinBlocked = error.status === 1
+    }
+    check("hook: --stdin-path блокирует slop-файл из payload [exit 1]", stdinBlocked)
+    let stdinCleanOk = true
+    try {
+      execFileSync(process.execPath, [selfPath, "--stdin-path"], {
+        input: JSON.stringify({ tool_input: { file_path: join(dir, "clean.ts") } }),
+        stdio: "pipe",
+      })
+    } catch {
+      stdinCleanOk = false
+    }
+    check("hook: --stdin-path чистый файл проходит [exit 0]", stdinCleanOk)
     const baseDir = mkdtempSync(join(tmpdir(), "slop-gate-baseline-"))
     try {
       writeFileSync(join(baseDir, "slop.ts"), narrative + "\nconst x = 1\n")
