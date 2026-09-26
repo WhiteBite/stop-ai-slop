@@ -66,7 +66,7 @@ Action сам подтягивает базовый реф, поэтому ст�
 
 ## Релизы в npm
 
-Бутстрап, один раз: первая публикация нового пакета требует интерактивный 2FA — `npm publish` в терминале с OTP из authenticator (или granular-токен с bypass-2FA в `~/.npmrc`). Сразу после неё: npmjs.com → Settings пакета → Trusted publishers → добавить `WhiteBite/stop-ai-slop` и workflow `publish.yml`.
+Бутстрап, один раз: первая публикация нового пакета требует интерактивное подтверждение — `npm publish` в терминале: npm либо запросит OTP (если 2FA включена), либо предложит browser-approve («Authenticate your account at …»), которого достаточно без OTP и без 2FA; третий путь — granular-токен с bypass-2FA в `~/.npmrc`. Сразу после неё: npmjs.com → Settings пакета → Trusted publishing → добавить `WhiteBite/stop-ai-slop` и workflow `publish.yml`; если эта форма потребует включить 2FA — это единственное место, где она обязательна для полностью автоматических тегов.
 
 Дальше деплой идёт по тегам: bump версии в `package.json` + запись в CHANGELOG, коммит, `git tag vX.Y.Z && git push origin main --tags`. Воркфлоу `.github/workflows/publish.yml` (триггер `push: tags: v*`) прогоняет self-test, сравнивает версию с опубликованной и публикует через OIDC с provenance; повторный прогон того же тега делает skip. Node 24 в воркфлоу обязателен: OIDC-публикация требует npm CLI ≥ 11.5.1.
 
