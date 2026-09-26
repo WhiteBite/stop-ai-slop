@@ -57,7 +57,7 @@ Action сам подтягивает базовый реф, поэтому ст�
 
 ## Релизы в npm
 
-Публикация идёт через OIDC trusted publishing: воркфлоу `.github/workflows/publish.yml` срабатывает на published-release, сравнивает версию в `package.json` с опубликованной и пушит с `--provenance`, только если версии различаются. Разовая настройка: npmjs.com → пакет → Trusted publishers → добавить `WhiteBite/stop-ai-slop` и workflow `publish.yml`; далее релиз `vX.Y.Z` в GitHub публикует пакет без токенов и 2FA на машине разработчика. Локальная публикация (`npm publish --otp=<код>`) остаётся запасным путём.
+Первая публикация нового пакета идёт с 2FA вручную: `npm publish --otp=<код>` или granular-токен с правом publish в `~/.npmrc`. Дальше — OIDC trusted publishing без токенов: после первой публикации на npmjs.com → Settings пакета → Trusted publishers добавить `WhiteBite/stop-ai-slop` и workflow `publish.yml`; воркфлоу `.github/workflows/publish.yml` срабатывает на published-release, сравнивает версию с опубликованной (повтор не пушит) и публикует с provenance (Node 24 даёт npm ≥ 11.5.1, необходимый для OIDC).
 
 ## Монтаж на другую машину
 
