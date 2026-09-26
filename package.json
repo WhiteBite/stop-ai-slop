@@ -16,9 +16,7 @@
     "type": "git",
     "url": "git+https://github.com/WhiteBite/stop-ai-slop.git"
   },
-  "bin": {
-    "stop-ai-slop": "./skill/scripts/scan.mjs"
-  },
+  "bin": "./skill/scripts/scan.mjs",
   "files": [
     "skill/",
     "plugin/",
