@@ -87,6 +87,15 @@ export const RULES = [
     write: "// TODO KRY-482 снять воркэраунд после фикса upstream",
     ignoreWhen: "локальный черновик до первого коммита",
   },
+  {
+    id: "vend/self-suppression",
+    severity: "warning",
+    message: "директива подавления без списка правил пришла вместе с подавляемым кодом",
+    why: "Директива в одной правке с кодом, который она глушит, — амнистия без ревизии: никто не проверил обоснование.",
+    instead: "указать явный список правил или внести директиву отдельной правкой",
+    write: "// stop-ai-slop-ignore-next-line vend/step-numbered -- нумерация из внешнего протокола",
+    ignoreWhen: "full-scan: директива уже в репо, подавление легитимно",
+  },
 ]
 
 const RULE_BY_ID = new Map(RULES.map((r) => [r.id, r]))
@@ -234,21 +243,28 @@ const LICENSE_HEAD = /^(?:\/\/+|\/\*+|\*+|<!--|#+|;+|--+)\s*(?:copyright|license
 const isLicenseRun = (runLines) =>
   runLines.slice(0, 3).some((l) => LICENSE_HEAD.test(l.trim())) || runLines.some((l) => l.includes("SPDX-License-Identifier"))
 
-function collectSuppressions(lines) {
+function collectSuppressions(lines, diffMode = false) {
   const perLine = new Map()
   let file = false
+  const selfSuppress = []
   const rulesOf = (tail) => {
     const ids = tail.split("--")[0].trim().split(/\s+/).filter((w) => w !== "")
     return ids.length === 0 ? null : new Set(ids)
   }
   lines.forEach((raw, i) => {
     const next = SUPPRESS_NEXT.exec(raw)
-    if (next !== null) perLine.set(i + 2, rulesOf(next[1]))
-    const same = SUPPRESS_LINE.exec(raw)
-    if (same !== null) perLine.set(i + 1, rulesOf(same[1]))
-    if (SUPPRESS_FILE.test(raw)) file = true
+    const same = next === null ? SUPPRESS_LINE.exec(raw) : null
+    const isFile = SUPPRESS_FILE.test(raw)
+    if (next === null && same === null && !isFile) return
+    const ids = isFile ? null : rulesOf((next ?? same)[1])
+    if (diffMode && ids === null) {
+      selfSuppress.push(i + 1)
+      return
+    }
+    if (isFile) file = true
+    else perLine.set(next !== null ? i + 2 : i + 1, ids)
   })
-  return { file, perLine }
+  return { file, perLine, selfSuppress }
 }
 
 function decodeText(buf) {
@@ -275,10 +291,9 @@ function inlineComment(line, profile) {
   return null
 }
 
-export function detectCommentSlop(addedLines, profile = PROFILES.legacy) {
+export function detectCommentSlop(addedLines, profile = PROFILES.legacy, diffMode = false) {
   const lines = addedLines.map((l) => (l ?? "").replace(/[​-‏﻿]/g, ""))
-  const suppress = collectSuppressions(lines)
-  if (suppress.file) return []
+  const suppress = collectSuppressions(lines, diffMode)
   const makeClassify = () => {
     let blockClose = null
     let docClose = null
@@ -314,6 +329,8 @@ export function detectCommentSlop(addedLines, profile = PROFILES.legacy) {
     if (s === null || (s !== undefined && s.has(v.rule))) return
     violations.push(v)
   }
+  for (const ln of suppress.selfSuppress) push(finding("vend/self-suppression", ln, [lines[ln - 1] ?? ""]))
+  if (suppress.file) return violations
   const testLine = (raw, i, doc) => {
     const t = raw.trim()
     if (CHANGELOG_MARKER.test(raw)) push(finding("changelog-marker", i + 1, [raw]))
@@ -602,7 +619,7 @@ function runDiffGate(diffText, root, strict) {
   for (const [file, lines] of parseUnifiedDiff(diffText)) {
     if (!isCodePath(file, [...CLI_SKIPPED_SEGMENTS])) continue
     for (const run of consecutiveRuns(lines)) {
-      for (const v of detectCommentSlop(run.map((r) => r.text), profileFor(file) ?? PROFILES.legacy)) {
+      for (const v of detectCommentSlop(run.map((r) => r.text), profileFor(file) ?? PROFILES.legacy, true)) {
         findings.push({ rel: file, ...v, lineNo: run[0].lineNo + v.lineNo - 1 })
       }
     }
@@ -700,7 +717,17 @@ function cmdInstall(strict = false) {
     console.log("slop-gate: .git не найден — pre-commit hook пропущен")
     return 0
   }
-  const hooksDir = join(gitDir, "hooks")
+  let hooksDir = join(gitDir, "hooks")
+  try {
+    const configured = execFileSync("git", ["config", "core.hooksPath"], {
+      cwd: root,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+    }).trim()
+    if (configured !== "") hooksDir = resolve(root, configured)
+  } catch {
+    hooksDir = join(gitDir, "hooks")
+  }
   mkdirSync(hooksDir, { recursive: true })
   const hookPath = join(hooksDir, "pre-commit")
   const MARK = "# >>> slop-gate >>>"
@@ -1230,6 +1257,8 @@ export function auditLogPath() {
 export function appendAudit(entry, path = auditLogPath()) {
   try {
     mkdirSync(dirname(path), { recursive: true })
+    const lines = existsSync(path) ? readFileSync(path, "utf8").split(/\r?\n/) : []
+    if (lines.length > 10000) writeFileSync(path, lines.slice(-5000).join("\n") + "\n")
     appendFileSync(path, JSON.stringify({ ts: new Date().toISOString(), ...entry }) + "\n")
   } catch {
     return

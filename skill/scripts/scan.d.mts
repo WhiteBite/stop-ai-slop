@@ -28,7 +28,7 @@ export interface CommentProfile {
 
 export declare function isCommentLine(line: string, profile?: CommentProfile): boolean
 export declare function profileFor(filePath: string): CommentProfile | null
-export declare function detectCommentSlop(addedLines: string[], profile?: CommentProfile): Violation[]
+export declare function detectCommentSlop(addedLines: string[], profile?: CommentProfile, diffMode?: boolean): Violation[]
 export declare function multisetDiff(oldText: string, newText: string): string[]
 export declare function isCodePath(filePath: string, extraSkippedSegments?: string[]): boolean
 export declare function addedFromToolArgs(

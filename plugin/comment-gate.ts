@@ -17,7 +17,7 @@ export const CommentGate: Plugin = async () => {
       const args = (output?.args ?? {}) as Record<string, unknown>
       const extracted = addedFromToolArgs(input.tool, args)
       if (extracted === null) return
-      const violations = detectCommentSlop(extracted.added, profileFor(extracted.filePath) ?? undefined).filter(
+      const violations = detectCommentSlop(extracted.added, profileFor(extracted.filePath) ?? undefined, true).filter(
         (v) => v.severity === "error",
       )
       if (violations.length === 0) {
