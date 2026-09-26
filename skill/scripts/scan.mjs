@@ -159,10 +159,11 @@ const FILENAME_PROFILE = {
 
 export function profileFor(filePath) {
   const base = filePath.split(/[\\/]/).pop()?.toLowerCase() ?? ""
-  const byName = FILENAME_PROFILE[base]
-  if (byName !== undefined) return PROFILES[byName]
+  for (const [name, profile] of Object.entries(FILENAME_PROFILE)) {
+    if (base === name || base.startsWith(name + ".")) return PROFILES[profile] ?? null
+  }
   const byExt = EXT_PROFILE[extname(filePath).toLowerCase()]
-  return byExt === undefined ? null : PROFILES[byExt]
+  return byExt === undefined ? null : (PROFILES[byExt] ?? null)
 }
 const SKIPPED_SEGMENTS = new Set(["node_modules", "dist"])
 const CLI_SKIPPED_SEGMENTS = new Set([...SKIPPED_SEGMENTS, "coverage", ".git"])
