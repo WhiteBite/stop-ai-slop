@@ -236,8 +236,21 @@ function finding(id, lineNo, lines) {
 
 const SUPPRESS_NEXT = /stop-ai-slop-ignore-next-line\b(.*)$/
 const SUPPRESS_LINE = /stop-ai-slop-ignore-line\b(.*)$/
-const SUPPRESS_FILE = /stop-ai-slop-ignore-file\b/
+const SUPPRESS_FILE = /stop-ai-slop-ignore-file\b(.*)$/
 const SUPPRESS_ANY = /stop-ai-slop-ignore-(?:next-line|line|file)\b/
+
+const rulesOfTail = (tail) => {
+  const ids = tail.split("--")[0].trim().split(/\s+/).filter((w) => w !== "")
+  return ids.length === 0 ? null : new Set(ids)
+}
+
+function fileSuppressIds(lines) {
+  for (const raw of lines) {
+    const m = SUPPRESS_FILE.exec(raw)
+    if (m !== null) return rulesOfTail(m[1])
+  }
+  return null
+}
 
 const LICENSE_HEAD = /^(?:\/\/+|\/\*+|\*+|<!--|#+|;+|--+)\s*(?:copyright|licensed?|SPDX)/i
 const isLicenseRun = (runLines) =>
@@ -247,16 +260,13 @@ function collectSuppressions(lines, diffMode = false) {
   const perLine = new Map()
   let file = false
   const selfSuppress = []
-  const rulesOf = (tail) => {
-    const ids = tail.split("--")[0].trim().split(/\s+/).filter((w) => w !== "")
-    return ids.length === 0 ? null : new Set(ids)
-  }
+  const rulesOf = rulesOfTail
   lines.forEach((raw, i) => {
     const next = SUPPRESS_NEXT.exec(raw)
     const same = next === null ? SUPPRESS_LINE.exec(raw) : null
     const isFile = SUPPRESS_FILE.test(raw)
     if (next === null && same === null && !isFile) return
-    const ids = isFile ? null : rulesOf((next ?? same)[1])
+    const ids = isFile ? rulesOfTail(SUPPRESS_FILE.exec(raw)[1]) : rulesOfTail((next ?? same)[1])
     if (diffMode && ids === null) {
       selfSuppress.push(i + 1)
       return
@@ -291,7 +301,7 @@ function inlineComment(line, profile) {
   return null
 }
 
-export function detectCommentSlop(addedLines, profile = PROFILES.legacy, diffMode = false) {
+export function detectCommentSlop(addedLines, profile = PROFILES.legacy, diffMode = false, fileSuppress = null) {
   const lines = addedLines.map((l) => (l ?? "").replace(/[​-‏﻿]/g, ""))
   const suppress = collectSuppressions(lines, diffMode)
   const makeClassify = () => {
@@ -325,6 +335,7 @@ export function detectCommentSlop(addedLines, profile = PROFILES.legacy, diffMod
   }
   const violations = []
   const push = (v) => {
+    if (fileSuppress !== null && fileSuppress.has(v.rule)) return
     const s = suppress.perLine.get(v.lineNo)
     if (s === null || (s !== undefined && s.has(v.rule))) return
     violations.push(v)
@@ -618,8 +629,9 @@ function runDiffGate(diffText, root, strict) {
   const findings = []
   for (const [file, lines] of parseUnifiedDiff(diffText)) {
     if (!isCodePath(file, [...CLI_SKIPPED_SEGMENTS])) continue
+    const fileIds = fileSuppressIds(lines.map((l) => l.text))
     for (const run of consecutiveRuns(lines)) {
-      for (const v of detectCommentSlop(run.map((r) => r.text), profileFor(file) ?? PROFILES.legacy, true)) {
+      for (const v of detectCommentSlop(run.map((r) => r.text), profileFor(file) ?? PROFILES.legacy, true, fileIds)) {
         findings.push({ rel: file, ...v, lineNo: run[0].lineNo + v.lineNo - 1 })
       }
     }
@@ -1163,6 +1175,13 @@ function cmdSelfTest() {
       gitS(["commit", "-q", "-m", "slop"])
       const full = runCli(["scan", "."], suppDiffDir)
       check("supp-diff: в full-scan директива по-прежнему глушит [exit 0]", full.status === 0, full.out)
+      writeFileSync(
+        join(suppDiffDir, "clean.ts"),
+        "const x = 1\n// stop-ai-slop-ignore-file multi-line-comment changelog-marker\n// стало иначе\n// и ещё было\n",
+      )
+      gitS(["add", "clean.ts"])
+      const explicit = runCli(["--staged"], suppDiffDir)
+      check("supp-diff: явный список правил в новой директиве подавляет [exit 0]", explicit.status === 0, explicit.out)
     } finally {
       rmSync(suppDiffDir, { recursive: true, force: true })
     }
