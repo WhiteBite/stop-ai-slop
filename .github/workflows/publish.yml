@@ -1,8 +1,9 @@
 name: publish
 
 on:
-  release:
-    types: [published]
+  push:
+    tags:
+      - 'v*'
 
 permissions:
   id-token: write
@@ -26,4 +27,4 @@ jobs:
           if [ "$local_version" = "$remote_version" ]; then echo "skip=true" >> "$GITHUB_OUTPUT"; else echo "skip=false" >> "$GITHUB_OUTPUT"; fi
       - name: Publish to npm via OIDC
         if: steps.ver.outputs.skip == 'false'
-        run: npm publish --provenance --access public
+        run: npm publish

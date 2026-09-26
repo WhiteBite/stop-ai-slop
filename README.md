@@ -57,7 +57,9 @@ Action сам подтягивает базовый реф, поэтому ст�
 
 ## Релизы в npm
 
-Первая публикация нового пакета идёт с 2FA вручную: `npm publish --otp=<код>` или granular-токен с правом publish в `~/.npmrc`. Дальше — OIDC trusted publishing без токенов: после первой публикации на npmjs.com → Settings пакета → Trusted publishers добавить `WhiteBite/stop-ai-slop` и workflow `publish.yml`; воркфлоу `.github/workflows/publish.yml` срабатывает на published-release, сравнивает версию с опубликованной (повтор не пушит) и публикует с provenance (Node 24 даёт npm ≥ 11.5.1, необходимый для OIDC).
+Бутстрап, один раз: первая публикация нового пакета требует интерактивный 2FA — `npm publish` в терминале с OTP из authenticator (или granular-токен с bypass-2FA в `~/.npmrc`). Сразу после неё: npmjs.com → Settings пакета → Trusted publishers → добавить `WhiteBite/stop-ai-slop` и workflow `publish.yml`.
+
+Дальше деплой идёт по тегам: bump версии в `package.json` + запись в CHANGELOG, коммит, `git tag vX.Y.Z && git push origin main --tags`. Воркфлоу `.github/workflows/publish.yml` (триггер `push: tags: v*`) прогоняет self-test, сравнивает версию с опубликованной и публикует через OIDC с provenance; повторный прогон того же тега делает skip. Node 24 в воркфлоу обязателен: OIDC-публикация требует npm CLI ≥ 11.5.1.
 
 ## Монтаж на другую машину
 
