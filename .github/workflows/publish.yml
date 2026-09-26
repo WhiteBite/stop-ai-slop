@@ -18,13 +18,18 @@ jobs:
         with:
           node-version: 24
           registry-url: https://registry.npmjs.org
-      - name: Compare local and published versions
+      - name: Check whether this exact version is already published
         id: ver
         run: |
           local_version="$(node -p "require('./package.json').version")"
-          remote_version="$(npm view stop-ai-slop version 2>/dev/null || true)"
-          echo "local=${local_version} remote=${remote_version:-none}"
-          if [ "$local_version" = "$remote_version" ]; then echo "skip=true" >> "$GITHUB_OUTPUT"; else echo "skip=false" >> "$GITHUB_OUTPUT"; fi
+          echo "local=${local_version}"
+          if npm view "stop-ai-slop@${local_version}" version >/dev/null 2>&1; then
+            echo "version already in registry, skipping publish"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "version not in registry yet"
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
       - name: Publish to npm via OIDC
         if: steps.ver.outputs.skip == 'false'
         run: npm publish
