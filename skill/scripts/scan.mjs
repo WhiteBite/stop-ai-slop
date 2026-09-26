@@ -230,6 +230,10 @@ const SUPPRESS_LINE = /stop-ai-slop-ignore-line\b(.*)$/
 const SUPPRESS_FILE = /stop-ai-slop-ignore-file\b/
 const SUPPRESS_ANY = /stop-ai-slop-ignore-(?:next-line|line|file)\b/
 
+const LICENSE_HEAD = /^(?:\/\/+|\/\*+|\*+|<!--|#+|;+|--+)\s*(?:copyright|licensed?|SPDX)/i
+const isLicenseRun = (runLines) =>
+  runLines.slice(0, 3).some((l) => LICENSE_HEAD.test(l.trim())) || runLines.some((l) => l.includes("SPDX-License-Identifier"))
+
 function collectSuppressions(lines) {
   const perLine = new Map()
   let file = false
@@ -253,14 +257,20 @@ function decodeText(buf) {
   return buf.toString("utf8")
 }
 
-function inlineComment(line) {
-  for (const marker of ["//", " #"]) {
+const INLINE_SAFE_PREFIXES = new Set(["//", "#", "--", "%", ";", "!"])
+
+function inlineComment(line, profile) {
+  const markers = profile.prefixes
+    .filter((p) => INLINE_SAFE_PREFIXES.has(p))
+    .filter((p) => !(p === "//" && (profile === PROFILES.py || profile === PROFILES.pascal)))
+    .map((p) => (p === "#" ? " #" : p))
+  for (const marker of markers) {
     const idx = line.indexOf(marker)
     if (idx <= 0) continue
     const prefix = line.slice(0, idx)
     if (marker === "//" && prefix.trimEnd().endsWith(":")) continue
     if ((prefix.match(/["'`]/g) ?? []).length % 2 !== 0) continue
-    return marker === "//" ? line.slice(idx) : "//" + line.slice(idx + 1).trimStart()
+    return marker === "//" ? line.slice(idx) : "//" + line.slice(idx + marker.length).trimStart()
   }
   return null
 }
@@ -323,7 +333,8 @@ export function detectCommentSlop(addedLines, profile = PROFILES.legacy) {
     const inRun = cls !== null && cls.comment && !SUPPRESS_ANY.test(lines[i] ?? "")
     if (inRun && runStart === -1) runStart = i
     if (!inRun && runStart !== -1) {
-      if (i - runStart >= 2) push(finding("multi-line-comment", runStart + 1, lines.slice(runStart, i)))
+      const runLines = lines.slice(runStart, i)
+      if (i - runStart >= 2 && !isLicenseRun(runLines)) push(finding("multi-line-comment", runStart + 1, runLines))
       runStart = -1
     }
   }
@@ -342,7 +353,7 @@ export function detectCommentSlop(addedLines, profile = PROFILES.legacy) {
     if (SUPPRESS_ANY.test(line)) continue
     if (cls.comment || cls.doc) testLine(line, i, cls.doc)
     else {
-      const inline = inlineComment(line)
+      const inline = inlineComment(line, profile)
       if (inline !== null) testLine(inline, i, false)
     }
   }
