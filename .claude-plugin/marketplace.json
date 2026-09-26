@@ -1,0 +1,13 @@
+{
+  "name": "whitebite-plugins",
+  "owner": { "name": "WhiteBite" },
+  "plugins": [
+    {
+      "name": "stop-ai-slop",
+      "description": "Comment-slop policy and mechanical gate — zero-dependency scanner that blocks multi-line narrative comments, changelog markers, and other AI-generated slop in code comments.",
+      "source": "./",
+      "category": "productivity",
+      "keywords": ["comments", "slop", "lint", "code-quality", "ai-detection"]
+    }
+  ]
+}

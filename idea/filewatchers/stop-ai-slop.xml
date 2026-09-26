@@ -1,0 +1,34 @@
+<application>
+  <component name="ProjectFileWatcher">
+    <file-type value="Kotlin" />
+    <file-type value="Java" />
+    <file-type value="TypeScript" />
+    <file-type value="JavaScript" />
+    <file-type value="Python" />
+    <file-type value="YAML" />
+    <option name="runOnExternalChanges" value="true" />
+    <name>stop-ai-slop</name>
+    <enabled>true</enabled>
+    <effect name="highlightAffected" value="true" />
+    <compiler>node</compiler>
+    <options>
+      <option name="arguments" value="&lt;path-to-scan.mjs&gt; scan $FilePath$" />
+      <option name="workingDir" value="$FileDir$" />
+      <option name="outputFormat" value="FILE_INFO" />
+    </options>
+    <scope name="PROJECT_FILES" scope-type="project">
+      <exclude pattern="file:venv/**" />
+      <exclude pattern="file:__pycache__/**" />
+      <exclude pattern="file:node_modules/**" />
+      <exclude pattern="file:.git/**" />
+      <exclude pattern="file:build/**" />
+      <exclude pattern="file:target/**" />
+      <exclude pattern="file:.next/**" />
+      <exclude pattern="file:out/**" />
+      <exclude pattern="file:Pods/**" />
+      <exclude pattern="file:site-packages/**" />
+      <exclude pattern="file:.dart_tool/**" />
+      <exclude pattern="file:.gradle/**" />
+    </scope>
+  </component>
+</application>

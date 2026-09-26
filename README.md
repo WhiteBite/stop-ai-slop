@@ -81,6 +81,21 @@ repos:
 
 Хук запускает `--staged` при каждом коммите.
 
+## IntelliJ IDEA
+
+### File Watchers (Ultimate)
+
+Шаблон `idea/filewatchers/stop-ai-slop.xml` — готовый импорт через Settings → Tools → File Watchers → + → Import. После импорта заменить `<path-to-scan.mjs>` на абсолютный путь к `skill/scripts/scan.mjs` на вашей машине. Поддерживаемые типы: Kotlin, Java, TypeScript, JavaScript, Python, YAML. Запуск по каждому изменению файла; исключения из сканирования — стандартные каталоги артефактов (`venv`, `node_modules`, `.git`, `build`, `target`, `.next`, `out`, `Pods`, `site-packages`, `.dart_tool`, `.gradle`).
+
+Находки появляются в окне Run с кликабельными путями, потому что формат вывода сканера — `file:line`.
+
+### Actions on Save (все редакции IDEA 2024+)
+
+Встроенная поддержка внешних команд отсутствует. Два рабочих варианта:
+
+1. **External Tools** (Settings → Tools → External Tools → +): program = `node`, arguments = `<path>/scan.mjs scan $FilePath$`, working directory = `$FileDir$`. Триггер — вручную или через плагин [Save Actions](https://plugins.jetbrains.com/plugin/7668-save-actions).
+2. **File Watcher** (см. выше) — единственный вариант on-save без сторонних плагинов; доступен только в Ultimate.
+
 ## Отладка
 
 Плагин OpenCode пишет каждое решение гейта в JSONL-лог (`~/.config/opencode/logs/comment-gate.jsonl`, путь переопределяется переменной `STOP_AI_SLOP_LOG`): события `loaded`, `blocked` и `passed` с инструментом, файлом и правилами. Смотреть:
