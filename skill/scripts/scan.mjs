@@ -118,6 +118,7 @@ const PROFILES = {
   pascal: P(["//", "(*"], [["(*", "*)"]], [], ["*)"]),
   ini: P([";", "#"]),
   properties: P(["#", "!"]),
+  rst: P([".."]),
   vue: P(["//", "/*", "*", "<!--"], [["/*", "*/"], ["{/*", "*/}"], ["<!--", "-->"]], [JSDOC], ["*/"]),
 }
 const EXT_PROFILE = {
@@ -142,6 +143,8 @@ const EXT_PROFILE = {
   ".html": "markup", ".htm": "markup", ".xml": "markup", ".svg": "markup", ".xhtml": "markup", ".md": "markup", ".mdx": "markup",
   ".ml": "ocaml", ".mli": "ocaml", ".pas": "pascal", ".pp": "pascal", ".fs": "pascal", ".fsx": "pascal", ".fsi": "pascal",
   ".ini": "ini", ".inf": "ini", ".properties": "properties",
+  ".pyi": "py", ".feature": "hash", ".mod": "cfamily", ".sum": "cfamily", ".tmpl": "cfamily",
+  ".plist": "markup", ".pbxproj": "markup", ".xib": "markup", ".storyboard": "markup", ".rst": "rst",
   ".vue": "vue", ".svelte": "vue", ".astro": "vue",
 }
 const FILENAME_PROFILE = {
@@ -165,12 +168,27 @@ export function profileFor(filePath) {
   const byExt = EXT_PROFILE[extname(filePath).toLowerCase()]
   return byExt === undefined ? null : (PROFILES[byExt] ?? null)
 }
-const SKIPPED_SEGMENTS = new Set(["node_modules", "dist"])
+const SKIPPED_SEGMENTS = new Set([
+  "node_modules",
+  "dist",
+  "venv",
+  ".venv",
+  "build",
+  ".next",
+  ".dart_tool",
+  "site-packages",
+  "target",
+  "out",
+  ".gradle",
+  "Pods",
+  "__pycache__",
+  ".idea",
+])
 const CLI_SKIPPED_SEGMENTS = new Set([...SKIPPED_SEGMENTS, "coverage", ".git"])
 const MAX_COMMENT_LENGTH = 120
-// \b is ASCII-only in JS — Cyrillic markers must stay bare substrings or they never match
+// \b is ASCII-only in JS — Cyrillic markers get lookaround bounds so substrings inside longer words never match
 const CHANGELOG_MARKER =
-  /было|стало|раньше|вместо|теперь|\bnow we\b|\bpreviously\b|\binstead of\b|\bthis fixes\b|\bthis fix\b|\bmust take over\b|\bno longer\b|broke, so/i
+  /(?<![а-яё])(?:было|стало|раньше|вместо|теперь)(?![а-яё])|\bnow we\b|\bpreviously\b|\binstead of\b|\bthis fixes\b|\bthis fix\b|\bmust take over\b|\bno longer\b|broke, so/i
 const STEP_NUMBERED = /^\/\/\s*(?:step\s+\d+|\d+\.)/i
 const DIVIDER_CHARS = /^[-=#*\s─-╿]{6,}$/
 const MARKDOWN_BOLD = /^\/\/\s*\*\*/
