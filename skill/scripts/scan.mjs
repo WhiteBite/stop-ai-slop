@@ -1265,6 +1265,7 @@ const KNOWN_FLAGS = new Set([
   "--baseline-write",
   "--baseline-prune",
   "--audit",
+  "--stdin-path",
   "--help",
 ])
 
@@ -1315,6 +1316,26 @@ function cmdAudit(limit) {
     console.log(`${e.ts} ${e.verdict ?? e.event} ${e.tool ?? ""} ${e.filePath ?? ""}${rules}`)
   }
   return 0
+}
+
+function cmdStdinPath() {
+  const payload = readFileSync(0, "utf8")
+  let filePath = null
+  try {
+    const parsed = JSON.parse(payload)
+    filePath = parsed?.tool_input?.file_path ?? parsed?.tool_input?.filePath ?? null
+  } catch {
+    filePath = null
+  }
+  if (typeof filePath !== "string" || filePath === "") return 0
+  const root = gitToplevel(process.cwd())
+  const profile = profileFor(filePath)
+  if (profile === null || !existsSync(filePath)) return 0
+  const findings = scanFiles([filePath], root).map((f) => ({ ...f, rel: toRel(root, resolve(filePath)) }))
+  const baseline = loadBaseline(root)
+  const fresh = findings.filter((f) => !baseline.has(baselineKey(f)))
+  printFindings(fresh)
+  return failsGate(fresh, false) ? 1 : 0
 }
 
 function cmdUsage() {
@@ -1373,6 +1394,7 @@ function main(argv) {
     const paths = argv.filter((a) => a !== "scan" && !a.startsWith("--"))
     return cmdScan(paths.length > 0 ? paths : ["."], { prune: true })
   }
+  if (argv.includes("--stdin-path")) return cmdStdinPath()
   const unknown = argv.filter((a) => a.startsWith("--") && !KNOWN_FLAGS.has(a))
   if (unknown.length > 0) {
     console.error(`slop-gate: неизвестный флаг ${unknown[0]}`)
