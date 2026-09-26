@@ -1113,6 +1113,54 @@ function cmdSelfTest() {
     } finally {
       rmSync(errDir, { recursive: true, force: true })
     }
+    const suppDiffDir = mkdtempSync(join(tmpdir(), "slop-gate-suppdiff-"))
+    try {
+      const gitS = (args) =>
+        execFileSync("git", ["-c", "user.email=slop@test", "-c", "user.name=slop", "-c", "commit.gpgsign=false", ...args], {
+          cwd: suppDiffDir,
+          stdio: "pipe",
+        })
+      gitS(["init", "-q", "-b", "main"])
+      writeFileSync(join(suppDiffDir, "clean.ts"), "const x = 1\n")
+      gitS(["add", "clean.ts"])
+      gitS(["commit", "-q", "-m", "init"])
+      writeFileSync(join(suppDiffDir, "clean.ts"), "const x = 1\n// stop-ai-slop-ignore-file\n// стало иначе\n")
+      gitS(["add", "clean.ts"])
+      const staged = runCli(["--staged"], suppDiffDir)
+      check(
+        "supp-diff: новая ignore-file в диффе не глушит слоп",
+        staged.out.includes("changelog-marker"),
+        `exit ${staged.status}: ${staged.out}`,
+      )
+      check("supp-diff: vend/self-suppression [warning]", staged.out.includes("vend/self-suppression"), staged.out)
+      gitS(["commit", "-q", "-m", "slop"])
+      const full = runCli(["scan", "."], suppDiffDir)
+      check("supp-diff: в full-scan директива по-прежнему глушит [exit 0]", full.status === 0, full.out)
+    } finally {
+      rmSync(suppDiffDir, { recursive: true, force: true })
+    }
+    const hooksPathDir = mkdtempSync(join(tmpdir(), "slop-gate-hookspath-"))
+    try {
+      execFileSync("git", ["-c", "user.email=slop@test", "-c", "user.name=slop", "init", "-q", "-b", "main"], {
+        cwd: hooksPathDir,
+        stdio: "pipe",
+      })
+      mkdirSync(join(hooksPathDir, ".husky", "_"), { recursive: true })
+      execFileSync("git", ["config", "core.hooksPath", ".husky/_"], { cwd: hooksPathDir, stdio: "pipe" })
+      runCli(["--install"], hooksPathDir)
+      check(
+        "install: hook пишется в core.hooksPath",
+        existsSync(join(hooksPathDir, ".husky", "_", "pre-commit")),
+        readdirSync(join(hooksPathDir, ".husky", "_")),
+      )
+    } finally {
+      rmSync(hooksPathDir, { recursive: true, force: true })
+    }
+    const rotatePath = join(dir, "rotate.jsonl")
+    writeFileSync(rotatePath, Array.from({ length: 10000 }, (_, i) => `{"ts":"t${i}","verdict":"passed"}`).join("\n") + "\n")
+    appendAudit({ verdict: "passed", tool: "write", filePath: "r.ts" }, rotatePath)
+    const rotated = readFileSync(rotatePath, "utf8").split("\n").filter((l) => l.trim() !== "")
+    check("audit: лог ротируется при превышении 10000 строк", rotated.length === 5000 && rotated[4999].includes("r.ts"), rotated.length)
     const baseDir = mkdtempSync(join(tmpdir(), "slop-gate-baseline-"))
     try {
       writeFileSync(join(baseDir, "slop.ts"), narrative + "\nconst x = 1\n")
