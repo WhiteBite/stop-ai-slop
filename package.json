@@ -3,6 +3,15 @@
   "version": "0.2.0",
   "description": "Mechanical gate against AI slop comments: one zero-dependency scanner enforced as an OpenCode write-time plugin, an agent skill and a pre-commit hook installer.",
   "license": "MIT",
+  "keywords": [
+    "comment-policy",
+    "ai-slop",
+    "linter",
+    "pre-commit",
+    "opencode-plugin",
+    "claude-code",
+    "code-quality"
+  ],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/WhiteBite/stop-ai-slop.git"
