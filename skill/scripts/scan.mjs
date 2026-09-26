@@ -793,8 +793,27 @@ function cmdSelfTest() {
       "e.erl": "% removeSource rewrites rows\n% with fresh uuids zones vanish\nmod(x) -> x.\n",
       Containerfile: "# removeSource rewrites rows\n# with fresh uuids zones vanish\nRUN true\n",
       "w.bzl": "# removeSource rewrites rows\n# with fresh uuids zones vanish\nx = 1\n",
+      "g.feature": "# removeSource rewrites rows\n# with fresh uuids zones vanish\nFeature: x\n",
+      "go.mod": "// removeSource rewrites rows\n// with fresh uuids zones vanish\nmodule x\n",
+      "doc.rst": ".. removeSource rewrites rows\n.. with fresh uuids zones vanish\nx\n",
+      "Info.plist": "<!-- removeSource rewrites rows\nwith fresh uuids zones vanish\n-->\n<x/>\n",
+      "t.tmpl": "// removeSource rewrites rows\n// with fresh uuids zones vanish\nx\n",
     }
     for (const [name, body] of Object.entries(langFixtures)) writeFileSync(join(dir, name), body)
+    writeFileSync(join(dir, "inline.sql"), "SELECT 1 -- было так\n")
+    writeFileSync(join(dir, "inlinepy.py"), "x = y // было так\n")
+    writeFileSync(join(dir, "inline.lua"), "local x = 1 -- стало иначе\n")
+    writeFileSync(join(dir, "inlinefs.fs"), "let f x = x // было так\n")
+    writeFileSync(join(dir, "inline.tex"), "\\section{a} % было так\n")
+    writeFileSync(join(dir, "inline.clj"), "(def x 1) ; было так\n")
+    writeFileSync(join(dir, "inline.f90"), "x = 1 ! было так\n")
+    writeFileSync(join(dir, "inline.ini"), "key=1 ; было так\n")
+    writeFileSync(join(dir, "Dockerfile.dev"), "# removeSource rewrites rows\n# with fresh uuids zones vanish\nRUN true\n")
+    writeFileSync(join(dir, "Makefile.am"), "# removeSource rewrites rows\n# with fresh uuids zones vanish\nall:\n")
+    writeFileSync(join(dir, "ru-ok.ts"), "// осталось реализовать\nconst x = 1\n")
+    writeFileSync(join(dir, "ru-bad.ts"), "// стало иначе\nconst x = 1\n")
+    writeFileSync(join(dir, "lic.ts"), "/*\n * Copyright (c) 2024 Foo Inc.\n * All rights reserved.\n */\nconst x = 1\n")
+    writeFileSync(join(dir, "stub.pyi"), 'def f(raw):\n    """This function normalizes the payload\n    """\n    return raw\n')
     const findings = scanFiles(collectFiles([dir], dir), dir)
     const byRel = (rel) => findings.filter((f) => f.rel === rel)
     const sabotageRules = byRel("sabotage.ts").map((f) => f.rule)
@@ -852,6 +871,48 @@ function cmdSelfTest() {
         byRel(name).some((f) => f.rule === "multi-line-comment" && f.severity === "error"),
         byRel(name),
       )
+    }
+    const fileScan = runCli(["scan", join(dir, "sabotage.ts")], dir)
+    check(
+      "scan-file: явный путь к файлу сканируется [exit 1]",
+      fileScan.status === 1 && fileScan.out.includes("multi-line-comment") && !fileScan.out.includes("ReferenceError"),
+      `exit ${fileScan.status}: ${fileScan.out.slice(0, 200)}`,
+    )
+    const fileClean = runCli(["scan", join(dir, "clean.ts")], dir)
+    check("scan-file: чистый файл по явному пути [exit 0]", fileClean.status === 0, `exit ${fileClean.status}: ${fileClean.out}`)
+    check("inline sql: changelog-marker в -- комментарии [error]", byRel("inline.sql").some((f) => f.rule === "changelog-marker"), byRel("inline.sql"))
+    check("inline lua: changelog-marker в -- комментарии [error]", byRel("inline.lua").some((f) => f.rule === "changelog-marker"), byRel("inline.lua"))
+    check("inline tex: changelog-marker в % комментарии [error]", byRel("inline.tex").some((f) => f.rule === "changelog-marker"), byRel("inline.tex"))
+    check("inline clj: changelog-marker в ; комментарии [error]", byRel("inline.clj").some((f) => f.rule === "changelog-marker"), byRel("inline.clj"))
+    check("inline f90: changelog-marker в ! комментарии [error]", byRel("inline.f90").some((f) => f.rule === "changelog-marker"), byRel("inline.f90"))
+    check("inline ini: changelog-marker в ; комментарии [error]", byRel("inline.ini").some((f) => f.rule === "changelog-marker"), byRel("inline.ini"))
+    check("inline py: // — это floor division, не комментарий", byRel("inlinepy.py").length === 0, byRel("inlinepy.py"))
+    check("inline fs: // — это целочисленное деление, не комментарий", byRel("inlinefs.fs").length === 0, byRel("inlinefs.fs"))
+    check("fname: Dockerfile.dev сканируется [error]", byRel("Dockerfile.dev").some((f) => f.severity === "error"), byRel("Dockerfile.dev"))
+    check("fname: Makefile.am сканируется [error]", byRel("Makefile.am").some((f) => f.severity === "error"), byRel("Makefile.am"))
+    check("ru-ok: «осталось» не матчится как «стало»", byRel("ru-ok.ts").length === 0, byRel("ru-ok.ts"))
+    check("ru-bad: «стало иначе» блокируется [error]", byRel("ru-bad.ts").some((f) => f.rule === "changelog-marker"), byRel("ru-bad.ts"))
+    check("lic: лицензионная шапка не блокируется multi-line-comment", !byRel("lic.ts").some((f) => f.rule === "multi-line-comment"), byRel("lic.ts"))
+    check(
+      "pyi: docstring-опенер [warning], без error",
+      byRel("stub.pyi").some((f) => f.rule === "vend/this-function-opener") && !byRel("stub.pyi").some((f) => f.severity === "error"),
+      byRel("stub.pyi"),
+    )
+    const artDir = mkdtempSync(join(tmpdir(), "slop-gate-art-"))
+    try {
+      const artSlop = "// removeSource rewrites rows\n// with fresh uuids zones vanish\nconst x = 1\n"
+      for (const sub of ["venv", "build", "src"]) {
+        mkdirSync(join(artDir, sub), { recursive: true })
+        writeFileSync(join(artDir, sub, "slop.ts"), artSlop)
+      }
+      const artRun = runCli(["scan", "."], artDir)
+      check(
+        "art: venv/build пропускаются, src блокирует [exit 1]",
+        artRun.status === 1 && artRun.out.includes("src/slop.ts") && !artRun.out.includes("venv") && !artRun.out.includes("build/"),
+        artRun.out,
+      )
+    } finally {
+      rmSync(artDir, { recursive: true, force: true })
     }
     const auditPath = join(dir, "audit.jsonl")
     appendAudit({ verdict: "blocked", tool: "write", filePath: "a.ts", rules: ["multi-line-comment"] }, auditPath)
