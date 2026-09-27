@@ -9,6 +9,14 @@
 - `step-numbered` и `markdown-in-comment` работают во всех профилях (маркер комментария срезается перед матчингом), в doc-блоках не срабатывают
 - Русские формулировки: «Шаг N» в step-numbered, «Эта функция/Этот класс» в this-function-opener
 - `.codegraph` добавлен в каталоги артефактов, пропускаемые при сканировании
+- `markdown-in-comment`: строка таблицы требует минимум три пайпа (`| a | b |`) — фикс ложного срабатывания на прозу вида `// |flag| значение`
+- Маркеры changelog-marker / step-numbered / this-function-opener для de, fr, es: stattdessen, au lieu de, en lugar de; Schritt/Étape/Paso N; Diese/Cette/Esta Funktion
+- Guard-фикстуры self-test на одиночные темпоральные слова (vorher, avant, antes, frühere) — не матчатся
+- Три Unicode-правила по сырым строкам, включая escape-формы в исходнике: `vend/cjk-noise` (warning) — CJK-иероглифы, склеенные с латиницей или цифрами; `vend/zero-width-chars` (error) — невидимые символы U+200B–U+200D, U+2060, U+FEFF; `vend/bidi-controls` (error) — BiDi-контролы U+202A–U+202E, U+2066–U+2069
+- ZWJ (U+200D) внутри эмодзи-последовательностей и BOM в позиции 0 исключены из находок
+- CJK-смежность проверяется только в code-части строки: китайские комментарии и i18n-строки без смежности с латиницей легитимны
+- `--format json` (rdjson для reviewdog) и `--format sarif` (2.1.0) в режимах scan/--staged/--diff; exit-коды не зависят от формата
+- Конфиг `.stop-ai-slop.yaml`: override severity правил вплоть до off, maxCommentLength, excludePaths; zero-dep парсер подмножества YAML; write-time плагин конфиг не читает
 
 ## 0.2.1
 

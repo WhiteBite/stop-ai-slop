@@ -96,6 +96,33 @@ export const RULES = [
     write: "// stop-ai-slop-ignore-next-line vend/step-numbered -- нумерация из внешнего протокола",
     ignoreWhen: "full-scan: директива уже в репо, подавление легитимно",
   },
+  {
+    id: "vend/cjk-noise",
+    severity: "warning",
+    message: "CJK-иероглифы склеены с латиницей или цифрами в коде (артефакт генерации)",
+    why: "Переключение модели на китайский посреди идентификатора или строки не читается и не компилируется осмысленно; склейка иероглифов с латиницей — маркер невычищенной генерации, а не осознанной i18n-строки.",
+    instead: "переписать идентификатор или строку на одном языке; переводы — в i18n-ресурсы",
+    write: "const TAB_LABELS = { features: 'Функции' }",
+    ignoreWhen: "легальные китайские комментарии и строки i18n без смежности с латиницей; подавление директивой",
+  },
+  {
+    id: "vend/zero-width-chars",
+    severity: "error",
+    message: "невидимый символ нулевой ширины (U+200B, U+200C, U+200D, U+2060, U+FEFF или escape-форма)",
+    why: "Невидимые символы — канал инъекций и обфускации (Unicode Instruction Injection, Trojan Source): текст выглядит не так, как исполняется.",
+    instead: "удалить символ; пробел — обычным пробелом",
+    write: "const label = 'test'",
+    ignoreWhen: "нет (всегда артефакт или инъекция)",
+  },
+  {
+    id: "vend/bidi-controls",
+    severity: "error",
+    message: "BiDi-контролы (U+202A-U+202E, U+2066-U+2069 или escape-форма) переопределяют направление текста",
+    why: "BiDi-override меняет визуальный порядок кода без изменения логики: ревьюер видит не тот код, что исполняется.",
+    instead: "удалить контрол; направление текста определяет Unicode Bidi Algorithm",
+    write: "const url = 'example.com'",
+    ignoreWhen: "нет (явные контролы в коде не нужны)",
+  },
 ]
 
 const RULE_BY_ID = new Map(RULES.map((r) => [r.id, r]))
@@ -234,16 +261,64 @@ const CLI_SKIPPED_SEGMENTS = new Set([...SKIPPED_SEGMENTS, "coverage", ".git"])
 const MAX_COMMENT_LENGTH = 120
 // \b is ASCII-only in JS — Cyrillic markers get lookaround bounds so substrings inside longer words never match
 const CHANGELOG_MARKER =
-  /(?<![а-яё])(?:было|стало|раньше|вместо|теперь)(?![а-яё])|\bnow we\b|\bpreviously\b|\binstead of\b|\bthis fixes\b|\bthis fix\b|\bmust take over\b|\bno longer\b|broke, so/i
-const STEP_NUMBERED = /^(?:step\s+\d+|шаг\s+\d+|\d+\.)/i
+  /(?<![а-яё])(?:было|стало|раньше|вместо|теперь)(?![а-яё])|\bnow we\b|\bpreviously\b|\binstead of\b|\bthis fixes\b|\bthis fix\b|\bmust take over\b|\bno longer\b|broke, so|(?<![a-zäöüß])(?:stattdessen|nicht mehr|früher war|war vorher)(?![a-zäöüß])|\bau lieu de\b|(?<![a-zéèêàùç])(?:auparavant|désormais)(?![a-zéèêàùç])|\ben lugar de\b|\bantes era\b|\bya no\b|\banteriormente\b/i
+const STEP_NUMBERED = /^(?:step\s+\d+|шаг\s+\d+|schritt\s+\d+|(?<![a-zéèêàùç])étape\s+\d+|paso\s+\d+|\d+\.)/i
 const DIVIDER_CHARS = /^[-=#*\s─-╿]{6,}$/
 const MARKDOWN_BOLD = /^\*\*/
 const MARKDOWN_LIST = /^-\s+\S/
-const MARKDOWN_TABLE = /^\|/
-const THIS_OPENER = /^(?:this\s+(?:function|class|method|component)\b|(?:эт[ао]т?\s+|данн(?:ая|ый)\s+)(?:функци[а-яё]*|класс[а-яё]*|метод[а-яё]*|компонент[а-яё]*))/i
+const MARKDOWN_TABLE = /^\|.+\|.+\|/
+const THIS_OPENER =
+  /^(?:this\s+(?:function|class|method|component)\b|(?:эт[ао]т?\s+|данн(?:ая|ый)\s+)(?:функци[а-яё]*|класс[а-яё]*|метод[а-яё]*|компонент[а-яё]*)|diese[rs]?\s+(?:funktion|klasse|methode|komponente)|cett[ee]\s+(?:fonction|classe|méthode|composant)|est[ae]\s+(?:función|clase|método|componente))/i
 const TODO_WORD = /\bTODO\b/
 const TICKET_REF = /[A-Z]+-\d+/
 const ISSUE_LINK = /https?:\/\/\S+|#\d+/
+
+const CP = (...cps) => String.fromCodePoint(...cps)
+const BS = CP(0x5c)
+const STRIP_INVISIBLE = new RegExp("[" + CP(0x200b) + "-" + CP(0x200f) + CP(0xfeff) + "]", "g")
+const CJK = "[\\u2E80-\\u2EFF\\u3400-\\u4DBF\\u4E00-\\u9FFF\\uF900-\\uFAFF\\u3040-\\u30FF\\uAC00-\\uD7AF]"
+const LATIN = "[A-Za-z0-9_]"
+const CJK_ADJACENT = new RegExp(CJK + LATIN + "|" + LATIN + CJK)
+const ZERO_WIDTH = new RegExp("[" + CP(0x200b, 0x200c, 0x2060) + "]|" + BS + BS + "u200[bBcC]|" + BS + BS + "u2060")
+const ZWJ_ESCAPE = new RegExp(BS + BS + "u200[dD]")
+const FEFF_ESCAPE = new RegExp(BS + BS + "u[fF][eE][fF][fF]")
+const FEFF_CHAR = CP(0xfeff)
+const ZWJ_CHAR = CP(0x200d)
+const EMOJI = new RegExp(
+  "[" +
+    [
+      [0x2600, 0x27bf],
+      [0x1f300, 0x1f5ff],
+      [0x1f600, 0x1f64f],
+      [0x1f680, 0x1f6c5],
+      [0x1f900, 0x1f9ff],
+      [0x1f3fb, 0x1f3ff],
+    ]
+      .map(([a, b]) => CP(a) + "-" + CP(b))
+      .join("") +
+    "]",
+  "u",
+)
+const BIDI = new RegExp(
+  "[" + CP(0x202a, 0x202b, 0x202c, 0x202d, 0x202e, 0x2066, 0x2067, 0x2068, 0x2069) + "]|" + BS + BS + "u202[a-eA-E]|" + BS + BS + "u206[6-9]",
+)
+const hasBadZwj = (line) => {
+  if (ZWJ_ESCAPE.test(line)) return true
+  const chars = [...line]
+  for (let k = 0; k < chars.length; k++) {
+    if (chars[k] !== ZWJ_CHAR) continue
+    if (!EMOJI.test(chars[k - 1] ?? "") || !EMOJI.test(chars[k + 1] ?? "")) return true
+  }
+  return false
+}
+const hasBadFeff = (line, i) => {
+  if (FEFF_ESCAPE.test(line)) return true
+  const idx = line.indexOf(FEFF_CHAR)
+  if (idx === -1) return false
+  if (i === 0 && idx === 0) return line.indexOf(FEFF_CHAR, 1) !== -1
+  return true
+}
+const zeroWidthHit = (line, i) => ZERO_WIDTH.test(line) || hasBadZwj(line) || hasBadFeff(line, i)
 
 export function isCommentLine(line, profile = PROFILES.legacy) {
   const t = line.trim()
@@ -322,7 +397,7 @@ function decodeText(buf) {
 
 const INLINE_SAFE_PREFIXES = new Set(["//", "#", "--", "%", ";", "!"])
 
-function inlineComment(line, profile) {
+function inlineMarkerAt(line, profile) {
   const markers = profile.prefixes
     .filter((p) => INLINE_SAFE_PREFIXES.has(p))
     .filter((p) => !(p === "//" && (profile === PROFILES.py || profile === PROFILES.pascal)))
@@ -333,13 +408,21 @@ function inlineComment(line, profile) {
     const prefix = line.slice(0, idx)
     if (marker === "//" && prefix.trimEnd().endsWith(":")) continue
     if ((prefix.match(/["'`]/g) ?? []).length % 2 !== 0) continue
-    return marker === "//" ? line.slice(idx) : "//" + line.slice(idx + marker.length).trimStart()
+    return { idx, marker }
   }
   return null
 }
 
-export function detectCommentSlop(addedLines, profile = PROFILES.legacy, diffMode = false, fileSuppress = null) {
-  const lines = addedLines.map((l) => (l ?? "").replace(/[​-‏﻿]/g, ""))
+function inlineComment(line, profile) {
+  const m = inlineMarkerAt(line, profile)
+  if (m === null) return null
+  return m.marker === "//" ? line.slice(m.idx) : "//" + line.slice(m.idx + m.marker.length).trimStart()
+}
+
+export function detectCommentSlop(addedLines, profile = PROFILES.legacy, diffMode = false, fileSuppress = null, options = null) {
+  const maxCommentLength = options?.maxLength ?? MAX_COMMENT_LENGTH
+  const rawLines = addedLines.map((l) => l ?? "")
+  const lines = rawLines.map((l) => l.replace(STRIP_INVISIBLE, ""))
   const suppress = collectSuppressions(lines, diffMode)
   const makeClassify = () => {
     let blockClose = null
@@ -382,7 +465,7 @@ export function detectCommentSlop(addedLines, profile = PROFILES.legacy, diffMod
   const testLine = (raw, i, doc) => {
     const t = raw.trim()
     if (CHANGELOG_MARKER.test(raw)) push(finding("changelog-marker", i + 1, [raw]))
-    if (!doc && raw.length > MAX_COMMENT_LENGTH) push(finding("long-comment", i + 1, [raw]))
+    if (!doc && raw.length > maxCommentLength) push(finding("long-comment", i + 1, [raw]))
     const stripped = stripCommentMarker(t)
     if (!doc && STEP_NUMBERED.test(stripped)) push(finding("vend/step-numbered", i + 1, [raw]))
     if (isDividerLine(t)) push(finding("vend/section-divider", i + 1, [raw]))
@@ -418,6 +501,16 @@ export function detectCommentSlop(addedLines, profile = PROFILES.legacy, diffMod
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i] ?? ""
     const cls = classifyEach(line)
+    const rawLine = rawLines[i] ?? ""
+    if (rawLine !== "") {
+      if (zeroWidthHit(rawLine, i)) push(finding("vend/zero-width-chars", i + 1, [rawLine]))
+      if (BIDI.test(rawLine)) push(finding("vend/bidi-controls", i + 1, [rawLine]))
+      if (!cls.comment && !cls.doc) {
+        const m = inlineMarkerAt(rawLine, profile)
+        const codePart = m === null ? rawLine : rawLine.slice(0, m.idx)
+        if (CJK_ADJACENT.test(codePart)) push(finding("vend/cjk-noise", i + 1, [rawLine]))
+      }
+    }
     if (SUPPRESS_ANY.test(line)) continue
     if (cls.comment || cls.doc) testLine(line, i, cls.doc)
     else {
@@ -486,14 +579,18 @@ function toRel(root, absPath) {
   return relative(root, absPath).split(sep).join("/")
 }
 
-function collectFiles(paths, root) {
+function isExcludedPath(rel, excludePaths) {
+  return excludePaths.some((p) => rel === p || rel.startsWith(p + "/"))
+}
+
+function collectFiles(paths, root, excludePaths = []) {
   const out = []
   const walk = (dir) => {
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
       const full = join(dir, entry.name)
       if (entry.isDirectory()) {
-        if (!CLI_SKIPPED_SEGMENTS.has(entry.name)) walk(full)
-      } else if (isCodePath(toRel(root, full), [...CLI_SKIPPED_SEGMENTS])) {
+        if (!CLI_SKIPPED_SEGMENTS.has(entry.name) && !isExcludedPath(toRel(root, full), excludePaths)) walk(full)
+      } else if (isCodePath(toRel(root, full), [...CLI_SKIPPED_SEGMENTS]) && !isExcludedPath(toRel(root, full), excludePaths)) {
         out.push(full)
       }
     }
@@ -502,12 +599,12 @@ function collectFiles(paths, root) {
     const abs = resolve(root, p)
     if (!existsSync(abs)) continue
     if (statSync(abs).isDirectory()) walk(abs)
-    else if (profileFor(toRel(root, abs)) !== null) out.push(abs)
+    else if (profileFor(toRel(root, abs)) !== null && !isExcludedPath(toRel(root, abs), excludePaths)) out.push(abs)
   }
   return out
 }
 
-function scanFiles(files, root) {
+function scanFiles(files, root, options = null) {
   const findings = []
   for (const file of files) {
     let text
@@ -517,7 +614,7 @@ function scanFiles(files, root) {
       continue
     }
     const rel = toRel(root, file)
-    for (const v of detectCommentSlop(text.replaceAll("\r\n", "\n").split("\n"), profileFor(file) ?? PROFILES.legacy)) {
+    for (const v of detectCommentSlop(text.replaceAll("\r\n", "\n").split("\n"), profileFor(file) ?? PROFILES.legacy, false, null, options)) {
       findings.push({ rel, ...v })
     }
   }
@@ -540,8 +637,144 @@ function baselineKey(f) {
   return `${f.rel}:${f.lineNo}`
 }
 
-function printFindings(findings) {
-  const sorted = [...findings].sort((a, b) => (a.rel === b.rel ? a.lineNo - b.lineNo : a.rel < b.rel ? -1 : 1))
+function loadConfig(root) {
+  const path = join(root, ".stop-ai-slop.yaml")
+  if (!existsSync(path)) return null
+  const config = { maxCommentLength: null, excludePaths: [], rules: new Map() }
+  const unquote = (v) => {
+    if (v.length >= 2 && ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'")))) return v.slice(1, -1)
+    return v
+  }
+  let section = null
+  const lines = readFileSync(path, "utf8").split(/\r?\n/)
+  for (let i = 0; i < lines.length; i++) {
+    const raw = lines[i]
+    const t = raw.trim()
+    if (t === "" || t.startsWith("#")) continue
+    if (section === "excludePaths" && t.startsWith("-")) {
+      const item = unquote(t.slice(1).trim())
+      if (item !== "") config.excludePaths.push(item.replace(/^\.\//, "").replace(/\/+$/, ""))
+      continue
+    }
+    if (section === "rules" && /^\s/.test(raw)) {
+      const m = /^([^:]+):\s*(.*)$/.exec(t)
+      if (m !== null) {
+        const id = m[1].trim()
+        const sev = unquote(m[2].trim())
+        if (sev !== "off" && sev !== "warning" && sev !== "error") {
+          throw new Error(`slop-gate: ${path}:${i + 1}: недопустимое severity "${sev}" (ожидается off, warning или error)`)
+        }
+        if (RULE_BY_ID.has(id)) config.rules.set(id, sev)
+      }
+      continue
+    }
+    const top = /^(\S[^:]*):\s*(.*)$/.exec(raw)
+    if (top === null) {
+      section = null
+      continue
+    }
+    const key = top[1].trim()
+    const value = unquote(top[2].trim())
+    if (key === "maxCommentLength") {
+      const n = Number(value)
+      if (!Number.isInteger(n) || n <= 0) {
+        throw new Error(`slop-gate: ${path}:${i + 1}: maxCommentLength должен быть положительным целым`)
+      }
+      config.maxCommentLength = n
+      section = null
+    } else if (key === "excludePaths") {
+      section = "excludePaths"
+      if (value !== "") config.excludePaths.push(value.replace(/^\.\//, "").replace(/\/+$/, ""))
+    } else if (key === "rules") {
+      section = "rules"
+    } else {
+      section = null
+    }
+  }
+  return config
+}
+
+function configOptions(config) {
+  return config !== null && config.maxCommentLength !== null ? { maxLength: config.maxCommentLength } : null
+}
+
+function applyRuleConfig(findings, config) {
+  if (config === null || config.rules.size === 0) return findings
+  const out = []
+  for (const f of findings) {
+    const sev = config.rules.get(f.rule)
+    if (sev === undefined) out.push(f)
+    else if (sev !== "off") out.push({ ...f, severity: sev })
+  }
+  return out
+}
+
+function sortedFindings(findings) {
+  return [...findings].sort((a, b) => (a.rel === b.rel ? a.lineNo - b.lineNo : a.rel < b.rel ? -1 : 1))
+}
+
+function toRdjson(findings) {
+  return JSON.stringify({
+    source: { name: "stop-ai-slop", url: "https://github.com/WhiteBite/stop-ai-slop" },
+    severity: "WARNING",
+    diagnostics: sortedFindings(findings).map((f) => ({
+      message: RULE_BY_ID.get(f.rule).message,
+      location: { path: f.rel, range: { start: { line: f.lineNo } } },
+      ruleId: f.rule,
+      severity: f.severity === "error" ? "ERROR" : "WARNING",
+    })),
+  })
+}
+
+function toSarif(findings) {
+  return JSON.stringify(
+    {
+      $schema: "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json",
+      version: "2.1.0",
+      runs: [
+        {
+          tool: {
+            driver: {
+              name: "stop-ai-slop",
+              informationUri: "https://github.com/WhiteBite/stop-ai-slop",
+              rules: RULES.map((r) => ({
+                id: r.id,
+                shortDescription: { text: r.message },
+                defaultConfiguration: { level: r.severity },
+              })),
+            },
+          },
+          results: sortedFindings(findings).map((f) => ({
+            ruleId: f.rule,
+            level: f.severity,
+            message: { text: RULE_BY_ID.get(f.rule).message },
+            locations: [
+              {
+                physicalLocation: {
+                  artifactLocation: { uri: f.rel, uriBaseId: "SRCROOT" },
+                  region: { startLine: f.lineNo },
+                },
+              },
+            ],
+          })),
+        },
+      ],
+    },
+    null,
+    2,
+  )
+}
+
+function printFindings(findings, format = "text") {
+  if (format === "json") {
+    console.log(toRdjson(findings))
+    return
+  }
+  if (format === "sarif") {
+    console.log(toSarif(findings))
+    return
+  }
+  const sorted = sortedFindings(findings)
   for (const f of sorted) {
     const rule = RULE_BY_ID.get(f.rule)
     console.log(`${f.rel}:${f.lineNo} ${f.rule} [${f.severity}] ${rule.message}`)
@@ -564,9 +797,16 @@ function gitToplevel(root) {
   }
 }
 
-function cmdScan(paths, { writeBaseline = false, strict = false, prune = false } = {}) {
+function cmdScan(paths, { writeBaseline = false, strict = false, prune = false, format = "text" } = {}) {
   const root = gitToplevel(process.cwd())
-  const findings = scanFiles(collectFiles(paths, root), root)
+  let config
+  try {
+    config = loadConfig(root)
+  } catch (error) {
+    console.error(error.message)
+    return 2
+  }
+  const findings = applyRuleConfig(scanFiles(collectFiles(paths, root, config?.excludePaths ?? []), root, configOptions(config)), config)
   if (writeBaseline) {
     const lines = [...new Set(findings.map(baselineKey))].sort()
     const body = ["# slop-gate baseline: relpath:line", ...lines].join("\n") + "\n"
@@ -585,7 +825,7 @@ function cmdScan(paths, { writeBaseline = false, strict = false, prune = false }
   }
   const baseline = loadBaseline(root)
   const fresh = findings.filter((f) => !baseline.has(baselineKey(f)))
-  printFindings(fresh)
+  printFindings(fresh, format)
   return failsGate(fresh, strict) ? 1 : 0
 }
 
@@ -663,25 +903,35 @@ function consecutiveRuns(lines) {
   return runs
 }
 
-function runDiffGate(diffText, root, strict) {
+function runDiffGate(diffText, root, strict, format = "text", config = null) {
   const findings = []
+  const excludePaths = config?.excludePaths ?? []
+  const options = configOptions(config)
   for (const [file, lines] of parseUnifiedDiff(diffText)) {
     if (!isCodePath(file, [...CLI_SKIPPED_SEGMENTS])) continue
+    if (isExcludedPath(file, excludePaths)) continue
     const fileIds = fileSuppressIds(lines.map((l) => l.text))
     for (const run of consecutiveRuns(lines)) {
-      for (const v of detectCommentSlop(run.map((r) => r.text), profileFor(file) ?? PROFILES.legacy, true, fileIds)) {
+      for (const v of detectCommentSlop(run.map((r) => r.text), profileFor(file) ?? PROFILES.legacy, true, fileIds, options)) {
         findings.push({ rel: file, ...v, lineNo: run[0].lineNo + v.lineNo - 1 })
       }
     }
   }
   const baseline = loadBaseline(root)
-  const fresh = findings.filter((f) => !baseline.has(baselineKey(f)))
-  printFindings(fresh)
+  const fresh = applyRuleConfig(findings, config).filter((f) => !baseline.has(baselineKey(f)))
+  printFindings(fresh, format)
   return failsGate(fresh, strict) ? 1 : 0
 }
 
-function cmdStaged(strict = false) {
+function cmdStaged(strict = false, format = "text") {
   const root = gitToplevel(process.cwd())
+  let config
+  try {
+    config = loadConfig(root)
+  } catch (error) {
+    console.error(error.message)
+    return 2
+  }
   let diff
   try {
     diff = gitStagedDiff(root)
@@ -693,7 +943,7 @@ function cmdStaged(strict = false) {
     console.log("slop-gate: не git-репозиторий — staged-проверка пропущена")
     return 0
   }
-  return runDiffGate(diff, root, strict)
+  return runDiffGate(diff, root, strict, format, config)
 }
 
 function gitDiffRef(ref, root) {
@@ -711,8 +961,15 @@ function gitDiffRef(ref, root) {
   }
 }
 
-function cmdDiff(ref, strict = false) {
+function cmdDiff(ref, strict = false, format = "text") {
   const root = gitToplevel(process.cwd())
+  let config
+  try {
+    config = loadConfig(root)
+  } catch (error) {
+    console.error(error.message)
+    return 2
+  }
   let diff
   try {
     diff = gitDiffRef(ref, root)
@@ -724,7 +981,7 @@ function cmdDiff(ref, strict = false) {
     console.log("slop-gate: не git-репозиторий — diff-проверка пропущена")
     return 0
   }
-  return runDiffGate(diff, root, strict)
+  return runDiffGate(diff, root, strict, format, config)
 }
 
 function cmdExplain(ruleId) {
@@ -843,12 +1100,14 @@ function cmdSelfTest() {
     writeFileSync(join(dir, "long.ts"), "// " + "y".repeat(118) + "\nconst x = 1\n")
     writeFileSync(join(dir, "div.ts"), "// ----------\nconst x = 1\n")
     writeFileSync(join(dir, "md.ts"), "// **bold** note\nconst x = 1\n")
+    writeFileSync(join(dir, "md-table.ts"), "// | col a | col b |\nconst x = 1\n")
+    writeFileSync(join(dir, "md-pipe.ts"), "// |flag| принимает значение\nconst x = 1\n")
     writeFileSync(join(dir, "opener.ts"), "// This function normalizes the payload\nconst x = 1\n")
     writeFileSync(join(dir, "todo.ts"), "// TODO fix this later\nconst x = 1\n")
     writeFileSync(join(dir, "inline.ts"), "const x = 1 // было так, стало иначе\n")
     writeFileSync(join(dir, "block.ts"), "/* removeSource rewrites every row\nwith fresh uuids all vanish at once\nand incremental has no centroids left */\nconst x = 1\n")
     writeFileSync(join(dir, "docstring.py"), 'def f():\n    """This function normalizes the payload\n    and validates input\n    """\n    return 1\n')
-    writeFileSync(join(dir, "zwsp.ts"), "// с\u200Bтало иначе\nconst x = 1\n")
+    writeFileSync(join(dir, "zwsp.ts"), "// с" + CP(0x200b) + "тало иначе\nconst x = 1\n")
     writeFileSync(
       join(dir, "utf16.ts"),
       Buffer.concat([Buffer.from([0xff, 0xfe]), Buffer.from("// было так, стало иначе\nconst x = 1\n", "utf16le")]),
@@ -940,6 +1199,29 @@ function cmdSelfTest() {
     writeFileSync(join(dir, "ru-opener.ts"), "// Эта функция нормализует полезную нагрузку\nconst x = 1\n")
     writeFileSync(join(dir, "ru-step.yaml"), "# Шаг 3: нормализация\nkey: 1\n")
     writeFileSync(
+      join(dir, "sabotage-de.ts"),
+      "// Früher war das Verhalten anders, stattdessen lesen wir den Cache\n// Diese Funktion normalisiert die Nutzlast\nconst x = 1\n",
+    )
+    writeFileSync(join(dir, "sabotage-fr.ts"), "// au lieu de recalculer, on lit le cache\n// Cette fonction normalise la charge\nconst x = 1\n")
+    writeFileSync(join(dir, "sabotage-es.ts"), "// en lugar de recalcular, leemos la caché\n// Esta función normaliza la carga\nconst x = 1\n")
+    writeFileSync(join(dir, "de-step.ts"), "// Schritt 3: Nutzlast normalisieren\nconst x = 1\n")
+    writeFileSync(join(dir, "fr-step.py"), "# Étape 3 : normaliser la charge\nx = 1\n")
+    writeFileSync(join(dir, "es-step.yaml"), "# Paso 3: normalizar\nkey: 1\n")
+    writeFileSync(join(dir, "de-ok.ts"), "// vorher prüfen, ob der Slot frei ist\nconst x = 1\n")
+    writeFileSync(join(dir, "fr-ok.ts"), "// avant de valider, vérifier le jeton\nconst x = 1\n")
+    writeFileSync(join(dir, "es-ok.ts"), "// ejecutar antes de guardar\nconst x = 1\n")
+    writeFileSync(join(dir, "de-ok2.ts"), "// das frühere Verhalten bleibt gültig\nconst x = 1\n")
+    writeFileSync(join(dir, "cjk.ts"), "const TAB_LABEL = {\n  " + CP(0x56db, 0x4e2a, 0x4eba) + "features: 'Функции',\n}\n")
+    writeFileSync(join(dir, "cjk-ok.ts"), "// " + CP(0x7528, 0x6237) + "ID должен совпадать с токеном\nconst userId = 'x'\n")
+    writeFileSync(join(dir, "cjk-i18n.ts"), "const LABELS = { ok: '" + CP(0x786e, 0x5b9a) + "', cancel: '" + CP(0x53d6, 0x6d88) + "' }\n")
+    writeFileSync(join(dir, "zw.ts"), "const value = '" + CP(0x200b) + "test" + CP(0x200c) + "'\n")
+    writeFileSync(join(dir, "zw-escape.ts"), "const value = '" + CP(0x5c) + "u200Btest'\n")
+    writeFileSync(join(dir, "zwj-ok.ts"), "const family = '" + CP(0x1f468) + CP(0x200d) + CP(0x1f469) + CP(0x200d) + CP(0x1f467) + "'\n")
+    writeFileSync(join(dir, "bidi.ts"), "const url = '" + CP(0x202e) + "reversed.com'\n")
+    writeFileSync(join(dir, "bidi-escape.ts"), "const url = '" + CP(0x5c) + "u202Ereversed.com'\n")
+    writeFileSync(join(dir, "supp-uni.ts"), "// stop-ai-slop-ignore-next-line vend/zero-width-chars\nconst a = '" + CP(0x200b) + "'\n")
+    writeFileSync(join(dir, "supp-uni-file.ts"), "// stop-ai-slop-ignore-file vend/bidi-controls\nconst u = '" + CP(0x202e) + "'\n")
+    writeFileSync(
       join(dir, "doc-md.ts"),
       ["/**", " * Contract of the payload normalizer.", " * - item", " * **bold**", " */", "export function normalize() {}", ""].join("\n"),
     )
@@ -966,6 +1248,12 @@ function cmdSelfTest() {
     check("long: long-comment [error]", byRel("long.ts").some((f) => f.rule === "long-comment"), byRel("long.ts"))
     check("div: vend/section-divider [warning]", byRel("div.ts").some((f) => f.rule === "vend/section-divider"), byRel("div.ts"))
     check("md: vend/markdown-in-comment [warning]", byRel("md.ts").some((f) => f.rule === "vend/markdown-in-comment"), byRel("md.ts"))
+    check(
+      "md-table: строка таблицы → vend/markdown-in-comment [warning]",
+      byRel("md-table.ts").some((f) => f.rule === "vend/markdown-in-comment"),
+      byRel("md-table.ts"),
+    )
+    check("md-pipe: «|flag|» в прозе не флагается, находок нет", byRel("md-pipe.ts").length === 0, byRel("md-pipe.ts"))
     check("opener: vend/this-function-opener [warning]", byRel("opener.ts").some((f) => f.rule === "vend/this-function-opener"), byRel("opener.ts"))
     check("todo: vend/generic-todo [warning]", byRel("todo.ts").some((f) => f.rule === "vend/generic-todo"), byRel("todo.ts"))
     check("inline: changelog-marker в trailing-комменте [error]", byRel("inline.ts").some((f) => f.rule === "changelog-marker"), byRel("inline.ts"))
@@ -1049,6 +1337,54 @@ function cmdSelfTest() {
       byRel("ru-step.yaml").some((f) => f.rule === "vend/step-numbered" && f.severity === "warning"),
       byRel("ru-step.yaml"),
     )
+    check("sabotage-de: changelog-marker [error]", byRel("sabotage-de.ts").some((f) => f.rule === "changelog-marker"), byRel("sabotage-de.ts"))
+    check(
+      "sabotage-de: «Diese Funktion» → vend/this-function-opener [warning]",
+      byRel("sabotage-de.ts").some((f) => f.rule === "vend/this-function-opener"),
+      byRel("sabotage-de.ts"),
+    )
+    check("sabotage-fr: changelog-marker [error]", byRel("sabotage-fr.ts").some((f) => f.rule === "changelog-marker"), byRel("sabotage-fr.ts"))
+    check(
+      "sabotage-fr: «Cette fonction» → vend/this-function-opener [warning]",
+      byRel("sabotage-fr.ts").some((f) => f.rule === "vend/this-function-opener"),
+      byRel("sabotage-fr.ts"),
+    )
+    check("sabotage-es: changelog-marker [error]", byRel("sabotage-es.ts").some((f) => f.rule === "changelog-marker"), byRel("sabotage-es.ts"))
+    check(
+      "sabotage-es: «Esta función» → vend/this-function-opener [warning]",
+      byRel("sabotage-es.ts").some((f) => f.rule === "vend/this-function-opener"),
+      byRel("sabotage-es.ts"),
+    )
+    check(
+      "de-step: «Schritt N» → vend/step-numbered [warning]",
+      byRel("de-step.ts").some((f) => f.rule === "vend/step-numbered" && f.severity === "warning"),
+      byRel("de-step.ts"),
+    )
+    check(
+      "fr-step: «Étape N» в #-языке → vend/step-numbered [warning]",
+      byRel("fr-step.py").some((f) => f.rule === "vend/step-numbered" && f.severity === "warning"),
+      byRel("fr-step.py"),
+    )
+    check(
+      "es-step: «Paso N» → vend/step-numbered [warning]",
+      byRel("es-step.yaml").some((f) => f.rule === "vend/step-numbered" && f.severity === "warning"),
+      byRel("es-step.yaml"),
+    )
+    check("de-ok: голое «vorher» не матчится", byRel("de-ok.ts").length === 0, byRel("de-ok.ts"))
+    check("fr-ok: голое «avant» не матчится", byRel("fr-ok.ts").length === 0, byRel("fr-ok.ts"))
+    check("es-ok: голое «antes» не матчится", byRel("es-ok.ts").length === 0, byRel("es-ok.ts"))
+    check("de-ok2: «frühere» не матчится как «früher war»", byRel("de-ok2.ts").length === 0, byRel("de-ok2.ts"))
+    check("cjk: склейка CJK с латиницей → vend/cjk-noise [warning]", byRel("cjk.ts").some((f) => f.rule === "vend/cjk-noise" && f.severity === "warning"), byRel("cjk.ts"))
+    check("cjk-ok: китайский комментарий не флагается", byRel("cjk-ok.ts").length === 0, byRel("cjk-ok.ts"))
+    check("cjk-i18n: i18n-строки без смежности не флагуются", byRel("cjk-i18n.ts").length === 0, byRel("cjk-i18n.ts"))
+    check("zw: zero-width в строке → vend/zero-width-chars [error]", byRel("zw.ts").some((f) => f.rule === "vend/zero-width-chars" && f.severity === "error"), byRel("zw.ts"))
+    check("zw-escape: escape-форма в исходнике → vend/zero-width-chars [error]", byRel("zw-escape.ts").some((f) => f.rule === "vend/zero-width-chars"), byRel("zw-escape.ts"))
+    check("zwj-ok: эмодзи-ZWJ последовательность не флагается", byRel("zwj-ok.ts").length === 0, byRel("zwj-ok.ts"))
+    check("bidi: BiDi-контрол в строке → vend/bidi-controls [error]", byRel("bidi.ts").some((f) => f.rule === "vend/bidi-controls" && f.severity === "error"), byRel("bidi.ts"))
+    check("bidi-escape: escape-форма → vend/bidi-controls [error]", byRel("bidi-escape.ts").some((f) => f.rule === "vend/bidi-controls"), byRel("bidi-escape.ts"))
+    check("supp-uni: ignore-next-line гасит vend/zero-width-chars", byRel("supp-uni.ts").length === 0, byRel("supp-uni.ts"))
+    check("supp-uni-file: ignore-file гасит vend/bidi-controls", byRel("supp-uni-file.ts").length === 0, byRel("supp-uni-file.ts"))
+    check("zwsp: zero-width флагается и в старом фикстуре", byRel("zwsp.ts").some((f) => f.rule === "vend/zero-width-chars"), byRel("zwsp.ts"))
     check(
       "doc-md: markdown внутри JSDoc не флагается",
       !byRel("doc-md.ts").some((f) => f.rule === "vend/markdown-in-comment"),
@@ -1353,6 +1689,97 @@ function cmdSelfTest() {
     } finally {
       rmSync(subDir, { recursive: true, force: true })
     }
+    const jsonRun = runCli(["scan", "sabotage.ts", "--format", "json"], dir)
+    let jsonParsed = null
+    try {
+      jsonParsed = JSON.parse(jsonRun.out)
+    } catch {
+      jsonParsed = null
+    }
+    check(
+      "format: --format json парсится, несёт ruleId и line [exit 1]",
+      jsonRun.status === 1 &&
+        jsonParsed !== null &&
+        !jsonRun.out.includes("slop-gate:") &&
+        jsonParsed.diagnostics.some((d) => d.ruleId === "multi-line-comment" && d.location.path === "sabotage.ts" && d.location.range.start.line === 1),
+      `exit ${jsonRun.status}: ${jsonRun.out.slice(0, 200)}`,
+    )
+    const sarifRun = runCli(["scan", "sabotage.ts", "--format", "sarif"], dir)
+    let sarifParsed = null
+    try {
+      sarifParsed = JSON.parse(sarifRun.out)
+    } catch {
+      sarifParsed = null
+    }
+    check(
+      "format: --format sarif 2.1.0, rules = все RULES, results = находки [exit 1]",
+      sarifRun.status === 1 &&
+        sarifParsed !== null &&
+        sarifParsed.version === "2.1.0" &&
+        sarifParsed.runs[0].tool.driver.rules.length === RULES.length &&
+        sarifParsed.runs[0].results.length === byRel("sabotage.ts").length,
+      `exit ${sarifRun.status}: ${sarifRun.out.slice(0, 200)}`,
+    )
+    const cleanJson = runCli(["scan", "clean.ts", "--format", "json"], dir)
+    let cleanParsed = null
+    try {
+      cleanParsed = JSON.parse(cleanJson.out)
+    } catch {
+      cleanParsed = null
+    }
+    check(
+      "format: чистый файл --format json → diagnostics пуст [exit 0]",
+      cleanJson.status === 0 && cleanParsed !== null && cleanParsed.diagnostics.length === 0,
+      `exit ${cleanJson.status}: ${cleanJson.out.slice(0, 200)}`,
+    )
+    const badFormat = runCli(["scan", ".", "--format", "yaml"], dir)
+    check("format: неизвестный формат [exit 2]", badFormat.status === 2, `exit ${badFormat.status}: ${badFormat.out}`)
+    const cfgDir = mkdtempSync(join(tmpdir(), "slop-gate-cfg-"))
+    try {
+      writeFileSync(join(cfgDir, "a.ts"), "// первая строка блока\n// вторая строка блока\nconst x = 1\n")
+      writeFileSync(join(cfgDir, ".stop-ai-slop.yaml"), "rules:\n  multi-line-comment: off\n")
+      const offRun = runCli(["scan", "."], cfgDir)
+      check(
+        "cfg-off: правило отключено конфигом [exit 0]",
+        offRun.status === 0 && !offRun.out.includes("multi-line-comment"),
+        `exit ${offRun.status}: ${offRun.out}`,
+      )
+      writeFileSync(join(cfgDir, ".stop-ai-slop.yaml"), "rules:\n  vend/step-numbered: error\n")
+      writeFileSync(join(cfgDir, "a.ts"), "// Step 3: x\nconst x = 1\n")
+      const sevRun = runCli(["scan", "."], cfgDir)
+      check(
+        "cfg-sev: warning повышен до error конфигом [exit 1]",
+        sevRun.status === 1 && sevRun.out.includes("vend/step-numbered"),
+        `exit ${sevRun.status}: ${sevRun.out}`,
+      )
+      writeFileSync(join(cfgDir, ".stop-ai-slop.yaml"), "maxCommentLength: 40\n")
+      writeFileSync(join(cfgDir, "a.ts"), "// " + "y".repeat(58) + "\nconst x = 1\n")
+      const lenRun = runCli(["scan", "."], cfgDir)
+      check(
+        "cfg-len: maxCommentLength из конфига [exit 1]",
+        lenRun.status === 1 && lenRun.out.includes("long-comment"),
+        `exit ${lenRun.status}: ${lenRun.out}`,
+      )
+      mkdirSync(join(cfgDir, "sub"), { recursive: true })
+      writeFileSync(join(cfgDir, "sub", "slop.ts"), "// первая строка блока\n// вторая строка блока\nconst x = 1\n")
+      writeFileSync(join(cfgDir, "a.ts"), "const x = 1\n")
+      writeFileSync(join(cfgDir, ".stop-ai-slop.yaml"), "excludePaths:\n  - sub\n")
+      const exclRun = runCli(["scan", "."], cfgDir)
+      check(
+        "cfg-exclude: excludePaths исключает каталог [exit 0]",
+        exclRun.status === 0 && !exclRun.out.includes("sub/slop.ts"),
+        `exit ${exclRun.status}: ${exclRun.out}`,
+      )
+      writeFileSync(join(cfgDir, ".stop-ai-slop.yaml"), "rules:\n  vend/step-numbered: maybe\n")
+      const badRun = runCli(["scan", "."], cfgDir)
+      check(
+        "cfg-bad: недопустимое severity [exit 2]",
+        badRun.status === 2 && badRun.out.includes(".stop-ai-slop.yaml"),
+        `exit ${badRun.status}: ${badRun.out}`,
+      )
+    } finally {
+      rmSync(cfgDir, { recursive: true, force: true })
+    }
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }
@@ -1370,8 +1797,22 @@ const KNOWN_FLAGS = new Set([
   "--baseline-prune",
   "--audit",
   "--stdin-path",
+  "--format",
   "--help",
 ])
+
+const FORMATS = new Set(["text", "json", "sarif"])
+
+function parseFormat(argv) {
+  const idx = argv.indexOf("--format")
+  if (idx === -1) return { format: "text", rest: argv }
+  const value = argv[idx + 1]
+  if (value === undefined || value.startsWith("--") || !FORMATS.has(value)) {
+    console.error("slop-gate: --format требует значение text, json или sarif")
+    return null
+  }
+  return { format: value, rest: [...argv.slice(0, idx), ...argv.slice(idx + 2)] }
+}
 
 export function auditLogPath() {
   return process.env.STOP_AI_SLOP_LOG ?? join(homedir(), ".config", "opencode", "logs", "comment-gate.jsonl")
@@ -1458,7 +1899,7 @@ function cmdUsage() {
       "  --audit [N]         последние N записей аудит-лога решений гейта",
       "  --self-test         саботаж-тест детектора",
       "",
-      "Флаги: --strict (warning тоже блокируют), --help",
+      "Флаги: --strict (warning тоже блокируют), --format <text|json|sarif> (формат вывода), --help",
       "Коды выхода: 0 — чисто; 1 — гейт сработал; 2 — ошибка использования или git",
     ].join("\n"),
   )
@@ -1477,8 +1918,12 @@ function main(argv) {
     return cmdExplain(ruleId)
   }
   const strict = argv.includes("--strict")
+  const parsed = parseFormat(argv)
+  if (parsed === null) return 2
+  const { format } = parsed
+  argv = parsed.rest
   if (argv.includes("--install")) return cmdInstall(strict)
-  if (argv.includes("--staged")) return cmdStaged(strict)
+  if (argv.includes("--staged")) return cmdStaged(strict, format)
   const diffIdx = argv.indexOf("--diff")
   if (diffIdx !== -1) {
     const ref = argv[diffIdx + 1]
@@ -1486,7 +1931,7 @@ function main(argv) {
       console.error("slop-gate: --diff требует ref (например, main)")
       return 2
     }
-    return cmdDiff(ref, strict)
+    return cmdDiff(ref, strict, format)
   }
   if (argv.includes("--help")) return cmdUsage()
   const auditIdx = argv.indexOf("--audit")
@@ -1505,7 +1950,7 @@ function main(argv) {
     return 2
   }
   const paths = argv.filter((a) => a !== "scan" && !a.startsWith("--"))
-  return cmdScan(paths.length > 0 ? paths : ["."], { writeBaseline: argv.includes("--baseline-write"), strict })
+  return cmdScan(paths.length > 0 ? paths : ["."], { writeBaseline: argv.includes("--baseline-write"), strict, format })
 }
 
 const isMain = (() => {

@@ -48,6 +48,47 @@ node skill/scripts/scan.mjs --help              # справка по всем �
 
 Exit 1 — есть error-находки вне baseline; иначе 0. Exit 2 — ошибка использования или git (неверный флаг, несуществующий ref).
 
+## Форматы вывода
+
+По умолчанию — человекочитаемый текст с итоговой строкой `slop-gate: …`. Флаг `--format <text|json|sarif>` (режимы `scan`, `--staged`, `--diff`) переключает stdout на машиночитаемый формат: печатается только JSON, итоговая строка не выводится. Коды выхода от формата не зависят — по-прежнему 0/1/2.
+
+`--format json` — Reviewdog RDFormat: один JSON-объект в одну строку (pipe-friendly), `diagnostics` отсортированы по пути и строке, пустой результат — `diagnostics: []`:
+
+```
+npx stop-ai-slop --diff origin/main --format json | reviewdog -f=rdjson -reporter=github-pr-review
+```
+
+`--format sarif` — SARIF 2.1.0 с отступом в два пробела; массив `rules` перечисляет все правила независимо от находок, `results` — только реальные находки. Загрузка в GitHub code scanning:
+
+```yaml
+- run: npx stop-ai-slop --diff origin/${{ github.base_ref }} --format sarif > results.sarif
+- uses: github/codeql-action/upload-sarif@v3
+  with:
+    sarif_file: results.sarif
+```
+
+## Конфиг
+
+Необязательный файл `.stop-ai-slop.yaml` в корне репозитория (там же, где baseline: корень git, а вне репо — каталог сканирования). Читается режимами `scan`, `--staged`, `--diff`; write-time плагин OpenCode конфиг не читает и работает с дефолтами. Парсер — zero-dep подмножество YAML: скаляры `ключ: значение`, списки через `- `, секция `rules:` с двухпробельным отступом, `#`-комментарии и пустые строки пропускаются, значения могут быть в кавычках. Неизвестные ключи игнорируются; недопустимое severity — exit 2 с именем файла и номером строки.
+
+| Ключ | Семантика |
+| --- | --- |
+| `maxCommentLength` | порог длины строки комментария для `long-comment` (по умолчанию 120) |
+| `excludePaths` | список относительных путей-префиксов: путь исключается, если равен записи или начинается с `запись/`; работает в полном сканировании и в diff-режимах |
+| `rules` | override severity по id правила: `error`, `warning` или `off` (правило отключено) |
+
+```yaml
+maxCommentLength: 100
+excludePaths:
+  - generated
+  - docs/api.md
+rules:
+  multi-line-comment: off
+  vend/step-numbered: error
+```
+
+Remap severity применяется после детекции и до фильтрации baseline и подсчёта exit-кода; baseline матчится по `rel:line` независимо от severity, поэтому смена severity в конфиге не воскрешает и не маскирует baselined-находки.
+
 ## CI (GitHub Actions)
 
 ```yaml
@@ -62,7 +103,7 @@ on: pull_request:
             base: ${{ github.base_ref }}
 ```
 
-Action сам подтягивает базовый реф, поэтому стандартного shallow checkout достаточно; `strict: "true"` включает режим warnings-as-errors. На push-событиях action не работает (нет `github.base_ref`) — используйте `pull_request` или передавайте base явно.
+Action сам подтягивает базовый реф, поэтому стандартного shallow checkout достаточно; `strict: "true"` включает режим warnings-as-errors; `format: "json"` или `format: "sarif"` переключает вывод action на машиночитаемый формат (см. «Форматы вывода»). На push-событиях action не работает (нет `github.base_ref`) — используйте `pull_request` или передавайте base явно.
 
 ## Релизы в npm
 
@@ -172,16 +213,19 @@ node skill/scripts/scan.mjs --audit 50     # последние 50
 | `multi-line-comment` | error | комментарий занимает 2+ строки подряд (doc-блоки исключены) |
 | `changelog-marker` | error | комментарий пересказывает дифф (было/стало/раньше/вместо/fixes) |
 | `long-comment` | error | строка комментария длиннее 120 символов (doc-блоки исключены) |
-| `vend/step-numbered` | warning | нумерованный шаг в комментарии (Step N / Шаг N / N., маркер любого языка) |
+| `vend/step-numbered` | warning | нумерованный шаг в комментарии (Step N / Шаг N / Schritt N / Étape N / Paso N / N., маркер любого языка) |
 | `vend/section-divider` | warning | строка-разделитель из символов -=#* |
-| `vend/markdown-in-comment` | warning | markdown-разметка внутри комментария (**, -, \|) |
-| `vend/this-function-opener` | warning | комментарий начинается с «This function/class/method/component» или «Эта функция/Этот класс» |
+| `vend/markdown-in-comment` | warning | markdown-разметка внутри комментария (**, -, \|); строка таблицы требует минимум три пайпа (`\| a \| b \|`), одиночный `\|flag\|` в прозе не флагается |
+| `vend/this-function-opener` | warning | комментарий начинается с «This function/class/method/component», «Эта функция/Этот класс», «Diese Funktion», «Cette fonction» или «Esta función» |
 | `vend/file-summary-header` | warning | шапка-резюме из 2+ строк комментария в начале файла |
 | `vend/generic-todo` | warning | TODO без ссылки на тикет |
+| `vend/cjk-noise` | warning | CJK-иероглифы склеены с латиницей или цифрами в code-части строки (артефакт генерации) |
+| `vend/zero-width-chars` | error | невидимый символ нулевой ширины (U+200B, U+200C, U+200D, U+2060, U+FEFF или escape-форма) |
+| `vend/bidi-controls` | error | BiDi-контролы (U+202A–U+202E, U+2066–U+2069 или escape-форма) переопределяют направление текста |
 
 Error-правила не применяются к doc-блокам (JSDoc `/** … */` и Python-docstring): контрактная документация классов и функций допустима любой длины. Внутри doc-блоков по-прежнему ловятся changelog-маркеры (error) и пересказ сигнатуры «This function…» (warning).
 
-Текстовые правила (`step-numbered`, `markdown-in-comment`, `this-function-opener`) матчатся по тексту после срезания маркера комментария, поэтому работают во всех профилях — `# Шаг 3` в yaml и `-- Step 3` в sql ловятся одинаково. `step-numbered` и `this-function-opener` понимают RU+EN («Шаг N», «Эта функция/Этот класс»), `changelog-marker` — тоже только RU+EN; структурные правила (multi-line, divider, header, todo) от языка формулировок не зависят. `step-numbered` и `markdown-in-comment` внутри doc-блоков не срабатывают.
+Текстовые правила (`step-numbered`, `markdown-in-comment`, `this-function-opener`) матчатся по тексту после срезания маркера комментария, поэтому работают во всех профилях — `# Шаг 3` в yaml и `-- Step 3` в sql ловятся одинаково. `step-numbered`, `this-function-opener` и `changelog-marker` понимают RU+EN+DE+FR+ES («Шаг N», «Schritt N», «Étape N», «Diese Funktion», «au lieu de», «ya no» и т.п.); прочие естественные языки не покрыты. Структурные правила (multi-line, divider, header, todo) от языка формулировок не зависят. `step-numbered` и `markdown-in-comment` внутри doc-блоков не срабатывают.
 
 Полное обоснование по правилу (Why / Instead of / Write / Ignore it when из той же таблицы `RULES`):
 
@@ -191,7 +235,7 @@ node skill/scripts/scan.mjs --explain <rule-id>
 
 id правил и служебные лейблы — EN; сообщения и обоснования — RU. Префикс `vend/` = правила, вендоренные из внешних каталогов паттернов.
 
-Детектор видит inline-комментарии после кода (`const x = 1 // было`), блоковые комментарии без маркера на средних строках, doc-блоки любой длины (контрактные JSDoc/docstring), файлы в UTF-16 с BOM; zero-width символы игнорируются при матчинге. Не сканируются: языки без профиля (см. таблицу выше; `.m` неоднозначно), бинарные и офисные форматы; `--staged` и `--diff` не видят неотслеживаемые файлы. Warning не блокируют гейт, если не указан `--strict`. Имена файлов с не-ASCII поддерживаются в diff-режимах. Пропускаются каталоги артефактов (`venv`, `build`, `.next`, `target`, `out`, `.gradle`, `Pods`, `__pycache__`, `.idea`, `.codegraph`, `site-packages`, `.dart_tool`). Лицензионные шапки exempt from multi-line rule. Inline-комментарии определяются по маркерам профиля (`//`, `#`, `--`, `%`, `;`, `!`) за исключением py/fs floor division (`//`).
+Детектор видит inline-комментарии после кода (`const x = 1 // было`), блоковые комментарии без маркера на средних строках, doc-блоки любой длины (контрактные JSDoc/docstring), файлы в UTF-16 с BOM; zero-width символы (U+200B–U+200F, U+FEFF) срезаются при матчинге маркеров и одновременно флагаются как находки по сырым строкам вместе с BiDi-контролами (U+202A–U+202E, U+2066–U+2069) — включая escape-формы в исходнике; ZWJ внутри эмодзи-последовательностей и BOM в позиции 0 не флагаются. CJK-смежность с латиницей или цифрами проверяется только в code-части строки: китайские комментарии и i18n-строки без смежности с латиницей легитимны. Не сканируются: языки без профиля (см. таблицу выше; `.m` неоднозначно), бинарные и офисные форматы; `--staged` и `--diff` не видят неотслеживаемые файлы. Warning не блокируют гейт, если не указан `--strict`. Имена файлов с не-ASCII поддерживаются в diff-режимах. Пропускаются каталоги артефактов (`venv`, `build`, `.next`, `target`, `out`, `.gradle`, `Pods`, `__pycache__`, `.idea`, `.codegraph`, `site-packages`, `.dart_tool`). Лицензионные шапки exempt from multi-line rule. Inline-комментарии определяются по маркерам профиля (`//`, `#`, `--`, `%`, `;`, `!`) за исключением py/fs floor division (`//`).
 
 ## Сравнение с аналогами
 
@@ -201,7 +245,7 @@ id правил и служебные лейблы — EN; сообщения и
 | --- | --- | --- | --- | --- | --- |
 | Что сканирует | комментарии в коде, 9 правил | код-слоп: 50+ правил, 10 языков | проза: коммиты, PR, docs, 20 правил | 78 grep-правил всех категорий | JS/TS: error-handling, моки |
 | Блокирует в момент правки | да: OpenCode-плагин отклоняет edit/write | хуки claude/cursor/gemini/pi, OpenCode нет | нет | нет: skill просит LLM самому прогнать grep | нет |
-| Русский язык | changelog-маркеры ru+en | правила EN | правила EN; их же бенч: em-dash на корректной русской прозе — 24 срабатывания на 1000 слов | EN | EN |
+| Русский язык | changelog-маркеры ru+en, плюс пакеты маркеров de/fr/es | правила EN | правила EN; их же бенч: em-dash на корректной русской прозе — 24 срабатывания на 1000 слов | EN | EN |
 | Зависимости | 0: сканер — один .mjs; плагин OpenCode — .ts | npm-пакет + внешние движки (biome, ruff, oxlint) | npm-пакет | Python + ripgrep | npm-пакет |
 | Модель гейта | политика: правило → exit 1 | скор 0–100 и порог failBelow | взвешенный скор на 1000 слов | уровни severity | скор и delta-сравнение |
 | Своя политика | таблица RULES в одном файле, `--explain` по правилу | severity на правило, новые правила — только в их репо | ignore/only по файлам | rules.toml | config и плагины |

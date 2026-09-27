@@ -10,6 +10,10 @@ inputs:
     description: "true to fail on warnings too"
     required: false
     default: "false"
+  format:
+    description: Output format — text, json (rdjson) or sarif
+    required: false
+    default: "text"
 
 runs:
   using: composite
@@ -27,9 +31,11 @@ runs:
       run: |
         args=(--diff FETCH_HEAD)
         if [ "$STRICT" = "true" ]; then args+=(--strict); fi
+        args+=(--format "$FORMAT")
         node "$GITHUB_ACTION_PATH/skill/scripts/scan.mjs" "${args[@]}"
       env:
         STRICT: "${{ inputs.strict }}"
+        FORMAT: "${{ inputs.format }}"
 
 branding:
   icon: alert-octagon
