@@ -21,14 +21,41 @@ AI coding agents over-comment: multi-line narrative blocks, `// was X, now Y` ch
 - **Legacy-friendly.** A baseline grandfathers existing findings so the gate only fires on new slop.
 - **Wide enforcement surface.** OpenCode, Claude Code, Cursor, Codex, GitHub Actions, GitLab CI, MCP, VS Code, IntelliJ IDEA.
 
-## Install from npm
+## What you get, and what installs automatically
+
+One scanner (`skill/scripts/scan.mjs`, the `RULES` table) is exposed through eight surfaces. They are independent: enable the ones you need, none conflict, and all enforce the same rules.
+
+| Surface | What it does | How it gets installed |
+| --- | --- | --- |
+| CLI (`stop-ai-slop` bin) | scans files, staged changes or a diff; `--explain`, `--audit`, baseline | automatic with `npm i -D stop-ai-slop` |
+| pre-commit hook + npm scripts | blocks every commit that adds slop | automatic: `npx stop-ai-slop --install` |
+| OpenCode write-time plugin | rejects `write`/`edit`/`multiedit` at the moment of the write | manual: a one-line stub file (below) |
+| Claude Code plugin | skill + PreToolUse hook (blocks `Write`/`Edit`) + PostToolUse hook (prints findings back into the session) | automatic: `/plugin marketplace add` + `/plugin install` |
+| Agent skill (`skill/SKILL.md`) | teaches the policy and the commands to any agent | automatic with the Claude Code plugin; a manual junction/symlink for OpenCode |
+| MCP server (`--mcp`) | pull-mode `slop_scan` / `slop_explain` / `slop_baseline` for any MCP client | manual: one config entry per client |
+| GitHub Action / GitLab CI template | blocks PR/MR pipelines on the diff | manual: a workflow / CI snippet |
+| VS Code task / IDEA File Watcher | on-demand or on-save scan inside the IDE | manual: a snippet / template import |
+
+### Install in two commands
 
 ```
 npm i -D stop-ai-slop
-npx stop-ai-slop --install        # adds npm scripts + a pre-commit hook to the current repo
+npx stop-ai-slop --install        # writes the pre-commit hook + npm scripts into the current repo
 ```
 
-OpenCode write-time plugin from the installed package: create `~/.config/opencode/plugins/comment-gate.ts` containing one line, `export { CommentGate } from "<path to node_modules>/stop-ai-slop/plugin/comment-gate.ts"`.
+`--install` is the only command that modifies your repo: it appends a marked block to `.git/hooks/pre-commit` (idempotent, never clobbers an existing hook) and adds the `stop-ai-slop` / `stop-ai-slop:all` npm scripts. The hook embeds the absolute path to the scanner as of install time — after moving or re-cloning the scanner, run `--install` again.
+
+### Nothing happens silently
+
+`npm i -D stop-ai-slop` has no postinstall script: it only places files under `node_modules`. No hook, editor config or agent setting is touched until you run `--install` or add one of the snippets below yourself.
+
+### Which surfaces to pick
+
+- **Git-only teams** — the two commands above; done.
+- **OpenCode users** — add the plugin stub so slop is rejected at write time: create `~/.config/opencode/plugins/comment-gate.ts` with one line, `export { CommentGate } from "<path to node_modules>/stop-ai-slop/plugin/comment-gate.ts"`.
+- **Claude Code users** — `/plugin marketplace add WhiteBite/stop-ai-slop` then `/plugin install stop-ai-slop`; the skill and both hooks arrive automatically.
+- **Any MCP client (Cursor, Codex, others)** — add the stdio entry `npx stop-ai-slop --mcp` (see "MCP server").
+- **CI** — add the GitHub Action or the GitLab include (see "IDE and CI").
 
 ## What it enforces, and why
 
@@ -264,7 +291,7 @@ The cmd.exe equivalent is `mklink /J`; on Linux/macOS use `ln -s`. In any git re
 ```yaml
 repos:
   - repo: https://github.com/WhiteBite/stop-ai-slop
-    rev: v0.2.0
+    rev: v0.3.0
     hooks:
       - id: stop-ai-slop
 ```
@@ -375,17 +402,17 @@ The detector sees inline comments after code (`const x = 1 // was`), block comme
 
 ## Comparison with alternatives
 
-Facts from the competitors' READMEs (aislop, ai-slop-linter, vibecheck-slop-stopper, slop-scan), September 2026.
+Facts from the competitors' READMEs (aislop, ai-slop-linter, vibecheck-slop-stopper, slop-scan, windbag), September 2026 (re-verified 2026-09-28).
 
-| | stop-ai-slop | aislop | ai-slop-linter | vibecheck | slop-scan |
-| --- | --- | --- | --- | --- | --- |
-| What it scans | comments in code, 13 rules | code slop: 50+ rules, 10 languages | prose: commits, PRs, docs, 20 rules | 78 grep rules across all categories | JS/TS: error-handling, mocks |
-| Blocks at the moment of the edit | yes: the OpenCode plugin rejects edit/write | claude/cursor/gemini/pi hooks, no OpenCode | no | no: the skill asks the LLM to run grep itself | no |
-| Russian language | changelog markers ru+en, plus de/fr/es marker packs | EN rules | EN rules; their own benchmark: em-dash on correct Russian prose — 24 hits per 1000 words | EN | EN |
-| Dependencies | 0: the scanner is one .mjs; the OpenCode plugin is a .ts | npm package + external engines (biome, ruff, oxlint) | npm package | Python + ripgrep | npm package |
-| Gate model | policy: rule → exit 1 | score 0–100 with a failBelow threshold | weighted score per 1000 words | severity levels | score and delta comparison |
-| Custom policy | RULES table in one file, `--explain` per rule | per-rule severity, new rules only in their repo | ignore/only per file | rules.toml | config and plugins |
-| Source of facts | competitor READMEs: scanaislop/aislop, Bubblegunn/ai-slop-linter, qinnovates/vibecheck-slop-stopper, modem-dev/slop-scan (September 2026) | — | — | — | — |
+| | stop-ai-slop | aislop | ai-slop-linter | vibecheck | slop-scan | windbag |
+| --- | --- | --- | --- | --- | --- | --- |
+| What it scans | comments in code, 13 rules | code slop: 50+ rules, 10 languages | prose: commits, PRs, docs, 21 rules | 78 grep rules across all categories | JS/TS: error-handling, mocks | change-narration comments, 5 rules (HISTORY_NARRATION, HEDGE_LANGUAGE, TICKET_ID, VERBOSE_COMMENT, OBVIOUS_COMMENT), 10 languages |
+| Blocks at the moment of the edit | yes: the OpenCode plugin rejects edit/write | claude/cursor/gemini/pi hooks, no OpenCode | no | no: the skill asks the LLM to run grep itself | no | yes for Claude Code (PostToolUse hook blocks), no OpenCode |
+| Russian language | changelog markers ru+en, plus de/fr/es marker packs | EN rules | EN rules; their own benchmark: em-dash on correct Russian prose — 24 hits per 1000 words | EN | EN | EN only |
+| Dependencies | 0: the scanner is one .mjs; the OpenCode plugin is a .ts | npm package + external engines (biome, ruff, oxlint) | 0 (npm package, zero runtime deps) | Python + ripgrep | npm package | Rust binary shipped as a PyPI wheel |
+| Gate model | policy: rule → exit 1 | score 0–100 with a failBelow threshold | weighted score per 1000 words | severity levels | score and delta comparison | per-line violations, hook blocks |
+| Custom policy | RULES table in one file, `--explain` per rule | per-rule severity, new rules only in their repo | ignore/only per file | rules.toml | config and plugins | none documented |
+| Source of facts | competitor READMEs: scanaislop/aislop, Bubblegunn/ai-slop-linter, qinnovates/vibecheck-slop-stopper, modem-dev/slop-scan, scale-venture-partners/windbag (September 2026, re-verified 2026-09-28) | — | — | — | — | — |
 
 Where we are narrower and do not claim: comment policy only. Swallowed exceptions, `as any`, dead code — the territory of aislop and grain; EN prose and commit messages — ai-slop-linter. stop-ai-slop complements them exactly where they do not reach: the moment of the edit in OpenCode, and Russian changelog markers.
 

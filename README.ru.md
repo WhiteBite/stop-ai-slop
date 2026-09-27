@@ -2,20 +2,58 @@
 
 [English](README.md) | **Русский**
 
+[![npm version](https://img.shields.io/npm/v/stop-ai-slop)](https://www.npmjs.com/package/stop-ai-slop)
 [![license](https://img.shields.io/github/license/WhiteBite/stop-ai-slop)](LICENSE)
 [![node](https://img.shields.io/badge/node-%3E%3D18-brightgreen)](package.json)
 [![zero-deps](https://img.shields.io/badge/dependencies-0-brightgreen)](package.json)
 
-> English abstract: stop-ai-slop is a zero-dependency comment-slop gate. One scanner (`skill/scripts/scan.mjs`, const `RULES`) is the single source of truth for a one-line/why-only comment policy. It is enforced at four points: an OpenCode write-time plugin that blocks `write`/`edit`/`multiedit`, a pre-commit hook installed via `--install`, a cross-agent skill (`skill/SKILL.md`), and a baseline file that grandfathers legacy code. Node >= 18, works on win32.
+> **stop-ai-slop — линтер и гейт комментариев с нулевыми зависимостями, который блокирует AI-слоп в комментариях до попадания в кодовую базу.** Один сканер (`skill/scripts/scan.mjs`, таблица `RULES`) — единый источник правды для политики «комментарий — одна строка и только why». Гейт применяется в момент записи (плагин OpenCode, PreToolUse-хук Claude Code), на коммите (pre-commit hook, ставится через `--install`) и в CI (GitHub Action, шаблон GitLab CI), а также работает как MCP-сервер. Node >= 18, нулевые npm-зависимости, лицензия MIT, работает на Windows, Linux и macOS.
 
-## Установка из npm
+## Что входит и что ставится автоматически
+
+Один сканер (`skill/scripts/scan.mjs`, таблица `RULES`) представлен восемью точками приложения. Они независимы: включайте нужные, они не конфликтуют и применяют одни и те же правила.
+
+| Точка | Что делает | Как попадает к вам |
+| --- | --- | --- |
+| CLI (bin `stop-ai-slop`) | сканирует файлы, staged-изменения или дифф; `--explain`, `--audit`, baseline | автоматически с `npm i -D stop-ai-slop` |
+| pre-commit hook + npm scripts | блокирует каждый коммит с новым слопом | автоматически: `npx stop-ai-slop --install` |
+| Write-time плагин OpenCode | отклоняет `write`/`edit`/`multiedit` в момент записи | вручную: файл-стаб из одной строки (ниже) |
+| Плагин Claude Code | скилл + PreToolUse-хук (блокирует `Write`/`Edit`) + PostToolUse-хук (возвращает находки в сессию) | автоматически: `/plugin marketplace add` + `/plugin install` |
+| Agent skill (`skill/SKILL.md`) | даёт политику и команды любому агенту | автоматически с плагином Claude Code; вручную junction/симлинк для OpenCode |
+| MCP-сервер (`--mcp`) | pull-mode `slop_scan` / `slop_explain` / `slop_baseline` для любого MCP-клиента | вручную: одна запись в конфиге клиента |
+| GitHub Action / GitLab CI-шаблон | блокирует PR/MR-пайплайны на диффе | вручную: сниппет воркфлоу/CI |
+| VS Code task / IDEA File Watcher | скан по требованию или при сохранении в IDE | вручную: сниппет/импорт шаблона |
+
+### Установка в две команды
 
 ```
 npm i -D stop-ai-slop
-npx stop-ai-slop --install        # npm scripts + pre-commit hook в текущем репо
+npx stop-ai-slop --install        # вшивает pre-commit hook + npm scripts в текущее репо
 ```
 
-Write-time плагин OpenCode из установленного пакета: файл `~/.config/opencode/plugins/comment-gate.ts` из одной строки `export { CommentGate } from "<путь к node_modules>/stop-ai-slop/plugin/comment-gate.ts"`.
+`--install` — единственная команда, которая меняет ваше репо: дописывает блок с маркером в `.git/hooks/pre-commit` (идемпотентно, не затирает существующий hook) и добавляет npm scripts `stop-ai-slop` / `stop-ai-slop:all`. Hook содержит абсолютный путь к сканеру на момент установки — после переноса или повторного клонирования сканера запустите `--install` заново.
+
+### Ничего не происходит тихо
+
+У `npm i -D stop-ai-slop` нет postinstall-скрипта: пакет просто ложится в `node_modules`. Ни hook, ни конфиги редакторов и агентов не трогаются, пока вы сами не запустите `--install` или не добавите один из сниппетов ниже.
+
+### Какие точки выбрать
+
+- **Только git** — две команды выше; готово.
+- **Пользователи OpenCode** — добавьте стаб плагина, чтобы слоп отклонялся в момент записи: файл `~/.config/opencode/plugins/comment-gate.ts` из одной строки `export { CommentGate } from "<путь к node_modules>/stop-ai-slop/plugin/comment-gate.ts"`.
+- **Пользователи Claude Code** — `/plugin marketplace add WhiteBite/stop-ai-slop`, затем `/plugin install stop-ai-slop`; скилл и оба хука приходят автоматически.
+- **Любой MCP-клиент (Cursor, Codex и др.)** — stdio-запись `npx stop-ai-slop --mcp` (см. «MCP-сервер»).
+- **CI** — GitHub Action или GitLab include (см. «IDE и CI»).
+
+## Зачем stop-ai-slop
+
+- **Нулевые зависимости.** Сканер — один файл `.mjs`, плагин OpenCode — один файл `.ts`. Не нужно ставить ни biome, ruff, oxlint, ни Python, ни ripgrep.
+- **Блокирует в момент правки, а не после.** Плагин OpenCode отклоняет `write`/`edit`/`multiedit`; PreToolUse-хук Claude Code запрещает `Write`/`Edit` до их выполнения. Большинство аналогов сканируют только постфактум или просят модель саму прогнать grep.
+- **Мультиязычная детекция естественного языка.** Changelog-маркеры, нумерованные шаги и открывашки «This function…» матчатся на RU + EN + DE + FR + ES. Конкуренты — только английский.
+- **Один источник правды.** Все правила живут в одной таблице `RULES`; `--explain <rule-id>` печатает обоснование каждого правила (Why / Instead of / Write / Ignore it when).
+- **Машиночитаемый вывод.** `text` (по умолчанию), Reviewdog `rdjson` и SARIF 2.1.0 для GitHub code scanning.
+- **Дружелюбен к легаси.** Baseline амнистирует существующие находки, и гейт срабатывает только на новый слоп.
+- **Широкая поверхность применения.** OpenCode, Claude Code, Cursor, Codex, GitHub Actions, GitLab CI, MCP, VS Code, IntelliJ IDEA.
 
 ## Что и зачем
 
@@ -202,7 +240,7 @@ npx stop-ai-slop --mcp
 
 ### GitLab CI
 
-Шаблон `templates/stop-ai-slop.gitlab-ci.yml` блокирует MR-пайплайны на диффе (exit code); кодквалиоти-репорт не поставляется. Подключить:
+Шаблон `templates/stop-ai-slop.gitlab-ci.yml` блокирует MR-пайплайны на диффе (exit code); code quality-репорт не поставляется. Подключить:
 
 ```yaml
 include:
@@ -245,13 +283,13 @@ Write-time плагин OpenCode: файл `%USERPROFILE%\.config\opencode\plugi
 `export { CommentGate, detectCommentSlop } from "<path>/plugin/comment-gate.ts"`.
 Эквивалент для cmd.exe — `mklink /J`; на Linux/macOS — `ln -s`. В любом git-репо без агентов работает `scan.mjs --install`.
 
-## Отладка
+## Другие интеграции
 
 ### pre-commit framework
 ```yaml
 repos:
   - repo: https://github.com/WhiteBite/stop-ai-slop
-    rev: v0.2.0
+    rev: v0.3.0
     hooks:
       - id: stop-ai-slop
 ```
@@ -358,20 +396,24 @@ node skill/scripts/scan.mjs --explain <rule-id>
 
 id правил и служебные лейблы — EN; сообщения и обоснования — RU. Префикс `vend/` = правила, вендоренные из внешних каталогов паттернов.
 
-Детектор видит inline-комментарии после кода (`const x = 1 // было`), блоковые комментарии без маркера на средних строках, doc-блоки любой длины (контрактные JSDoc/docstring), файлы в UTF-16 с BOM; zero-width символы (U+200B–U+200F, U+FEFF) срезаются при матчинге маркеров и одновременно флагаются как находки по сырым строкам вместе с BiDi-контролами (U+202A–U+202E, U+2066–U+2069) — включая escape-формы в исходнике; ZWJ внутри эмодзи-последовательностей и BOM в позиции 0 не флагаются. CJK-смежность с латиницей или цифрами проверяется только в code-части строки: китайские комментарии и i18n-строки без смежности с латиницей легитимны. Не сканируются: языки без профиля (см. таблицу выше; `.m` неоднозначно), бинарные и офисные форматы; `--staged` и `--diff` не видят неотслеживаемые файлы. Warning не блокируют гейт, если не указан `--strict`. Имена файлов с не-ASCII поддерживаются в diff-режимах. Пропускаются каталоги артефактов (`venv`, `build`, `.next`, `target`, `out`, `.gradle`, `Pods`, `__pycache__`, `.idea`, `.codegraph`, `site-packages`, `.dart_tool`). Лицензионные шапки exempt from multi-line rule. Inline-комментарии определяются по маркерам профиля (`//`, `#`, `--`, `%`, `;`, `!`) за исключением py/fs floor division (`//`).
+Детектор видит inline-комментарии после кода (`const x = 1 // было`), блоковые комментарии без маркера на средних строках, doc-блоки любой длины (контрактные JSDoc/docstring), файлы в UTF-16 с BOM; zero-width символы (U+200B–U+200F, U+FEFF) срезаются при матчинге маркеров и одновременно флагаются как находки по сырым строкам вместе с BiDi-контролами (U+202A–U+202E, U+2066–U+2069) — включая escape-формы в исходнике; ZWJ внутри эмодзи-последовательностей и BOM в позиции 0 не флагаются. CJK-смежность с латиницей или цифрами проверяется только в code-части строки: китайские комментарии и i18n-строки без смежности с латиницей легитимны. Не сканируются: языки без профиля (см. таблицу выше; `.m` неоднозначно), бинарные и офисные форматы; `--staged` и `--diff` не видят неотслеживаемые файлы. Warning не блокируют гейт, если не указан `--strict`. Имена файлов с не-ASCII поддерживаются в diff-режимах. Пропускаются каталоги артефактов (`venv`, `build`, `.next`, `target`, `out`, `.gradle`, `Pods`, `__pycache__`, `.idea`, `.codegraph`, `site-packages`, `.dart_tool`). Лицензионные шапки исключены из правила multi-line. Inline-комментарии определяются по маркерам профиля (`//`, `#`, `--`, `%`, `;`, `!`) за исключением py/fs floor division (`//`).
 
 ## Сравнение с аналогами
 
-Факты по README конкурентов (aislop, ai-slop-linter, vibecheck-slop-stopper, slop-scan), сентябрь 2026.
+Факты по README конкурентов (aislop, ai-slop-linter, vibecheck-slop-stopper, slop-scan, windbag), сентябрь 2026 (перепроверено 2026-09-28).
 
-| | stop-ai-slop | aislop | ai-slop-linter | vibecheck | slop-scan |
-| --- | --- | --- | --- | --- | --- |
-| Что сканирует | комментарии в коде, 13 правил | код-слоп: 50+ правил, 10 языков | проза: коммиты, PR, docs, 20 правил | 78 grep-правил всех категорий | JS/TS: error-handling, моки |
-| Блокирует в момент правки | да: OpenCode-плагин отклоняет edit/write | хуки claude/cursor/gemini/pi, OpenCode нет | нет | нет: skill просит LLM самому прогнать grep | нет |
-| Русский язык | changelog-маркеры ru+en, плюс пакеты маркеров de/fr/es | правила EN | правила EN; их же бенч: em-dash на корректной русской прозе — 24 срабатывания на 1000 слов | EN | EN |
-| Зависимости | 0: сканер — один .mjs; плагин OpenCode — .ts | npm-пакет + внешние движки (biome, ruff, oxlint) | npm-пакет | Python + ripgrep | npm-пакет |
-| Модель гейта | политика: правило → exit 1 | скор 0–100 и порог failBelow | взвешенный скор на 1000 слов | уровни severity | скор и delta-сравнение |
-| Своя политика | таблица RULES в одном файле, `--explain` по правилу | severity на правило, новые правила — только в их репо | ignore/only по файлам | rules.toml | config и плагины |
-| Источник фактов | README конкурентов: scanaislop/aislop, Bubblegunn/ai-slop-linter, qinnovates/vibecheck-slop-stopper, modem-dev/slop-scan (сентябрь 2026) | — | — | — | — |
+| | stop-ai-slop | aislop | ai-slop-linter | vibecheck | slop-scan | windbag |
+| --- | --- | --- | --- | --- | --- | --- |
+| Что сканирует | комментарии в коде, 13 правил | код-слоп: 50+ правил, 10 языков | проза: коммиты, PR, docs, 21 правило | 78 grep-правил всех категорий | JS/TS: error-handling, моки | комментарии-пересказы изменений, 5 правил (HISTORY_NARRATION, HEDGE_LANGUAGE, TICKET_ID, VERBOSE_COMMENT, OBVIOUS_COMMENT), 10 языков |
+| Блокирует в момент правки | да: OpenCode-плагин отклоняет edit/write | хуки claude/cursor/gemini/pi, OpenCode нет | нет | нет: skill просит LLM самому прогнать grep | нет | да в Claude Code (PostToolUse-хук блокирует), в OpenCode нет |
+| Русский язык | changelog-маркеры ru+en, плюс пакеты маркеров de/fr/es | правила EN | правила EN; их же бенч: em-dash на корректной русской прозе — 24 срабатывания на 1000 слов | EN | EN | только EN |
+| Зависимости | 0: сканер — один .mjs; плагин OpenCode — .ts | npm-пакет + внешние движки (biome, ruff, oxlint) | 0 (npm-пакет, нулевые runtime-зависимости) | Python + ripgrep | npm-пакет | Rust-бинарь в виде PyPI wheel |
+| Модель гейта | политика: правило → exit 1 | скор 0–100 и порог failBelow | взвешенный скор на 1000 слов | уровни severity | скор и delta-сравнение | нарушения по строкам, блокирует хук |
+| Своя политика | таблица RULES в одном файле, `--explain` по правилу | severity на правило, новые правила — только в их репо | ignore/only по файлам | rules.toml | config и плагины | не документирована |
+| Источник фактов | README конкурентов: scanaislop/aislop, Bubblegunn/ai-slop-linter, qinnovates/vibecheck-slop-stopper, modem-dev/slop-scan, scale-venture-partners/windbag (сентябрь 2026, перепроверено 2026-09-28) | — | — | — | — | — |
 
 Где мы уже и не претендуем: только политика комментариев. Проглоченные исключения, `as any`, мёртвый код — территория aislop и grain; EN-проза и сообщения коммитов — ai-slop-linter. stop-ai-slop дополняет их в точках, куда они не достают: момент правки в OpenCode и русские changelog-маркеры.
+
+## Лицензия
+
+MIT — см. [LICENSE](LICENSE).

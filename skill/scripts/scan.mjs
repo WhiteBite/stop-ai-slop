@@ -262,7 +262,7 @@ const CLI_SKIPPED_SEGMENTS = new Set([...SKIPPED_SEGMENTS, "coverage", ".git"])
 const MAX_COMMENT_LENGTH = 120
 // \b is ASCII-only in JS — Cyrillic markers get lookaround bounds so substrings inside longer words never match
 const CHANGELOG_MARKER =
-  /(?<![а-яё])(?:было|стало|раньше|вместо|теперь)(?![а-яё])|\bnow we\b|\bpreviously\b|\binstead of\b|\bthis fixes\b|\bthis fix\b|\bmust take over\b|\bno longer\b|broke, so|(?<![a-zäöüß])(?:stattdessen|nicht mehr|früher war|war vorher)(?![a-zäöüß])|\bau lieu de\b|(?<![a-zéèêàùç])(?:auparavant|désormais)(?![a-zéèêàùç])|\ben lugar de\b|\bantes era\b|\bya no\b|\banteriormente\b/i
+  /(?<![а-яё])(?:было|стало|раньше|вместо|теперь)(?![а-яё])|\bwas\b[^,.;\n]{0,60},\s*(?:and\s+)?now\b|\bnow we\b|\bpreviously\b|\binstead of\b|\bthis fixes\b|\bthis fix\b|\bmust take over\b|\bno longer\b|broke, so|(?<![a-zäöüß])(?:stattdessen|nicht mehr|früher war|war vorher)(?![a-zäöüß])|\bau lieu de\b|(?<![a-zéèêàùç])(?:auparavant|désormais)(?![a-zéèêàùç])|\ben lugar de\b|\bantes era\b|\bya no\b|\banteriormente\b/i
 const STEP_NUMBERED = /^(?:step\s+\d+|шаг\s+\d+|schritt\s+\d+|(?<![a-zéèêàùç])étape\s+\d+|paso\s+\d+|\d+\.)/i
 const DIVIDER_CHARS = /^[-=#*\s─-╿]{6,}$/
 const MARKDOWN_BOLD = /^\*\*/
@@ -407,7 +407,7 @@ function inlineMarkerAt(line, profile) {
     const idx = line.indexOf(marker)
     if (idx <= 0) continue
     const prefix = line.slice(0, idx)
-    if (marker === "//" && prefix.trimEnd().endsWith(":")) continue
+    if (marker === "//" && prefix.trimEnd().endsWith("://")) continue
     if ((prefix.match(/["'`]/g) ?? []).length % 2 !== 0) continue
     return { idx, marker }
   }
@@ -598,7 +598,7 @@ function collectFiles(paths, root, excludePaths = []) {
   }
   for (const p of paths) {
     const abs = resolve(root, p)
-    if (!existsSync(abs)) continue
+    if (!existsSync(abs)) throw new Error(`slop-gate: путь не существует: ${p}`)
     if (statSync(abs).isDirectory()) walk(abs)
     else if (profileFor(toRel(root, abs)) !== null && !isExcludedPath(toRel(root, abs), excludePaths)) out.push(abs)
   }
@@ -688,6 +688,8 @@ function loadConfig(root) {
       if (value !== "") config.excludePaths.push(value.replace(/^\.\//, "").replace(/\/+$/, ""))
     } else if (key === "rules") {
       section = "rules"
+    } else if (RULE_BY_ID.has(key)) {
+      throw new Error(`slop-gate: ${path}:${i + 1}: "${key}" — id правила; override severity пишется внутри секции rules: с отступом в два пробела`)
     } else {
       section = null
     }
@@ -714,17 +716,32 @@ function sortedFindings(findings) {
   return [...findings].sort((a, b) => (a.rel === b.rel ? a.lineNo - b.lineNo : a.rel < b.rel ? -1 : 1))
 }
 
+let toolVersionCache = null
+function toolVersion() {
+  if (toolVersionCache === null) {
+    try {
+      toolVersionCache = JSON.parse(readFileSync(join(dirname(fileURLToPath(import.meta.url)), "..", "..", "package.json"), "utf8")).version
+    } catch {
+      toolVersionCache = "0.0.0"
+    }
+  }
+  return toolVersionCache
+}
+
 function toRdjson(findings) {
-  return JSON.stringify({
+  const sorted = sortedFindings(findings)
+  const out = {
     source: { name: "stop-ai-slop", url: "https://github.com/WhiteBite/stop-ai-slop" },
-    severity: "WARNING",
-    diagnostics: sortedFindings(findings).map((f) => ({
+    diagnostics: sorted.map((f) => ({
       message: RULE_BY_ID.get(f.rule).message,
       location: { path: f.rel, range: { start: { line: f.lineNo } } },
+      code: { value: f.rule },
       ruleId: f.rule,
       severity: f.severity === "error" ? "ERROR" : "WARNING",
     })),
-  })
+  }
+  if (sorted.length > 0) out.severity = sorted.some((f) => f.severity === "error") ? "ERROR" : "WARNING"
+  return JSON.stringify(out)
 }
 
 function toSarif(findings) {
@@ -737,6 +754,7 @@ function toSarif(findings) {
           tool: {
             driver: {
               name: "stop-ai-slop",
+              version: toolVersion(),
               informationUri: "https://github.com/WhiteBite/stop-ai-slop",
               rules: RULES.map((r) => ({
                 id: r.id,
@@ -766,7 +784,7 @@ function toSarif(findings) {
   )
 }
 
-function findingsToText(findings) {
+function findingsToText(findings, strict = false) {
   const lines = []
   for (const f of sortedFindings(findings)) {
     const rule = RULE_BY_ID.get(f.rule)
@@ -775,11 +793,12 @@ function findingsToText(findings) {
   }
   const errors = findings.filter((f) => f.severity === "error").length
   if (findings.length === 0) lines.push("slop-gate: чисто")
+  else if (strict && errors === 0) lines.push(`slop-gate: ${findings.length} находок, ошибок: 0 (warning блокируют из-за --strict)`)
   else lines.push(`slop-gate: ${findings.length} находок, ошибок: ${errors}`)
   return lines.join("\n")
 }
 
-function printFindings(findings, format = "text") {
+function printFindings(findings, format = "text", strict = false) {
   if (format === "json") {
     console.log(toRdjson(findings))
     return
@@ -788,7 +807,7 @@ function printFindings(findings, format = "text") {
     console.log(toSarif(findings))
     return
   }
-  console.log(findingsToText(findings))
+  console.log(findingsToText(findings, strict))
 }
 
 function failsGate(findings, strict) {
@@ -812,7 +831,14 @@ function cmdScan(paths, { writeBaseline = false, strict = false, prune = false, 
     console.error(error.message)
     return 2
   }
-  const findings = applyRuleConfig(scanFiles(collectFiles(paths, root, config?.excludePaths ?? []), root, configOptions(config)), config)
+  let files
+  try {
+    files = collectFiles(paths, root, config?.excludePaths ?? [])
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : String(error))
+    return 2
+  }
+  const findings = applyRuleConfig(scanFiles(files, root, configOptions(config)), config)
   if (writeBaseline) {
     const lines = [...new Set(findings.map(baselineKey))].sort()
     const body = ["# slop-gate baseline: relpath:line", ...lines].join("\n") + "\n"
@@ -831,7 +857,7 @@ function cmdScan(paths, { writeBaseline = false, strict = false, prune = false, 
   }
   const baseline = loadBaseline(root)
   const fresh = findings.filter((f) => !baseline.has(baselineKey(f)))
-  printFindings(fresh, format)
+  printFindings(fresh, format, strict)
   return failsGate(fresh, strict) ? 1 : 0
 }
 
@@ -925,7 +951,7 @@ function runDiffGate(diffText, root, strict, format = "text", config = null) {
   }
   const baseline = loadBaseline(root)
   const fresh = applyRuleConfig(findings, config).filter((f) => !baseline.has(baselineKey(f)))
-  printFindings(fresh, format)
+  printFindings(fresh, format, strict)
   return failsGate(fresh, strict) ? 1 : 0
 }
 
@@ -1023,12 +1049,13 @@ function cmdInstall(strict = false) {
     const pkg = JSON.parse(readFileSync(pkgPath, "utf8"))
     pkg.scripts = typeof pkg.scripts === "object" && pkg.scripts !== null ? pkg.scripts : {}
     const before = JSON.stringify(pkg.scripts)
+    const had = Object.prototype.hasOwnProperty.call(pkg.scripts, "stop-ai-slop")
     pkg.scripts["stop-ai-slop"] = stagedCmd
     pkg.scripts["stop-ai-slop:all"] = allCmd
     if (JSON.stringify(pkg.scripts) === before) console.log("slop-gate: package.json — scripts уже на месте")
     else {
       writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + "\n")
-      console.log("slop-gate: package.json — добавлены scripts.stop-ai-slop и scripts.stop-ai-slop:all")
+      console.log(`slop-gate: package.json — ${had ? "обновлены" : "добавлены"} scripts.stop-ai-slop и scripts.stop-ai-slop:all`)
     }
   } else {
     console.log("slop-gate: package.json не найден — npm scripts пропущены")
@@ -1052,7 +1079,7 @@ function cmdInstall(strict = false) {
   mkdirSync(hooksDir, { recursive: true })
   const hookPath = join(hooksDir, "pre-commit")
   const MARK = "# >>> slop-gate >>>"
-  const block = `${MARK}\n${stagedCmd}\n# <<< slop-gate <<<\n`
+  const block = `${MARK}\nif [ ! -f "${abs}" ]; then\n  echo "slop-gate: сканер не найден: ${abs} — запустите --install заново" >&2\n  exit 2\nfi\n${stagedCmd}\n# <<< slop-gate <<<\n`
   const blockRe = /# >>> slop-gate >>>[\s\S]*?# <<< slop-gate <<<\r?\n?/
   const writeHook = (content) => {
     writeFileSync(hookPath, content)
@@ -1125,6 +1152,10 @@ function cmdSelfTest() {
     writeFileSync(
       join(dir, "utf16.ts"),
       Buffer.concat([Buffer.from([0xff, 0xfe]), Buffer.from("// было так, стало иначе\nconst x = 1\n", "utf16le")]),
+    )
+    writeFileSync(
+      join(dir, "utf16be.ts"),
+      Buffer.concat([Buffer.from([0xfe, 0xff]), Buffer.from("// было так, стало иначе\nconst x = 1\n", "utf16le").swap16()]),
     )
     writeFileSync(join(dir, "supp.ts"), "// stop-ai-slop-ignore-next-line changelog-marker\n// стало иначе\nconst x = 1\n")
     writeFileSync(join(dir, "suppfile.ts"), "// stop-ai-slop-ignore-file\n// стало иначе\n// и ещё было\nconst x = 1\n")
@@ -1240,6 +1271,10 @@ function cmdSelfTest() {
       ["/**", " * Contract of the payload normalizer.", " * - item", " * **bold**", " */", "export function normalize() {}", ""].join("\n"),
     )
     writeFileSync(join(dir, "build.gradle"), "// removeSource rewrites rows\n// with fresh uuids zones vanish\nplugins {}\n")
+    writeFileSync(join(dir, "wasnow.ts"), "const x = 1 // was 2, now 1\n")
+    writeFileSync(join(dir, "wasnow-ok.ts"), "// timeout was raised because now() is monotonic here\nconst x = 1\n")
+    writeFileSync(join(dir, "case-label.ts"), "switch (x) {\n  case 1: // стало иначе\n    break\n}\n")
+    writeFileSync(join(dir, "header.ts"), "// Payload normalizer for the ingest pipe.\n// Wire format lives in docs/ingest.md.\nexport function normalize() {}\n")
     const findings = scanFiles(collectFiles([dir], dir), dir)
     const byRel = (rel) => findings.filter((f) => f.rel === rel)
     const sabotageRules = byRel("sabotage.ts").map((f) => f.rule)
@@ -1271,6 +1306,10 @@ function cmdSelfTest() {
     check("opener: vend/this-function-opener [warning]", byRel("opener.ts").some((f) => f.rule === "vend/this-function-opener"), byRel("opener.ts"))
     check("todo: vend/generic-todo [warning]", byRel("todo.ts").some((f) => f.rule === "vend/generic-todo"), byRel("todo.ts"))
     check("inline: changelog-marker в trailing-комменте [error]", byRel("inline.ts").some((f) => f.rule === "changelog-marker"), byRel("inline.ts"))
+    check("wasnow: EN-пара was…, now… [error]", byRel("wasnow.ts").some((f) => f.rule === "changelog-marker"), byRel("wasnow.ts"))
+    check("wasnow-ok: «was raised because now()» без запятой не матчится", byRel("wasnow-ok.ts").length === 0, byRel("wasnow-ok.ts"))
+    check("case-label: inline-комментарий после case-label [error]", byRel("case-label.ts").some((f) => f.rule === "changelog-marker"), byRel("case-label.ts"))
+    check("header: vend/file-summary-header [warning]", byRel("header.ts").some((f) => f.rule === "vend/file-summary-header"), byRel("header.ts"))
     check("block: /* */ без * на средних строках [error]", byRel("block.ts").some((f) => f.rule === "multi-line-comment"), byRel("block.ts"))
     check(
       "docstring: vend/this-function-opener [warning]",
@@ -1279,6 +1318,7 @@ function cmdSelfTest() {
     )
     check("zwsp: changelog-marker сквозь zero-width [error]", byRel("zwsp.ts").some((f) => f.rule === "changelog-marker"), byRel("zwsp.ts"))
     check("utf16: changelog-marker в UTF-16 файле [error]", byRel("utf16.ts").some((f) => f.rule === "changelog-marker"), byRel("utf16.ts"))
+    check("utf16be: changelog-marker в UTF-16BE файле [error]", byRel("utf16be.ts").some((f) => f.rule === "changelog-marker"), byRel("utf16be.ts"))
     check("supp: ignore-next-line гасит changelog-marker", !byRel("supp.ts").some((f) => f.rule === "changelog-marker"), byRel("supp.ts"))
     check("supp: ignore-file гасит всё", byRel("suppfile.ts").length === 0, byRel("suppfile.ts"))
     check("supp: директива с причиной не флагает сама себя", byRel("supp2.ts").length === 0, byRel("supp2.ts"))
@@ -1578,6 +1618,8 @@ function cmdSelfTest() {
       )
       const bogus = runCli(["--bogus-flag-xyz"], errDir)
       check("errors: неизвестный флаг [exit 2]", bogus.status === 2 && bogus.out.includes("--bogus-flag-xyz"), `exit ${bogus.status}: ${bogus.out}`)
+    const badPath = runCli(["scan", "no-such-dir-xyz"], dir)
+    check("errors: scan несуществующего пути [exit 2]", badPath.status === 2 && badPath.out.includes("no-such-dir-xyz"), `exit ${badPath.status}: ${badPath.out}`)
       const explainNoArg = runCli(["--explain"], errDir)
       check(
         "errors: --explain без аргумента [exit 2]",
@@ -1791,9 +1833,17 @@ function cmdSelfTest() {
         badRun.status === 2 && badRun.out.includes(".stop-ai-slop.yaml"),
         `exit ${badRun.status}: ${badRun.out}`,
       )
+      writeFileSync(join(cfgDir, ".stop-ai-slop.yaml"), "rules:\nmulti-line-comment: off\n")
+      const flatRun = runCli(["scan", "."], cfgDir)
+      check(
+        "cfg-flat: rule-id верхним ключом → exit 2 с подсказкой про отступ [exit 2]",
+        flatRun.status === 2 && flatRun.out.includes("rules:"),
+        `exit ${flatRun.status}: ${flatRun.out}`,
+      )
     } finally {
       rmSync(cfgDir, { recursive: true, force: true })
     }
+    writeFileSync(join(dir, "stop-ai-slop.baseline.txt"), "# slop-gate baseline: relpath:line\nwasnow.ts:1\n")
     const mcpLines = [
       JSON.stringify({ jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "t", version: "0" } } }),
       JSON.stringify({ jsonrpc: "2.0", method: "notifications/initialized" }),
@@ -1802,6 +1852,7 @@ function cmdSelfTest() {
       JSON.stringify({ jsonrpc: "2.0", id: 4, method: "bogus/method" }),
       JSON.stringify({ jsonrpc: "2.0", id: 5, method: "tools/call", params: { name: "slop_scan", arguments: { path: dir } } }),
       JSON.stringify({ jsonrpc: "2.0", id: 7, method: "initialize", params: { protocolVersion: "2025-11-25", capabilities: {}, clientInfo: { name: "t", version: "0" } } }),
+      JSON.stringify({ jsonrpc: "2.0", id: 8, method: "tools/call", params: { name: "slop_baseline", arguments: {} } }),
       "not json{",
     ]
     let mcpOut = ""
@@ -1860,6 +1911,12 @@ function cmdSelfTest() {
     check("mcp-unknown-method: bogus/method → error -32601", mcpById.get(4)?.error?.code === -32601, String(JSON.stringify(mcpById.get(4))))
     check("mcp-bad-json: невалидная строка → error -32700, id null", mcpById.get(null)?.error?.code === -32700, String(JSON.stringify(mcpById.get(null))))
     check("mcp-stdout-purity: каждая непустая строка stdout — валидный JSON", mcpAllJson, mcpOut.slice(0, 300))
+    const baselineCall = mcpById.get(8)
+    check(
+      "mcp-call-baseline: slop_baseline печатает записи baseline",
+      baselineCall?.result?.isError !== true && baselineCall?.result?.content?.[0]?.text?.includes("wasnow.ts:1") === true,
+      String(JSON.stringify(baselineCall)).slice(0, 300),
+    )
     const preTool = (payload) => {
       try {
         execFileSync(process.execPath, [selfPath, "--pre-tool"], { input: JSON.stringify(payload), encoding: "utf8", stdio: "pipe" })
@@ -1887,6 +1944,18 @@ function cmdSelfTest() {
     check("pre-tool-edit-delta: Edit, добавляющий слоп [exit 2]", editDelta.status === 2, `exit ${editDelta.status}: ${editDelta.stderr.slice(0, 300)}`)
     const silentRead = preTool({ tool_name: "Read", tool_input: { file_path: join(dir, "clean.ts") } })
     check("pre-tool-silent: Read игнорируется [exit 0]", silentRead.status === 0 && silentRead.stderr === "", `exit ${silentRead.status}: ${silentRead.stderr}`)
+    const multiEdit = preTool({
+      tool_name: "MultiEdit",
+      tool_input: {
+        file_path: join(dir, "edit-target.ts"),
+        edits: [{ old_string: "", new_string: "// было так, стало иначе\n" }],
+      },
+    })
+    check(
+      "pre-tool-multiedit: MultiEdit со слопом [exit 2]",
+      multiEdit.status === 2 && multiEdit.stderr.includes("changelog-marker"),
+      `exit ${multiEdit.status}: ${multiEdit.stderr.slice(0, 300)}`,
+    )
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }
@@ -2042,7 +2111,7 @@ function mcpCallTool(name, args) {
 }
 
 function cmdMcp() {
-  const version = JSON.parse(readFileSync(join(dirname(fileURLToPath(import.meta.url)), "..", "..", "package.json"), "utf8")).version
+  const version = toolVersion()
   const write = (msg) => process.stdout.write(JSON.stringify(msg) + "\n")
   const rl = createInterface({ input: process.stdin })
   return new Promise((resolvePromise) => {
@@ -2102,6 +2171,7 @@ function cmdPreTool() {
   try {
     payload = JSON.parse(readFileSync(0, "utf8"))
   } catch {
+    process.stderr.write("slop-gate: --pre-tool: stdin не является JSON — проверка пропущена\n")
     return 0
   }
   const tool = String(payload?.tool_name ?? "").toLowerCase()
@@ -2112,6 +2182,9 @@ function cmdPreTool() {
     content: ti.content,
     oldString: ti.old_string ?? ti.oldString,
     newString: ti.new_string ?? ti.newString,
+    edits: Array.isArray(ti.edits)
+      ? ti.edits.map((e) => ({ oldString: e?.old_string ?? e?.oldString, newString: e?.new_string ?? e?.newString }))
+      : ti.edits,
   })
   if (extracted === null) return 0
   const violations = detectCommentSlop(extracted.added, profileFor(extracted.filePath) ?? undefined, true).filter((v) => v.severity === "error")
@@ -2139,6 +2212,7 @@ function cmdUsage() {
       "  --self-test         саботаж-тест детектора",
       "  --mcp               MCP-сервер (JSON-RPC 2.0 по stdio)",
       "  --pre-tool          PreToolUse-хук Claude Code: блокирует Write/Edit до записи",
+      "  --stdin-path        PostToolUse-хук: сканирует путь к файлу из JSON в stdin",
       "",
       "Флаги: --strict (warning тоже блокируют), --format <text|json|sarif> (формат вывода), --help",
       "Коды выхода: 0 — чисто; 1 — гейт сработал; 2 — ошибка использования или git",
@@ -2189,7 +2263,7 @@ function main(argv) {
   if (argv.includes("--pre-tool")) return cmdPreTool()
   const unknown = argv.filter((a) => a.startsWith("--") && !KNOWN_FLAGS.has(a))
   if (unknown.length > 0) {
-    console.error(`slop-gate: неизвестный флаг ${unknown[0]}`)
+    console.error(`slop-gate: неизвестный флаг ${unknown[0]} (справка: --help)`)
     return 2
   }
   const paths = argv.filter((a) => a !== "scan" && !a.startsWith("--"))

@@ -8,7 +8,7 @@ stop-ai-slop is for teams using AI coding agents (OpenCode, Claude Code, Cursor,
 
 - [npm package](https://www.npmjs.com/package/stop-ai-slop): `npm i -D stop-ai-slop`, then `npx stop-ai-slop --install` to add npm scripts and a pre-commit hook
 - [GitHub repository](https://github.com/WhiteBite/stop-ai-slop): clone and run `node skill/scripts/scan.mjs --self-test`
-- [Install from npm](https://github.com/WhiteBite/stop-ai-slop/blob/main/README.md#install-from-npm): install commands and OpenCode plugin wiring from node_modules
+- [Components and installation](https://github.com/WhiteBite/stop-ai-slop/blob/main/README.md#what-you-get-and-what-installs-automatically): the eight surfaces (CLI, pre-commit hook, OpenCode plugin, Claude Code plugin, agent skill, MCP server, CI, IDE) and which install automatically vs by a manual snippet
 
 ## Usage
 
@@ -32,7 +32,7 @@ stop-ai-slop is for teams using AI coding agents (OpenCode, Claude Code, Cursor,
 
 ## Comparison and rationale
 
-- [Comparison with alternatives](https://github.com/WhiteBite/stop-ai-slop/blob/main/README.md#comparison-with-alternatives): feature table vs aislop, ai-slop-linter, vibecheck-slop-stopper, slop-scan — dependencies, write-time blocking, language coverage, gate model
+- [Comparison with alternatives](https://github.com/WhiteBite/stop-ai-slop/blob/main/README.md#comparison-with-alternatives): feature table vs aislop, ai-slop-linter, vibecheck-slop-stopper, slop-scan, windbag — dependencies, write-time blocking, language coverage, gate model
 - [What it enforces, and why](https://github.com/WhiteBite/stop-ai-slop/blob/main/README.md#what-it-enforces-and-why): the one-line, why-only comment policy and error vs warning semantics
 - [Contributing guide](https://github.com/WhiteBite/stop-ai-slop/blob/main/CONTRIBUTING.md): rule contribution flow — edit the RULES table, add a self-test fixture, keep the gate green
 - [Changelog](https://github.com/WhiteBite/stop-ai-slop/blob/main/CHANGELOG.md): release history

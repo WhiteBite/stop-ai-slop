@@ -1,6 +1,6 @@
 {
   "name": "stop-ai-slop",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Zero-dependency linter that blocks AI-generated comment slop. Enforces a one-line, why-only comment policy via pre-commit hook, IDE plugin and CI.",
   "license": "MIT",
   "author": {

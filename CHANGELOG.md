@@ -3,10 +3,16 @@
 ## Unreleased
 
 - README переведён на английский (основной для поисковиков и ИИ-агентов), русский перенесён в README.ru.md; переключатель языков в обоих
+- README: секция установки перестроена в «What you get, and what installs automatically» — таблица восьми точек приложения и явное «автоматически vs вручную» (EN + RU)
 - `llms.txt` по спеке llmstxt.org v2 — индекс проекта для ИИ-агентов
 - package.json: SEO-описание (~150 симв., keyword-first), 16 keywords, homepage/bugs/author, `test`-скрипт; версия plugin.json синхронизирована
 - Репозиторная гигиена: AGENTS.md, CONTRIBUTING.md, issue-формы и PR-шаблон в .github/
 - publish.yml: возвращён `--provenance` в `npm publish` — без него OIDC trusted publishing не происходит и публикация падала с E404 (v0.2.1, v0.3.0)
+- scan несуществующего пути — exit 2 вместо молчаливого «чисто»; --pre-tool маппит edits у MultiEdit; rule-id верхним ключом конфига — exit 2 с подсказкой про отступ
+- changelog-marker: EN-пара «was …, now …»; inline-комментарий после case-label ловится (colon-guard сужен до ://)
+- hook-шаблон --install печатает причину и exit 2, если сканер перенесён; --help документирует --stdin-path
+- rdjson: ruleId в code.value, top-level severity по максимуму находок; SARIF: driver.version
+- Таблица сравнения: колонка windbag, у ai-slop-linter 0 зависимостей и 21 правило; RU README приведён к паритету с EN
 
 ## 0.3.0
 
