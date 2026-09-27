@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+- Новые языковые профили: dash (VHDL, Ada), hashblock (Nix, HCL, Terraform), coffee, adoc, handlebars, gotmpl; 160 расширений и 26 имён файлов
+- Переразметка: `.tf`/`.tfvars` → hashblock, `.mod`/`.sum` (go.mod, go.sum) → hash, `.tmpl` → gotmpl
+- profileFor: порядок матчинга точное имя файла → расширение → префикс имени; голый `BUILD` маппится в hash, не перехватывая `build.gradle`
+- Блоковые комментарии с одинаковым токеном открытия и закрытия (`###`, `////`)
+- `step-numbered` и `markdown-in-comment` работают во всех профилях (маркер комментария срезается перед матчингом), в doc-блоках не срабатывают
+- Русские формулировки: «Шаг N» в step-numbered, «Эта функция/Этот класс» в this-function-opener
+- `.codegraph` добавлен в каталоги артефактов, пропускаемые при сканировании
+
 ## 0.2.1
 
 - Пакет опубликован в npm как `stop-ai-slop`; строки установки и подключение плагина из node_modules в README.

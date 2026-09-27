@@ -129,6 +129,12 @@ const PROFILES = {
   properties: P(["#", "!"]),
   rst: P([".."]),
   vue: P(["//", "/*", "*", "<!--"], [["/*", "*/"], ["{/*", "*/}"], ["<!--", "-->"]], [JSDOC], ["*/"]),
+  dash: P(["--"]),
+  hashblock: P(["#", "/*", "*"], [["/*", "*/"]], [], ["*/"]),
+  coffee: P(["#"], [["###", "###"]]),
+  adoc: P(["//"], [["////", "////"]]),
+  handlebars: P(["{{!"], [["{{!--", "--}}"]]),
+  gotmpl: P(["{{/*"], [["{{/*", "*/}}"]]),
 }
 const EXT_PROFILE = {
   ".ts": "cfamily", ".tsx": "cfamily", ".js": "cfamily", ".jsx": "cfamily", ".mjs": "cfamily", ".cjs": "cfamily",
@@ -136,25 +142,36 @@ const EXT_PROFILE = {
   ".c": "cfamily", ".h": "cfamily", ".cc": "cfamily", ".cpp": "cfamily", ".hh": "cfamily", ".hpp": "cfamily",
   ".swift": "cfamily", ".dart": "cfamily", ".zig": "cfamily", ".scala": "cfamily", ".sc": "cfamily",
   ".groovy": "cfamily", ".gradle": "cfamily", ".proto": "cfamily", ".jsonc": "cfamily",
+  ".mts": "cfamily", ".cts": "cfamily", ".sol": "cfamily", ".d": "cfamily", ".v": "cfamily", ".sv": "cfamily",
+  ".svh": "cfamily", ".qml": "cfamily", ".res": "cfamily", ".resi": "cfamily", ".styl": "cfamily",
   ".css": "css", ".scss": "css", ".less": "css", ".sass": "css",
-  ".py": "py",
+  ".py": "py", ".vy": "py",
   ".rb": "hash", ".php": "hash", ".sh": "hash", ".bash": "hash", ".zsh": "hash", ".ksh": "hash", ".fish": "hash",
   ".ex": "hash", ".exs": "hash", ".cr": "hash", ".pl": "hash", ".pm": "hash", ".r": "hash",
   ".yaml": "hash", ".yml": "hash", ".toml": "hash", ".conf": "hash", ".cfg": "hash",
-  ".tf": "hash", ".tfvars": "hash", ".graphql": "hash", ".gql": "hash", ".mk": "hash", ".cmake": "hash", ".bzl": "hash",
+  ".graphql": "hash", ".gql": "hash", ".mk": "hash", ".cmake": "hash", ".bzl": "hash",
+  ".raku": "hash", ".p6": "hash", ".org": "hash", ".awk": "hash",
+  ".tf": "hashblock", ".tfvars": "hashblock", ".nix": "hashblock", ".hcl": "hashblock",
   ".ps1": "powershell", ".psm1": "powershell", ".psd1": "powershell",
   ".jl": "julia", ".nim": "nim",
-  ".sql": "sql", ".lua": "lua", ".hs": "haskell", ".lhs": "haskell",
+  ".sql": "sql", ".plsql": "sql", ".pks": "sql", ".pkb": "sql", ".lua": "lua",
+  ".hs": "haskell", ".lhs": "haskell", ".elm": "haskell", ".purs": "haskell", ".idr": "haskell", ".agda": "haskell", ".dhall": "haskell",
   ".clj": "lisp", ".cljs": "lisp", ".cljc": "lisp", ".edn": "lisp", ".lisp": "lisp", ".el": "lisp", ".scm": "lisp", ".rkt": "lisp",
   ".tex": "percent", ".bib": "percent", ".sty": "percent", ".cls": "percent", ".erl": "percent", ".hrl": "percent",
   ".f": "fortran", ".f90": "fortran", ".f95": "fortran", ".f03": "fortran", ".for": "fortran", ".fpp": "fortran",
   ".vb": "vb", ".bat": "batch", ".cmd": "batch", ".vim": "vim",
   ".html": "markup", ".htm": "markup", ".xml": "markup", ".svg": "markup", ".xhtml": "markup", ".md": "markup", ".mdx": "markup",
+  ".xsl": "markup", ".xslt": "markup",
   ".ml": "ocaml", ".mli": "ocaml", ".pas": "pascal", ".pp": "pascal", ".fs": "pascal", ".fsx": "pascal", ".fsi": "pascal",
   ".ini": "ini", ".inf": "ini", ".properties": "properties",
-  ".pyi": "py", ".feature": "hash", ".mod": "cfamily", ".sum": "cfamily", ".tmpl": "cfamily",
+  ".pyi": "py", ".feature": "hash", ".mod": "hash", ".sum": "hash", ".tmpl": "gotmpl",
   ".plist": "markup", ".pbxproj": "markup", ".xib": "markup", ".storyboard": "markup", ".rst": "rst",
   ".vue": "vue", ".svelte": "vue", ".astro": "vue",
+  ".vhd": "dash", ".vhdl": "dash", ".adb": "dash", ".ads": "dash",
+  ".coffee": "coffee", ".litcoffee": "coffee",
+  ".adoc": "adoc", ".asciidoc": "adoc",
+  ".hbs": "handlebars",
+  ".tpl": "gotmpl", ".gotmpl": "gotmpl", ".gohtml": "gotmpl",
 }
 const FILENAME_PROFILE = {
   dockerfile: "hash",
@@ -167,15 +184,34 @@ const FILENAME_PROFILE = {
   rakefile: "hash",
   "cmakelists.txt": "hash",
   jenkinsfile: "cfamily",
+  build: "hash",
+  "build.bazel": "hash",
+  workspace: "hash",
+  "workspace.bazel": "hash",
+  "meson.build": "hash",
+  sconstruct: "hash",
+  sconscript: "hash",
+  pipfile: "hash",
+  procfile: "hash",
+  ".env": "hash",
+  ".gitignore": "hash",
+  ".dockerignore": "hash",
+  ".npmignore": "hash",
+  ".gitattributes": "hash",
+  ".gitmodules": "hash",
+  ".editorconfig": "ini",
 }
 
 export function profileFor(filePath) {
   const base = filePath.split(/[\\/]/).pop()?.toLowerCase() ?? ""
-  for (const [name, profile] of Object.entries(FILENAME_PROFILE)) {
-    if (base === name || base.startsWith(name + ".")) return PROFILES[profile] ?? null
-  }
+  const exact = FILENAME_PROFILE[base]
+  if (exact !== undefined) return PROFILES[exact] ?? null
   const byExt = EXT_PROFILE[extname(filePath).toLowerCase()]
-  return byExt === undefined ? null : (PROFILES[byExt] ?? null)
+  if (byExt !== undefined) return PROFILES[byExt] ?? null
+  for (const [name, profile] of Object.entries(FILENAME_PROFILE)) {
+    if (base.startsWith(name + ".")) return PROFILES[profile] ?? null
+  }
+  return null
 }
 const SKIPPED_SEGMENTS = new Set([
   "node_modules",
@@ -192,18 +228,19 @@ const SKIPPED_SEGMENTS = new Set([
   "Pods",
   "__pycache__",
   ".idea",
+  ".codegraph",
 ])
 const CLI_SKIPPED_SEGMENTS = new Set([...SKIPPED_SEGMENTS, "coverage", ".git"])
 const MAX_COMMENT_LENGTH = 120
 // \b is ASCII-only in JS — Cyrillic markers get lookaround bounds so substrings inside longer words never match
 const CHANGELOG_MARKER =
   /(?<![а-яё])(?:было|стало|раньше|вместо|теперь)(?![а-яё])|\bnow we\b|\bpreviously\b|\binstead of\b|\bthis fixes\b|\bthis fix\b|\bmust take over\b|\bno longer\b|broke, so/i
-const STEP_NUMBERED = /^\/\/\s*(?:step\s+\d+|\d+\.)/i
+const STEP_NUMBERED = /^(?:step\s+\d+|шаг\s+\d+|\d+\.)/i
 const DIVIDER_CHARS = /^[-=#*\s─-╿]{6,}$/
-const MARKDOWN_BOLD = /^\/\/\s*\*\*/
-const MARKDOWN_LIST = /^\/\/\s*-\s+\S/
-const MARKDOWN_TABLE = /^\/\/\s*\|/
-const THIS_OPENER = /^this\s+(?:function|class|method|component)\b/i
+const MARKDOWN_BOLD = /^\*\*/
+const MARKDOWN_LIST = /^-\s+\S/
+const MARKDOWN_TABLE = /^\|/
+const THIS_OPENER = /^(?:this\s+(?:function|class|method|component)\b|(?:эт[ао]т?\s+|данн(?:ая|ый)\s+)(?:функци[а-яё]*|класс[а-яё]*|метод[а-яё]*|компонент[а-яё]*))/i
 const TODO_WORD = /\bTODO\b/
 const TICKET_REF = /[A-Z]+-\d+/
 const ISSUE_LINK = /https?:\/\/\S+|#\d+/
@@ -218,7 +255,7 @@ export function isCommentLine(line, profile = PROFILES.legacy) {
 function stripCommentMarker(line) {
   return line
     .trim()
-    .replace(/^(?:\/\/+|\/\*+|\*+|#+|--+|;+|%+|!+)\s?/, "")
+    .replace(/^(?:\/\/+|\/\*+|\*+|#+|--+|;+|%+|!+|\(\*+|<!--+|::+|\.\.+|'+|"+|\{\{!--?|\{\{!|\{\{\/\*+)\s?/, "")
     .replace(/\*\/\s*$/, "")
     .replace(/^[rbf]?(?:"""|''')/, "")
     .replace(/(?:"""|''')$/, "")
@@ -252,7 +289,7 @@ function fileSuppressIds(lines) {
   return null
 }
 
-const LICENSE_HEAD = /^(?:\/\/+|\/\*+|\*+|<!--|#+|;+|--+)\s*(?:copyright|licensed?|SPDX)/i
+const LICENSE_HEAD = /^(?:\/\/+|\/\*+|\*+|\(\*+|<!--+|#+|;+|--+)\s*(?:copyright|licensed?|SPDX)/i
 const isLicenseRun = (runLines) =>
   runLines.slice(0, 3).some((l) => LICENSE_HEAD.test(l.trim())) || runLines.some((l) => l.includes("SPDX-License-Identifier"))
 
@@ -325,7 +362,7 @@ export function detectCommentSlop(addedLines, profile = PROFILES.legacy, diffMod
         }
       }
       for (const [open, close] of profile.blocks) {
-        if (t.startsWith(open) && !t.includes(close)) {
+        if (t.startsWith(open) && !t.slice(open.length).includes(close)) {
           blockClose = close
           return { comment: true, doc: false }
         }
@@ -346,12 +383,13 @@ export function detectCommentSlop(addedLines, profile = PROFILES.legacy, diffMod
     const t = raw.trim()
     if (CHANGELOG_MARKER.test(raw)) push(finding("changelog-marker", i + 1, [raw]))
     if (!doc && raw.length > MAX_COMMENT_LENGTH) push(finding("long-comment", i + 1, [raw]))
-    if (STEP_NUMBERED.test(t)) push(finding("vend/step-numbered", i + 1, [raw]))
+    const stripped = stripCommentMarker(t)
+    if (!doc && STEP_NUMBERED.test(stripped)) push(finding("vend/step-numbered", i + 1, [raw]))
     if (isDividerLine(t)) push(finding("vend/section-divider", i + 1, [raw]))
-    if (MARKDOWN_BOLD.test(t) || MARKDOWN_LIST.test(t) || MARKDOWN_TABLE.test(t)) {
+    if (!doc && (MARKDOWN_BOLD.test(stripped) || MARKDOWN_LIST.test(stripped) || MARKDOWN_TABLE.test(stripped))) {
       push(finding("vend/markdown-in-comment", i + 1, [raw]))
     }
-    if (THIS_OPENER.test(stripCommentMarker(t))) push(finding("vend/this-function-opener", i + 1, [raw]))
+    if (THIS_OPENER.test(stripped)) push(finding("vend/this-function-opener", i + 1, [raw]))
     if (TODO_WORD.test(t) && !TICKET_REF.test(t) && !ISSUE_LINK.test(t)) push(finding("vend/generic-todo", i + 1, [raw]))
   }
   let runStart = -1
@@ -865,10 +903,22 @@ function cmdSelfTest() {
       Containerfile: "# removeSource rewrites rows\n# with fresh uuids zones vanish\nRUN true\n",
       "w.bzl": "# removeSource rewrites rows\n# with fresh uuids zones vanish\nx = 1\n",
       "g.feature": "# removeSource rewrites rows\n# with fresh uuids zones vanish\nFeature: x\n",
-      "go.mod": "// removeSource rewrites rows\n// with fresh uuids zones vanish\nmodule x\n",
+      "go.mod": "# removeSource rewrites rows\n# with fresh uuids zones vanish\nmodule x\n",
       "doc.rst": ".. removeSource rewrites rows\n.. with fresh uuids zones vanish\nx\n",
       "Info.plist": "<!-- removeSource rewrites rows\nwith fresh uuids zones vanish\n-->\n<x/>\n",
-      "t.tmpl": "// removeSource rewrites rows\n// with fresh uuids zones vanish\nx\n",
+      "t.tmpl": "{{/*\nremoveSource rewrites rows\nwith fresh uuids zones vanish\n*/}}\nx\n",
+      "v.vhd": "-- removeSource rewrites rows\n-- with fresh uuids zones vanish\nx\n",
+      "e.elm": "-- removeSource rewrites rows\n-- with fresh uuids zones vanish\nx = 1\n",
+      "pk.nix": "# removeSource rewrites rows\n# with fresh uuids zones vanish\nx = 1\n",
+      "a.coffee": "###\nremoveSource rewrites rows\nwith fresh uuids zones vanish\n###\nx\n",
+      "d.adoc": "////\nremoveSource rewrites rows\nwith fresh uuids zones vanish\n////\nx\n",
+      "h.hbs": "{{!--\nremoveSource rewrites rows\nwith fresh uuids zones vanish\n--}}\nx\n",
+      "t.tpl": "{{/*\nremoveSource rewrites rows\nwith fresh uuids zones vanish\n*/}}\nx\n",
+      "m.mts": "// removeSource rewrites rows\n// with fresh uuids zones vanish\nconst x = 1\n",
+      "s.sol": "// removeSource rewrites rows\n// with fresh uuids zones vanish\ncontract X {}\n",
+      "meson.build": "# removeSource rewrites rows\n# with fresh uuids zones vanish\nproject('x')\n",
+      ".env": "# removeSource rewrites rows\n# with fresh uuids zones vanish\nX=1\n",
+      BUILD: "# removeSource rewrites rows\n# with fresh uuids zones vanish\nx\n",
     }
     for (const [name, body] of Object.entries(langFixtures)) writeFileSync(join(dir, name), body)
     writeFileSync(join(dir, "inline.sql"), "SELECT 1 -- было так\n")
@@ -886,6 +936,14 @@ function cmdSelfTest() {
     writeFileSync(join(dir, "lic.ts"), "/*\n * Copyright (c) 2024 Foo Inc.\n * All rights reserved.\n */\nconst x = 1\n")
     writeFileSync(join(dir, "lic2.ts"), "/*\n * Copyright (c) 2024 Foo Inc.\n * Pruning is not maintenance - the mapping broke, so recompute takes over.\n */\nconst x = 1\n")
     writeFileSync(join(dir, "stub.pyi"), 'def f(raw):\n    """This function normalizes the payload\n    """\n    return raw\n')
+    writeFileSync(join(dir, "step-py.py"), "# Step 3: normalize the payload\nx = 1\n")
+    writeFileSync(join(dir, "ru-opener.ts"), "// Эта функция нормализует полезную нагрузку\nconst x = 1\n")
+    writeFileSync(join(dir, "ru-step.yaml"), "# Шаг 3: нормализация\nkey: 1\n")
+    writeFileSync(
+      join(dir, "doc-md.ts"),
+      ["/**", " * Contract of the payload normalizer.", " * - item", " * **bold**", " */", "export function normalize() {}", ""].join("\n"),
+    )
+    writeFileSync(join(dir, "build.gradle"), "// removeSource rewrites rows\n// with fresh uuids zones vanish\nplugins {}\n")
     const findings = scanFiles(collectFiles([dir], dir), dir)
     const byRel = (rel) => findings.filter((f) => f.rel === rel)
     const sabotageRules = byRel("sabotage.ts").map((f) => f.rule)
@@ -975,6 +1033,33 @@ function cmdSelfTest() {
       "pyi: docstring-опенер [warning], без error",
       byRel("stub.pyi").some((f) => f.rule === "vend/this-function-opener") && !byRel("stub.pyi").some((f) => f.severity === "error"),
       byRel("stub.pyi"),
+    )
+    check(
+      "step-py: vend/step-numbered в #-языке [warning]",
+      byRel("step-py.py").some((f) => f.rule === "vend/step-numbered" && f.severity === "warning"),
+      byRel("step-py.py"),
+    )
+    check(
+      "ru-opener: «Эта функция» → vend/this-function-opener [warning]",
+      byRel("ru-opener.ts").some((f) => f.rule === "vend/this-function-opener"),
+      byRel("ru-opener.ts"),
+    )
+    check(
+      "ru-step: «Шаг N» → vend/step-numbered [warning]",
+      byRel("ru-step.yaml").some((f) => f.rule === "vend/step-numbered" && f.severity === "warning"),
+      byRel("ru-step.yaml"),
+    )
+    check(
+      "doc-md: markdown внутри JSDoc не флагается",
+      !byRel("doc-md.ts").some((f) => f.rule === "vend/markdown-in-comment"),
+      byRel("doc-md.ts"),
+    )
+    check("profileFor: build.gradle → cfamily", profileFor("build.gradle") === profileFor("x.ts"))
+    check("profileFor: bare BUILD → hash", profileFor("BUILD") === profileFor("x.sh"))
+    check(
+      "gradle-by-ext: build.gradle ловит //-слоп [error]",
+      byRel("build.gradle").some((f) => f.rule === "multi-line-comment" && f.severity === "error"),
+      byRel("build.gradle"),
     )
     const artDir = mkdtempSync(join(tmpdir(), "slop-gate-art-"))
     try {

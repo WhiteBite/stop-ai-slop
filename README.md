@@ -134,30 +134,36 @@ node skill/scripts/scan.mjs --audit 50     # последние 50
 
 ## Языковые профили
 
-Синтаксис комментариев берётся из профиля языка, а не из общего списка: `#` — комментарий в `.py/.sh/.yaml`, но препроцессор в `.c` и атрибут в `.rs`. Поддержано 120 расширений и 10 имён файлов: `Dockerfile`, `Containerfile`, `Makefile`, `GNUmakefile`, `Justfile`, `Rakefile`, `Vagrantfile`, `Gemfile`, `CMakeLists.txt`, `Jenkinsfile`; суффиксные варианты (`Dockerfile.dev`, `Makefile.am`) определяются по префиксу.
+Синтаксис комментариев берётся из профиля языка, а не из общего списка: `#` — комментарий в `.py/.sh/.yaml`, но препроцессор в `.c` и атрибут в `.rs`. Поддержано 160 расширений и 26 имён файлов: `Dockerfile`, `Containerfile`, `Makefile`, `GNUmakefile`, `Justfile`, `Rakefile`, `Vagrantfile`, `Gemfile`, `CMakeLists.txt`, `Jenkinsfile`, `BUILD`, `BUILD.bazel`, `WORKSPACE`, `WORKSPACE.bazel`, `meson.build`, `SConstruct`, `SConscript`, `Pipfile`, `Procfile`, `.env`, `.gitignore`, `.dockerignore`, `.npmignore`, `.gitattributes`, `.gitmodules`, `.editorconfig`. Матчинг: точное имя файла → расширение → префикс имени, поэтому суффиксные варианты (`Dockerfile.dev`, `Makefile.am`) определяются по префиксу, а `build.gradle` остаётся c-family — голый `BUILD` его не перехватывает.
 
 | Профиль | Линейный комментарий | Блок / doc | Примеры |
 | --- | --- | --- | --- |
-| c-family | `//` | `/* */`, `/** */`, `{/* */}` | ts, js, kt, java, go, rs, cs, c, cpp, swift, dart, scala |
+| c-family | `//` | `/* */`, `/** */`, `{/* */}` | ts, js, kt, java, go, rs, cs, c, cpp, swift, dart, scala, mts, cts, sol, v, sv, qml, styl, res |
 | css | `//`, `/*` | `/* */` | css, scss, less |
-| py | `#` | `"""` / `'''` | py |
-| hash | `#` | — | rb, php, sh, yaml, toml, tf, ex, Dockerfile, Makefile |
+| py | `#` | `"""` / `'''` | py, pyi, vy |
+| hash | `#` | — | rb, php, sh, yaml, toml, ex, raku, awk, go.mod, go.sum, Dockerfile, Makefile, .gitignore |
+| hashblock | `#`, `/*` | `/* */` | nix, hcl, tf, tfvars |
 | powershell | `#` | `<# #>` | ps1, psm1 |
 | julia | `#` | `#= =#` | jl |
 | nim | `#` | `#[ ]#` | nim |
-| sql | `--` | `/* */` | sql |
-| lua / haskell | `--` | `--[[ ]]` / `{- -}` | lua, hs |
+| sql | `--` | `/* */` | sql, plsql, pks, pkb |
+| dash | `--` | — | vhd, vhdl, adb, ads |
+| lua / haskell | `--` | `--[[ ]]` / `{- -}` | lua, hs, elm, purs, idr, agda, dhall |
 | lisp | `;` | — | clj, el, scm, rkt |
 | percent | `%` | — | tex, bib, erl |
 | fortran / vb / batch / vim | `!` / `'` / `::`, `REM` / `"` | — | f90, vb, bat, vim |
 | rst | `..` | — | rst |
-| markup | `<!--` | `<!-- -->` | html, xml, svg, md, mdx |
+| markup | `<!--` | `<!-- -->` | html, xml, svg, md, mdx, xsl |
 | vue | `//`, `/*`, `<!--` | `/* */`, `{/* */}`, `<!-- -->` | vue, svelte, astro |
 | ocaml | `(*` | `(* *)` | ml, mli |
-| pascal | `//`, `(*` | `(* *)` | pas, fs (F#) |
-| ini / properties | `;`, `#` / `#`, `!` | — | ini, properties |
+| pascal | `//`, `(*` | `(* *)` | pas, pp, fs (F#) |
+| coffee | `#` | `### ###` | coffee, litcoffee |
+| adoc | `//` | `//// ////` | adoc, asciidoc |
+| handlebars | `{{!` | `{{!-- --}}` | hbs |
+| gotmpl | `{{/*` | `{{/* */}}` | tpl, gotmpl, gohtml, tmpl |
+| ini / properties | `;`, `#` / `#`, `!` | — | ini, properties, .editorconfig |
 
-`.m` не сканируется: расширение неоднозначно (Objective-C против MATLAB). Новый язык добавляется одной строкой в таблицу профилей `scan.mjs`.
+`.m` не сканируется: расширение неоднозначно (Objective-C против MATLAB). `.pp` тоже неоднозначно (Puppet против Pascal) — отмечен как pascal. Не сканируются: COBOL, ассемблер (`.asm`/`.s`), `.ahk`, `.ipynb`, серверные шаблоны движков (`.erb`, `.ejs`, `.jsp`, `.cshtml`, `.razor`, `.twig`, `.blade.php`, `.pug`, `.haml`). Новый язык добавляется одной строкой в таблицу профилей `scan.mjs`.
 
 ## Правила
 
@@ -166,14 +172,16 @@ node skill/scripts/scan.mjs --audit 50     # последние 50
 | `multi-line-comment` | error | комментарий занимает 2+ строки подряд (doc-блоки исключены) |
 | `changelog-marker` | error | комментарий пересказывает дифф (было/стало/раньше/вместо/fixes) |
 | `long-comment` | error | строка комментария длиннее 120 символов (doc-блоки исключены) |
-| `vend/step-numbered` | warning | нумерованный шаг в комментарии (// Step N или // N.) |
+| `vend/step-numbered` | warning | нумерованный шаг в комментарии (Step N / Шаг N / N., маркер любого языка) |
 | `vend/section-divider` | warning | строка-разделитель из символов -=#* |
 | `vend/markdown-in-comment` | warning | markdown-разметка внутри комментария (**, -, \|) |
-| `vend/this-function-opener` | warning | комментарий начинается с «This function/class/method/component» |
+| `vend/this-function-opener` | warning | комментарий начинается с «This function/class/method/component» или «Эта функция/Этот класс» |
 | `vend/file-summary-header` | warning | шапка-резюме из 2+ строк комментария в начале файла |
 | `vend/generic-todo` | warning | TODO без ссылки на тикет |
 
 Error-правила не применяются к doc-блокам (JSDoc `/** … */` и Python-docstring): контрактная документация классов и функций допустима любой длины. Внутри doc-блоков по-прежнему ловятся changelog-маркеры (error) и пересказ сигнатуры «This function…» (warning).
+
+Текстовые правила (`step-numbered`, `markdown-in-comment`, `this-function-opener`) матчатся по тексту после срезания маркера комментария, поэтому работают во всех профилях — `# Шаг 3` в yaml и `-- Step 3` в sql ловятся одинаково. `step-numbered` и `this-function-opener` понимают RU+EN («Шаг N», «Эта функция/Этот класс»), `changelog-marker` — тоже только RU+EN; структурные правила (multi-line, divider, header, todo) от языка формулировок не зависят. `step-numbered` и `markdown-in-comment` внутри doc-блоков не срабатывают.
 
 Полное обоснование по правилу (Why / Instead of / Write / Ignore it when из той же таблицы `RULES`):
 
@@ -183,7 +191,7 @@ node skill/scripts/scan.mjs --explain <rule-id>
 
 id правил и служебные лейблы — EN; сообщения и обоснования — RU. Префикс `vend/` = правила, вендоренные из внешних каталогов паттернов.
 
-Детектор видит inline-комментарии после кода (`const x = 1 // было`), блоковые комментарии без маркера на средних строках, doc-блоки любой длины (контрактные JSDoc/docstring), файлы в UTF-16 с BOM; zero-width символы игнорируются при матчинге. Не сканируются: языки без профиля (см. таблицу выше; `.m` неоднозначно), бинарные и офисные форматы; `--staged` и `--diff` не видят неотслеживаемые файлы. Warning не блокируют гейт, если не указан `--strict`. Имена файлов с не-ASCII поддерживаются в diff-режимах. Пропускаются каталоги артефактов (`venv`, `build`, `.next`, `target`, `out`, `.gradle`, `Pods`, `__pycache__`, `.idea`, `site-packages`, `.dart_tool`). Лицензионные шапки exempt from multi-line rule. Inline-комментарии определяются по маркерам профиля (`//`, `#`, `--`, `%`, `;`, `!`) за исключением py/fs floor division (`//`).
+Детектор видит inline-комментарии после кода (`const x = 1 // было`), блоковые комментарии без маркера на средних строках, doc-блоки любой длины (контрактные JSDoc/docstring), файлы в UTF-16 с BOM; zero-width символы игнорируются при матчинге. Не сканируются: языки без профиля (см. таблицу выше; `.m` неоднозначно), бинарные и офисные форматы; `--staged` и `--diff` не видят неотслеживаемые файлы. Warning не блокируют гейт, если не указан `--strict`. Имена файлов с не-ASCII поддерживаются в diff-режимах. Пропускаются каталоги артефактов (`venv`, `build`, `.next`, `target`, `out`, `.gradle`, `Pods`, `__pycache__`, `.idea`, `.codegraph`, `site-packages`, `.dart_tool`). Лицензионные шапки exempt from multi-line rule. Inline-комментарии определяются по маркерам профиля (`//`, `#`, `--`, `%`, `;`, `!`) за исключением py/fs floor division (`//`).
 
 ## Сравнение с аналогами
 
