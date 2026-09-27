@@ -35,6 +35,6 @@ class StopAiSlopChangelogMarkerTest {
 
     @Test
     fun `zero width chars do not hide marker`() {
-        assertEquals(1, rule.lint("// с\u200Bтало иначе\nval x = 1\n").size)
+        assertEquals(1, rule.lint("// с" + 0x200B.toChar() + "тало иначе\nval x = 1\n").size)
     }
 }

@@ -1,3 +1,0 @@
-# slop-gate baseline: relpath:line
-detekt-rules/src/main/kotlin/whitebite/slop/StopAiSlopChangelogMarker.kt:36
-detekt-rules/src/test/kotlin/whitebite/slop/StopAiSlopChangelogMarkerTest.kt:38

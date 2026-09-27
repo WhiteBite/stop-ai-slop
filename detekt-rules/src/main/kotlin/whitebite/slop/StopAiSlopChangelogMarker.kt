@@ -33,7 +33,7 @@ class StopAiSlopChangelogMarker(config: Config = Config.empty) : Rule(config) {
     }
 
     private companion object {
-        val zeroWidth = Regex("[\u200B-\u200F\uFEFF]")
+        val zeroWidth = Regex("[" + 0x200B.toChar() + "-" + 0x200F.toChar() + 0xFEFF.toChar() + "]")
         val changelogMarker = Regex(
             "(?<![а-яёА-ЯЁ])(?:было|стало|раньше|вместо|теперь)(?![а-яёА-ЯЁ])" +
                 "|\\bnow we\\b|\\bpreviously\\b|\\binstead of\\b|\\bthis fixes\\b|\\bthis fix\\b" +
