@@ -3,6 +3,7 @@ import { execFileSync } from "node:child_process"
 import { appendFileSync, chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs"
 import { homedir, tmpdir } from "node:os"
 import { dirname, extname, join, relative, resolve, sep } from "node:path"
+import { createInterface } from "node:readline"
 import { fileURLToPath, pathToFileURL } from "node:url"
 
 export const RULES = [
@@ -765,6 +766,19 @@ function toSarif(findings) {
   )
 }
 
+function findingsToText(findings) {
+  const lines = []
+  for (const f of sortedFindings(findings)) {
+    const rule = RULE_BY_ID.get(f.rule)
+    lines.push(`${f.rel}:${f.lineNo} ${f.rule} [${f.severity}] ${rule.message}`)
+    lines.push(`  instead: ${rule.instead}`)
+  }
+  const errors = findings.filter((f) => f.severity === "error").length
+  if (findings.length === 0) lines.push("slop-gate: чисто")
+  else lines.push(`slop-gate: ${findings.length} находок, ошибок: ${errors}`)
+  return lines.join("\n")
+}
+
 function printFindings(findings, format = "text") {
   if (format === "json") {
     console.log(toRdjson(findings))
@@ -774,15 +788,7 @@ function printFindings(findings, format = "text") {
     console.log(toSarif(findings))
     return
   }
-  const sorted = sortedFindings(findings)
-  for (const f of sorted) {
-    const rule = RULE_BY_ID.get(f.rule)
-    console.log(`${f.rel}:${f.lineNo} ${f.rule} [${f.severity}] ${rule.message}`)
-    console.log(`  instead: ${rule.instead}`)
-  }
-  const errors = findings.filter((f) => f.severity === "error").length
-  if (findings.length === 0) console.log("slop-gate: чисто")
-  else console.log(`slop-gate: ${findings.length} находок, ошибок: ${errors}`)
+  console.log(findingsToText(findings))
 }
 
 function failsGate(findings, strict) {
@@ -984,18 +990,26 @@ function cmdDiff(ref, strict = false, format = "text") {
   return runDiffGate(diff, root, strict, format, config)
 }
 
-function cmdExplain(ruleId) {
+function explainText(ruleId) {
   const rule = RULE_BY_ID.get(ruleId)
-  if (rule === undefined) {
+  if (rule === undefined) return null
+  return [
+    `${rule.id} [${rule.severity}]`,
+    `Message: ${rule.message}`,
+    `Why: ${rule.why}`,
+    `Instead of: ${rule.instead}`,
+    `Write: ${rule.write}`,
+    `Ignore it when: ${rule.ignoreWhen}`,
+  ].join("\n")
+}
+
+function cmdExplain(ruleId) {
+  const text = explainText(ruleId)
+  if (text === null) {
     console.error(`slop-gate: неизвестное правило "${ruleId}". Известные: ${RULES.map((r) => r.id).join(", ")}`)
     return 2
   }
-  console.log(`${rule.id} [${rule.severity}]`)
-  console.log(`Message: ${rule.message}`)
-  console.log(`Why: ${rule.why}`)
-  console.log(`Instead of: ${rule.instead}`)
-  console.log(`Write: ${rule.write}`)
-  console.log(`Ignore it when: ${rule.ignoreWhen}`)
+  console.log(text)
   return 0
 }
 
@@ -1780,6 +1794,97 @@ function cmdSelfTest() {
     } finally {
       rmSync(cfgDir, { recursive: true, force: true })
     }
+    const mcpLines = [
+      JSON.stringify({ jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "t", version: "0" } } }),
+      JSON.stringify({ jsonrpc: "2.0", method: "notifications/initialized" }),
+      JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/list" }),
+      JSON.stringify({ jsonrpc: "2.0", id: 3, method: "tools/call", params: { name: "slop_explain", arguments: { ruleId: "changelog-marker" } } }),
+      JSON.stringify({ jsonrpc: "2.0", id: 4, method: "bogus/method" }),
+      JSON.stringify({ jsonrpc: "2.0", id: 5, method: "tools/call", params: { name: "slop_scan", arguments: { path: dir } } }),
+      "not json{",
+    ]
+    let mcpOut = ""
+    let mcpStatus = 0
+    try {
+      mcpOut = execFileSync(process.execPath, [selfPath, "--mcp"], { input: mcpLines.join("\n") + "\n", encoding: "utf8", stdio: "pipe", cwd: dir })
+    } catch (error) {
+      mcpStatus = error.status ?? 1
+      mcpOut = String(error.stdout ?? "")
+    }
+    const mcpResponses = []
+    let mcpAllJson = true
+    for (const line of mcpOut.split("\n")) {
+      if (line.trim() === "") continue
+      try {
+        mcpResponses.push(JSON.parse(line))
+      } catch {
+        mcpAllJson = false
+      }
+    }
+    const mcpById = new Map(mcpResponses.filter((r) => typeof r === "object" && r !== null && "id" in r).map((r) => [r.id, r]))
+    const init = mcpById.get(1)
+    check(
+      "mcp-handshake: initialize → protocolVersion + capabilities + serverInfo [exit 0]",
+      mcpStatus === 0 &&
+        init?.result !== undefined &&
+        ["2024-11-05", "2025-11-25", "2026-07-28"].includes(init.result.protocolVersion) &&
+        init.result.capabilities?.tools !== undefined &&
+        init.result.serverInfo?.name === "stop-ai-slop",
+      `exit ${mcpStatus}: ${mcpOut.slice(0, 300)}`,
+    )
+    const toolsList = mcpById.get(2)?.result?.tools
+    const toolNames = new Set((toolsList ?? []).map((t) => t.name))
+    check(
+      "mcp-tools-list: ровно 3 инструмента с inputSchema.type object",
+      Array.isArray(toolsList) &&
+        toolsList.length === 3 &&
+        toolNames.size === 3 &&
+        ["slop_scan", "slop_explain", "slop_baseline"].every((n) => toolNames.has(n)) &&
+        toolsList.every((t) => t.inputSchema?.type === "object"),
+      String(JSON.stringify(mcpById.get(2))).slice(0, 300),
+    )
+    const explainCall = mcpById.get(3)
+    check(
+      "mcp-call-explain: slop_explain возвращает текст правила",
+      !explainCall?.result?.isError && explainCall?.result?.content?.[0]?.type === "text" && explainCall.result.content[0].text.includes("changelog"),
+      String(JSON.stringify(explainCall)).slice(0, 300),
+    )
+    const scanCall = mcpById.get(5)
+    check(
+      "mcp-call-scan: slop_scan находит multi-line-comment",
+      scanCall?.result?.content?.[0]?.text?.includes("multi-line-comment") === true,
+      String(JSON.stringify(scanCall)).slice(0, 300),
+    )
+    check("mcp-unknown-method: bogus/method → error -32601", mcpById.get(4)?.error?.code === -32601, String(JSON.stringify(mcpById.get(4))))
+    check("mcp-bad-json: невалидная строка → error -32700, id null", mcpById.get(null)?.error?.code === -32700, String(JSON.stringify(mcpById.get(null))))
+    check("mcp-stdout-purity: каждая непустая строка stdout — валидный JSON", mcpAllJson, mcpOut.slice(0, 300))
+    const preTool = (payload) => {
+      try {
+        execFileSync(process.execPath, [selfPath, "--pre-tool"], { input: JSON.stringify(payload), encoding: "utf8", stdio: "pipe" })
+        return { status: 0, stderr: "" }
+      } catch (error) {
+        return { status: error.status ?? 1, stderr: String(error.stderr ?? "") }
+      }
+    }
+    const blockedWrite = preTool({
+      tool_name: "Write",
+      tool_input: { file_path: join(dir, "slop-write.ts"), content: "// стало иначе\n// было по-другому\nconst x = 1\n" },
+    })
+    check(
+      "pre-tool-blocked: Write со слопом [exit 2]",
+      blockedWrite.status === 2 && blockedWrite.stderr.includes("changelog-marker"),
+      `exit ${blockedWrite.status}: ${blockedWrite.stderr.slice(0, 300)}`,
+    )
+    const cleanWrite = preTool({ tool_name: "Write", tool_input: { file_path: join(dir, "slop-clean.ts"), content: "const x = 1\n" } })
+    check("pre-tool-clean: чистый Write [exit 0]", cleanWrite.status === 0 && cleanWrite.stderr === "", `exit ${cleanWrite.status}: ${cleanWrite.stderr}`)
+    writeFileSync(join(dir, "edit-target.ts"), "const a = 1\n")
+    const editDelta = preTool({
+      tool_name: "Edit",
+      tool_input: { file_path: join(dir, "edit-target.ts"), old_string: "const a = 1\n", new_string: "const a = 1\n// стало иначе\n" },
+    })
+    check("pre-tool-edit-delta: Edit, добавляющий слоп [exit 2]", editDelta.status === 2, `exit ${editDelta.status}: ${editDelta.stderr.slice(0, 300)}`)
+    const silentRead = preTool({ tool_name: "Read", tool_input: { file_path: join(dir, "clean.ts") } })
+    check("pre-tool-silent: Read игнорируется [exit 0]", silentRead.status === 0 && silentRead.stderr === "", `exit ${silentRead.status}: ${silentRead.stderr}`)
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }
@@ -1797,6 +1902,8 @@ const KNOWN_FLAGS = new Set([
   "--baseline-prune",
   "--audit",
   "--stdin-path",
+  "--mcp",
+  "--pre-tool",
   "--format",
   "--help",
 ])
@@ -1883,6 +1990,136 @@ function cmdStdinPath() {
   return failsGate(fresh, false) ? 1 : 0
 }
 
+const MCP_PROTOCOLS = ["2024-11-05", "2025-11-25", "2026-07-28"]
+
+const MCP_TOOLS = [
+  {
+    name: "slop_scan",
+    description: "Полное сканирование каталога на slop-комментарии",
+    inputSchema: { type: "object", properties: { path: { type: "string", description: "Каталог или файл (по умолчанию текущий)" } }, required: [] },
+  },
+  {
+    name: "slop_explain",
+    description: "Обоснование правила (Why/Instead/Write/Ignore)",
+    inputSchema: { type: "object", properties: { ruleId: { type: "string" } }, required: ["ruleId"] },
+  },
+  {
+    name: "slop_baseline",
+    description: "Записи baseline текущего git-корня",
+    inputSchema: { type: "object", properties: {}, required: [] },
+  },
+]
+
+function mcpToolResult(text, isError = false) {
+  return { resultType: "complete", content: [{ type: "text", text }], ...(isError ? { isError: true } : {}) }
+}
+
+function mcpCallTool(name, args) {
+  if (name === "slop_scan") {
+    const path = typeof args?.path === "string" && args.path !== "" ? args.path : "."
+    const root = gitToplevel(process.cwd())
+    let config
+    try {
+      config = loadConfig(root)
+    } catch (error) {
+      return mcpToolResult(`ошибка конфига: ${error.message}`, true)
+    }
+    const findings = applyRuleConfig(scanFiles(collectFiles([path], root, config?.excludePaths ?? []), root, configOptions(config)), config)
+    const baseline = loadBaseline(root)
+    return mcpToolResult(findingsToText(findings.filter((f) => !baseline.has(baselineKey(f)))))
+  }
+  if (name === "slop_explain") {
+    const text = explainText(String(args?.ruleId ?? ""))
+    return text === null ? mcpToolResult("правило не найдено", true) : mcpToolResult(text)
+  }
+  if (name === "slop_baseline") {
+    const entries = [...loadBaseline(gitToplevel(process.cwd()))]
+    return mcpToolResult(entries.length === 0 ? "baseline пуст" : entries.join("\n"))
+  }
+  return mcpToolResult(`неизвестный инструмент ${name}`, true)
+}
+
+function cmdMcp() {
+  const version = JSON.parse(readFileSync(join(dirname(fileURLToPath(import.meta.url)), "..", "..", "package.json"), "utf8")).version
+  const write = (msg) => process.stdout.write(JSON.stringify(msg) + "\n")
+  const rl = createInterface({ input: process.stdin })
+  return new Promise((resolvePromise) => {
+    rl.on("line", (line) => {
+      const trimmed = line.trim()
+      if (trimmed === "") return
+      let msg
+      try {
+        msg = JSON.parse(trimmed)
+      } catch {
+        write({ jsonrpc: "2.0", id: null, error: { code: -32700, message: "Parse error" } })
+        return
+      }
+      const { id, method, params } = typeof msg === "object" && msg !== null ? msg : {}
+      if (method === "notifications/initialized" || method === "notifications/cancelled") return
+      if (method === "initialize") {
+        const requested = params?.protocolVersion
+        write({
+          jsonrpc: "2.0",
+          id,
+          result: {
+            protocolVersion: MCP_PROTOCOLS.includes(requested) ? requested : MCP_PROTOCOLS[MCP_PROTOCOLS.length - 1],
+            capabilities: { tools: {} },
+            serverInfo: { name: "stop-ai-slop", version },
+          },
+        })
+        return
+      }
+      if (method === "ping") {
+        write({ jsonrpc: "2.0", id, result: {} })
+        return
+      }
+      if (method === "tools/list") {
+        write({ jsonrpc: "2.0", id, result: { resultType: "complete", tools: MCP_TOOLS } })
+        return
+      }
+      if (method === "tools/call") {
+        let result
+        try {
+          result = mcpCallTool(params?.name, params?.arguments)
+        } catch (error) {
+          result = mcpToolResult(String(error?.message ?? error), true)
+        }
+        write({ jsonrpc: "2.0", id, result })
+        return
+      }
+      if (id !== undefined) write({ jsonrpc: "2.0", id, error: { code: -32601, message: "Method not found" } })
+    })
+    rl.on("close", () => {
+      process.stdout.write("", () => resolvePromise(0))
+    })
+  })
+}
+
+function cmdPreTool() {
+  let payload
+  try {
+    payload = JSON.parse(readFileSync(0, "utf8"))
+  } catch {
+    return 0
+  }
+  const tool = String(payload?.tool_name ?? "").toLowerCase()
+  if (tool !== "write" && tool !== "edit" && tool !== "multiedit") return 0
+  const ti = payload?.tool_input ?? {}
+  const extracted = addedFromToolArgs(tool, {
+    filePath: ti.file_path ?? ti.filePath,
+    content: ti.content,
+    oldString: ti.old_string ?? ti.oldString,
+    newString: ti.new_string ?? ti.newString,
+  })
+  if (extracted === null) return 0
+  const violations = detectCommentSlop(extracted.added, profileFor(extracted.filePath) ?? undefined, true).filter((v) => v.severity === "error")
+  if (violations.length === 0) return 0
+  for (const v of violations) {
+    process.stderr.write(`slop-gate: ${v.rule} [${v.severity}] at ${extracted.filePath}:${v.lineNo}\n${v.lines.join("\n")}\ninstead: ${RULE_BY_ID.get(v.rule).instead}\n`)
+  }
+  return 2
+}
+
 function cmdUsage() {
   console.log(
     [
@@ -1898,6 +2135,8 @@ function cmdUsage() {
       "  --explain <rule-id> обоснование правила",
       "  --audit [N]         последние N записей аудит-лога решений гейта",
       "  --self-test         саботаж-тест детектора",
+      "  --mcp               MCP-сервер (JSON-RPC 2.0 по stdio)",
+      "  --pre-tool          PreToolUse-хук Claude Code: блокирует Write/Edit до записи",
       "",
       "Флаги: --strict (warning тоже блокируют), --format <text|json|sarif> (формат вывода), --help",
       "Коды выхода: 0 — чисто; 1 — гейт сработал; 2 — ошибка использования или git",
@@ -1944,6 +2183,8 @@ function main(argv) {
     return cmdScan(paths.length > 0 ? paths : ["."], { prune: true })
   }
   if (argv.includes("--stdin-path")) return cmdStdinPath()
+  if (argv.includes("--mcp")) return cmdMcp()
+  if (argv.includes("--pre-tool")) return cmdPreTool()
   const unknown = argv.filter((a) => a.startsWith("--") && !KNOWN_FLAGS.has(a))
   if (unknown.length > 0) {
     console.error(`slop-gate: неизвестный флаг ${unknown[0]}`)
@@ -1960,4 +2201,8 @@ const isMain = (() => {
     return false
   }
 })()
-if (isMain) process.exit(main(process.argv.slice(2)))
+if (isMain) {
+  const exitCode = main(process.argv.slice(2))
+  if (exitCode instanceof Promise) exitCode.then((code) => process.exit(code), () => process.exit(2))
+  else process.exit(exitCode)
+}
