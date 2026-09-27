@@ -60,6 +60,8 @@ Error блокирует (exit 1, write-time gate бросает). Warning — �
 - `--format <text|json|sarif>` — машиночитаемый вывод вместо текста: json = rdjson (reviewdog), sarif = 2.1.0 (code scanning); exit-коды от формата не зависят, итоговая строка `slop-gate:` печатается только в text.
 - Конфиг `.stop-ai-slop.yaml` в корне репо — override severity правил (`off`/`warning`/`error`), `maxCommentLength`, `excludePaths`; читается режимами scan/--staged/--diff, write-time плагин работает с дефолтами.
 - `--explain <rule-id>` — полное обоснование правила (Why / Instead of / Write / Ignore it when).
+- `--mcp` — MCP-сервер по stdio (JSON-RPC 2.0): три инструмента `slop_scan` / `slop_explain` / `slop_baseline`; согласование версий протокола `2024-11-05` / `2025-11-25` / `2026-07-28`.
+- `--pre-tool` — PreToolUse-хук Claude Code: читает stdin JSON `{tool_name, tool_input}`, сканирует предлагаемый дельта-контент (`Write` content или `Edit` new_string минус old_string), при error-находках выводит их в stderr и exit 2 — блокирует запись до исправления.
 - `--help` — справка по всем режимам и флагам.
 
 Директивы подавления: `// stop-ai-slop-ignore-next-line [rule-id]`, `// stop-ai-slop-ignore-line [rule-id]`, `// stop-ai-slop-ignore-file` (после `--` — причина). Синтаксис комментариев берётся из профиля языка (160 расширений и 26 имён файлов; см. таблицу профилей в README): `#` — комментарий в py/sh/yaml, но препроцессор в C и атрибут в Rust; детектор видит inline-комментарии после кода, блоковые комментарии без маркера на средних строках, doc-блоки, UTF-16 с BOM; zero-width символы игнорируются при матчинге.

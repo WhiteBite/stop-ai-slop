@@ -17,6 +17,10 @@
 - CJK-смежность проверяется только в code-части строки: китайские комментарии и i18n-строки без смежности с латиницей легитимны
 - `--format json` (rdjson для reviewdog) и `--format sarif` (2.1.0) в режимах scan/--staged/--diff; exit-коды не зависят от формата
 - Конфиг `.stop-ai-slop.yaml`: override severity правил вплоть до off, maxCommentLength, excludePaths; zero-dep парсер подмножества YAML; write-time плагин конфиг не читает
+- MCP-сервер `--mcp` (JSON-RPC 2.0 по stdio): три инструмента `slop_scan` / `slop_explain` / `slop_baseline`, согласование версий протокола `2024-11-05` / `2025-11-25` / `2026-07-28`; stdout несёт только protocol messages, логи в stderr
+- `--pre-tool` и PreToolUse-хук в плагине Claude Code: блокировка Write/Edit до записи, exit 2 + stderr для многострочных находок; хук уже в `hooks.json` (matcher `Write|Edit`)
+- GitLab CI-шаблон `templates/stop-ai-slop.gitlab-ci.yml`: stage test, image node:24-alpine, rules на merge_request_event, скрипт `--diff "$CI_MERGE_REQUEST_DIFF_BASE_SHA" --strict`
+- VS Code problem matcher в README: однострочный pattern с fileLocation relative, owner external, source stop-ai-slop
 
 ## 0.2.1
 

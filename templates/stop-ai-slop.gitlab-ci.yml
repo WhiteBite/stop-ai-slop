@@ -1,0 +1,8 @@
+stop-ai-slop:
+  stage: test
+  image: node:24-alpine
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+  script:
+    - npm i -g stop-ai-slop --ignore-scripts
+    - stop-ai-slop --diff "$CI_MERGE_REQUEST_DIFF_BASE_SHA" --strict

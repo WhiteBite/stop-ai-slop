@@ -89,6 +89,126 @@ rules:
 
 Remap severity применяется после детекции и до фильтрации baseline и подсчёта exit-кода; baseline матчится по `rel:line` независимо от severity, поэтому смена severity в конфиге не воскрешает и не маскирует baselined-находки.
 
+## MCP-сервер
+
+Флаг `--mcp` запускает stop-ai-slop как MCP-сервер по stdio (JSON-RPC 2.0). Это pull-mode: любой MCP-клиент вызывает сканер сам перед редактированием файла.
+
+```
+npx stop-ai-slop --mcp
+```
+
+Сервер поддерживает протоколы `2024-11-05`, `2025-11-25`, `2026-07-28` — версия согласуется на `initialize`. stdout несёт только сообщения протокола, логи пишутся в stderr.
+
+Три инструмента:
+
+| Инструмент | Аргументы | Описание |
+| --- | --- | --- |
+| `slop_scan` | `{ path?: string }` | Полное сканирование директории или файла; возвращает текстовые находки |
+| `slop_explain` | `{ ruleId: string }` | Возвращает обоснование правила (Why / Instead of / Write / Ignore it when) |
+| `slop_baseline` | `{}` | Выводит записи baseline (формат `relpath:line`) |
+
+Настройка клиента:
+
+**Claude Code** (`.mcp.json`):
+
+```json
+{
+  "mcpServers": {
+    "stop-ai-slop": {
+      "command": "npx",
+      "args": ["stop-ai-slop", "--mcp"]
+    }
+  }
+}
+```
+
+**OpenCode / Cursor** (stdio-запись в конфигурации):
+
+```json
+{
+  "mcpServers": {
+    "stop-ai-slop": {
+      "command": "npx",
+      "args": ["stop-ai-slop", "--mcp"]
+    }
+  }
+}
+```
+
+## Блокировка до записи (Claude Code)
+
+Флаг `--pre-tool` читает из stdin JSON-пейлоад PreToolUse (`{ tool_name, tool_input }`), сканирует предлагаемый дельта-контент (содержимое `Write` или разница `Edit` — `new_string` минус `old_string`), и при наличии error-находок выводит их в stderr и завершается с кодом 2 — Claude Code отменяет вызов инструмента и показывает причину модели. Чистый пейлоад завершается с кодом 0 без вывода.
+
+Плагин уже содержит хук (`.claude-plugin/stop-ai-slop/hooks/hooks.json`, matcher `Write|Edit`), так что установка через marketplace получает его автоматически. Для ручной настройки добавьте в `.claude/settings.json`:
+
+```json
+{
+  "hooks": [
+    {
+      "matcher": "Write|Edit",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "node \"<путь к репо>/skill/scripts/scan.mjs\" --pre-tool"
+        }
+      ]
+    }
+  ]
+}
+```
+
+Альтернативная форма принятия решений через `hookSpecificOutput.permissionDecision` (deny) существует, но данный хук использует exit 2 + stderr для многострочного вывода находок.
+
+## IDE и CI
+
+### VS Code
+
+Задача `tasks.json` с problem matcher для подсветки находок в панели Problems:
+
+```json
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "stop-ai-slop scan",
+      "type": "shell",
+      "command": "npx stop-ai-slop scan",
+      "problemMatcher": {
+        "owner": "external",
+        "source": "stop-ai-slop",
+        "severity": "error",
+        "fileLocation": ["relative", "${workspaceFolder}"],
+        "pattern": {
+          "regexp": "^(.+):(\\d+)\\s+(\\S+)\\s+\\[(error|warning)\\]\\s+(.+)$",
+          "file": 1,
+          "line": 2,
+          "code": 3,
+          "severity": 4,
+          "message": 5
+        }
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      }
+    }
+  ]
+}
+```
+
+Однострочный pattern: вложенные `instead:` строки просто не матчатся. Запускать через терминал или привязать к хоткею.
+
+### GitLab CI
+
+Шаблон `templates/stop-ai-slop.gitlab-ci.yml` блокирует MR-пайплайны на диффе (exit code); кодквалиоти-репорт не поставляется. Подключить:
+
+```yaml
+include:
+  - project: 'WhiteBite/stop-ai-slop'
+    file: '/templates/stop-ai-slop.gitlab-ci.yml'
+    ref: <tag>
+```
+
 ## CI (GitHub Actions)
 
 ```yaml
