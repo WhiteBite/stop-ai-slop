@@ -1,0 +1,40 @@
+name: Feature Request
+description: Suggest a new rule, language profile, or integration point.
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What comment pattern or workflow gap are you trying to solve? Why does the current scanner not cover it?
+    validations:
+      required: true
+  - type: textarea
+    id: proposed-solution
+    attributes:
+      label: Proposed solution
+      description: Describe the new rule, language profile entry, or feature. Include example input that should be caught and example that should pass.
+    validations:
+      required: true
+  - type: dropdown
+    id: integration-points
+    attributes:
+      label: Affected integration points
+      description: Which parts of stop-ai-slop would this change touch? Select all that apply.
+      multiple: true
+      options:
+        - CLI (scan.mjs)
+        - OpenCode write-time plugin
+        - Pre-commit hook (--install)
+        - GitHub Action (action.yml)
+        - GitLab CI template
+        - MCP server (--mcp)
+        - Claude Code / Cursor hooks
+        - Language profiles
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: What other approaches have you thought about? Why is this the best one?

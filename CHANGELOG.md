@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- README переведён на английский (основной для поисковиков и ИИ-агентов), русский перенесён в README.ru.md; переключатель языков в обоих
+- `llms.txt` по спеке llmstxt.org v2 — индекс проекта для ИИ-агентов
+- package.json: SEO-описание (~150 симв., keyword-first), 16 keywords, homepage/bugs/author, `test`-скрипт; версия plugin.json синхронизирована
+- Репозиторная гигиена: AGENTS.md, CONTRIBUTING.md, issue-формы и PR-шаблон в .github/
+- publish.yml: возвращён `--provenance` в `npm publish` — без него OIDC trusted publishing не происходит и публикация падала с E404 (v0.2.1, v0.3.0)
+
 ## 0.3.0
 
 - Новые языковые профили: dash (VHDL, Ada), hashblock (Nix, HCL, Terraform), coffee, adoc, handlebars, gotmpl; 160 расширений и 26 имён файлов

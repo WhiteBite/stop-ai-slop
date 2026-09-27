@@ -1,0 +1,65 @@
+name: Bug Report
+description: Report a scanner issue — false positive, missed detection, or crash.
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before filing, run `node skill/scripts/scan.mjs --self-test` to confirm the detector itself is healthy.
+  - type: input
+    id: version
+    attributes:
+      label: stop-ai-slop version
+      description: Version from package.json or npm list (e.g. 0.3.0). If running from source, note the commit or branch.
+    validations:
+      required: true
+  - type: input
+    id: node-version
+    attributes:
+      label: Node.js version
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Windows
+        - macOS
+        - Linux
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: file-and-comment
+    attributes:
+      label: File and comment that triggered the issue
+      description: Paste the file path and the exact comment (or code line) involved. For false positives, show the full line with surrounding context.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: expected-vs-actual
+    attributes:
+      label: Expected vs actual behavior
+      description: What did you expect the scanner to do? What did it actually do?
+    validations:
+      required: true
+  - type: textarea
+    id: steps-to-reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Numbered steps anyone can follow to trigger the bug.
+      value: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+  - type: textarea
+    id: scanner-output
+    attributes:
+      label: Scanner output
+      description: Full output of the command that produced the issue (include exit code if non-zero).
+      render: text
+    validations:
+      required: true

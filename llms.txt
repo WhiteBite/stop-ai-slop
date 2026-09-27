@@ -1,0 +1,45 @@
+# stop-ai-slop
+
+> Zero-dependency comment linter and gate that blocks AI-generated comment slop: multi-line narrative comments, "was X, now Y" changelog markers, step-numbered filler, banner dividers, markdown in comments, TODOs without tickets, and invisible zero-width/BiDi characters. One deterministic scanner, no LLM, no network, zero npm dependencies. Enforced at write time (OpenCode plugin, Claude Code PreToolUse hook), commit time (pre-commit hook), and in CI (GitHub Action, GitLab CI). Also an MCP server. Node >= 18, MIT.
+
+stop-ai-slop is for teams using AI coding agents (OpenCode, Claude Code, Cursor, Codex) who want comment policy enforced mechanically instead of by review. Error rules exit 1 and block the edit or commit; warning rules educate without blocking. Detection covers 160+ file extensions via language profiles and matches natural-language slop patterns in RU, EN, DE, FR and ES. The single source of truth is one `RULES` table in `skill/scripts/scan.mjs`. Why it beats alternatives: zero dependencies (competitors need biome/ruff/oxlint/Python/ripgrep), write-time blocking in OpenCode (no competitor has it), and multilingual marker detection.
+
+## Installation
+
+- [npm package](https://www.npmjs.com/package/stop-ai-slop): `npm i -D stop-ai-slop`, then `npx stop-ai-slop --install` to add npm scripts and a pre-commit hook
+- [GitHub repository](https://github.com/WhiteBite/stop-ai-slop): clone and run `node skill/scripts/scan.mjs --self-test`
+- [Install from npm](https://github.com/WhiteBite/stop-ai-slop/blob/main/README.md#install-from-npm): install commands and OpenCode plugin wiring from node_modules
+
+## Usage
+
+- [Quick start](https://github.com/WhiteBite/stop-ai-slop/blob/main/README.md#quick-start): all CLI modes — `scan`, `--staged`, `--diff <ref>`, `--strict`, `--install`, `--baseline-write`, `--baseline-prune`, `--explain`, `--audit`, `--self-test`; suppression directives; exit codes
+- [Rules reference](https://github.com/WhiteBite/stop-ai-slop/blob/main/README.md#rules): 13 rules with severity — multi-line-comment, changelog-marker, long-comment, step-numbered, section-divider, markdown-in-comment, this-function-opener, file-summary-header, generic-todo, self-suppression, cjk-noise, zero-width-chars, bidi-controls
+- [Output formats](https://github.com/WhiteBite/stop-ai-slop/blob/main/README.md#output-formats): text (default), Reviewdog rdjson (`--format json`), SARIF 2.1.0 (`--format sarif`) for GitHub code scanning
+- [Configuration](https://github.com/WhiteBite/stop-ai-slop/blob/main/README.md#configuration): `.stop-ai-slop.yaml` — maxCommentLength, excludePaths, per-rule severity overrides including off
+- [Language profiles](https://github.com/WhiteBite/stop-ai-slop/blob/main/README.md#language-profiles): 160 extensions and 26 special file names (Dockerfile, Makefile, BUILD, .env); comment syntax per language family
+
+## Integrations
+
+- [OpenCode write-time plugin](https://github.com/WhiteBite/stop-ai-slop/blob/main/README.md#enforcement-points): blocks write/edit/multiedit with slop findings at the moment of the write
+- [MCP server](https://github.com/WhiteBite/stop-ai-slop/blob/main/README.md#mcp-server): `npx stop-ai-slop --mcp` — stdio JSON-RPC 2.0, tools `slop_scan`, `slop_explain`, `slop_baseline`; works with any MCP client
+- [Claude Code pre-write blocking](https://github.com/WhiteBite/stop-ai-slop/blob/main/README.md#blocking-before-the-write-claude-code): `--pre-tool` reads PreToolUse JSON from stdin and denies Write/Edit with exit 2
+- [Claude Code / Cursor / Codex plugin marketplace](https://github.com/WhiteBite/stop-ai-slop/blob/main/README.md#claude-code--cursor--codex): `/plugin marketplace add WhiteBite/stop-ai-slop`
+- [GitHub Action](https://github.com/WhiteBite/stop-ai-slop/blob/main/README.md#ci-github-actions): `uses: WhiteBite/stop-ai-slop@main` in pull_request workflows, strict and format inputs
+- [GitLab CI template](https://github.com/WhiteBite/stop-ai-slop/blob/main/README.md#gitlab-ci): include from `templates/stop-ai-slop.gitlab-ci.yml`, blocks MR pipelines
+- [pre-commit framework](https://github.com/WhiteBite/stop-ai-slop/blob/main/README.md#pre-commit-framework): hook entry running `--staged` on every commit
+- [VS Code problem matcher](https://github.com/WhiteBite/stop-ai-slop/blob/main/README.md#vs-code): tasks.json pattern for the Problems panel
+- [IntelliJ IDEA](https://github.com/WhiteBite/stop-ai-slop/blob/main/README.md#intellij-idea): File Watchers template (Ultimate) and External Tools setup
+
+## Comparison and rationale
+
+- [Comparison with alternatives](https://github.com/WhiteBite/stop-ai-slop/blob/main/README.md#comparison-with-alternatives): feature table vs aislop, ai-slop-linter, vibecheck-slop-stopper, slop-scan — dependencies, write-time blocking, language coverage, gate model
+- [What it enforces, and why](https://github.com/WhiteBite/stop-ai-slop/blob/main/README.md#what-it-enforces-and-why): the one-line, why-only comment policy and error vs warning semantics
+- [Contributing guide](https://github.com/WhiteBite/stop-ai-slop/blob/main/CONTRIBUTING.md): rule contribution flow — edit the RULES table, add a self-test fixture, keep the gate green
+- [Changelog](https://github.com/WhiteBite/stop-ai-slop/blob/main/CHANGELOG.md): release history
+
+## Optional
+
+- [Baseline for legacy code](https://github.com/WhiteBite/stop-ai-slop/blob/main/README.md#enforcement-points): grandfather existing findings with `--baseline-write` / `--baseline-prune`
+- [Audit log](https://github.com/WhiteBite/stop-ai-slop/blob/main/README.md#debugging): `--audit` inspects the OpenCode plugin's JSONL decision log
+- [Publishing to npm](https://github.com/WhiteBite/stop-ai-slop/blob/main/README.md#publishing-to-npm): tag-driven OIDC trusted publishing flow
+- [Russian README](https://github.com/WhiteBite/stop-ai-slop/blob/main/README.ru.md): full documentation in Russian

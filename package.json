@@ -1,18 +1,34 @@
 {
   "name": "stop-ai-slop",
   "version": "0.3.0",
-  "description": "Mechanical gate against AI slop comments: one zero-dependency scanner enforced as an OpenCode write-time plugin, an MCP server, Claude Code pre/post-tool hooks and a pre-commit hook installer.",
+  "description": "Zero-dependency linter that blocks AI-generated comment slop. Enforces a one-line, why-only comment policy via pre-commit hook, IDE plugin and CI.",
   "license": "MIT",
+  "author": {
+    "name": "WhiteBite",
+    "url": "https://github.com/WhiteBite"
+  },
   "keywords": [
-    "comment-policy",
-    "ai-slop",
     "linter",
+    "ai-slop",
+    "comment-policy",
+    "code-comments",
+    "code-quality",
     "pre-commit",
-    "opencode-plugin",
+    "git-hooks",
+    "static-analysis",
+    "ai-code",
+    "opencode",
     "claude-code",
+    "cursor",
+    "mcp",
     "mcp-server",
-    "code-quality"
+    "code-review",
+    "agent-skill"
   ],
+  "homepage": "https://github.com/WhiteBite/stop-ai-slop#readme",
+  "bugs": {
+    "url": "https://github.com/WhiteBite/stop-ai-slop/issues"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/WhiteBite/stop-ai-slop.git"
@@ -33,6 +49,7 @@
   },
   "scripts": {
     "prepublishOnly": "node skill/scripts/scan.mjs --self-test",
+    "test": "node skill/scripts/scan.mjs --self-test",
     "self-test": "node skill/scripts/scan.mjs --self-test",
     "stop-ai-slop": "node ./skill/scripts/scan.mjs --staged --strict",
     "stop-ai-slop:all": "node ./skill/scripts/scan.mjs scan"
