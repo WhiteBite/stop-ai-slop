@@ -1801,6 +1801,7 @@ function cmdSelfTest() {
       JSON.stringify({ jsonrpc: "2.0", id: 3, method: "tools/call", params: { name: "slop_explain", arguments: { ruleId: "changelog-marker" } } }),
       JSON.stringify({ jsonrpc: "2.0", id: 4, method: "bogus/method" }),
       JSON.stringify({ jsonrpc: "2.0", id: 5, method: "tools/call", params: { name: "slop_scan", arguments: { path: dir } } }),
+      JSON.stringify({ jsonrpc: "2.0", id: 7, method: "initialize", params: { protocolVersion: "2025-11-25", capabilities: {}, clientInfo: { name: "t", version: "0" } } }),
       "not json{",
     ]
     let mcpOut = ""
@@ -1824,10 +1825,11 @@ function cmdSelfTest() {
     const mcpById = new Map(mcpResponses.filter((r) => typeof r === "object" && r !== null && "id" in r).map((r) => [r.id, r]))
     const init = mcpById.get(1)
     check(
-      "mcp-handshake: initialize → protocolVersion + capabilities + serverInfo [exit 0]",
+      "mcp-handshake: неизвестная версия → latest, поддерживаемая → эхо [exit 0]",
       mcpStatus === 0 &&
         init?.result !== undefined &&
-        ["2024-11-05", "2025-11-25", "2026-07-28"].includes(init.result.protocolVersion) &&
+        init.result.protocolVersion === "2026-07-28" &&
+        mcpById.get(7)?.result?.protocolVersion === "2025-11-25" &&
         init.result.capabilities?.tools !== undefined &&
         init.result.serverInfo?.name === "stop-ai-slop",
       `exit ${mcpStatus}: ${mcpOut.slice(0, 300)}`,
