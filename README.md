@@ -271,7 +271,7 @@ repos:
 
 ### File Watchers (Ultimate)
 
-Шаблон `idea/filewatchers/stop-ai-slop.xml` — готовый импорт через Settings → Tools → File Watchers → + → Import. После импорта заменить `<path-to-scan.mjs>` на абсолютный путь к `skill/scripts/scan.mjs` на вашей машине. Поддерживаемые типы: Kotlin, Java, TypeScript, JavaScript, Python, YAML. Запуск по каждому изменению файла; исключения из сканирования — стандартные каталоги артефактов (`venv`, `node_modules`, `.git`, `build`, `target`, `.next`, `out`, `Pods`, `site-packages`, `.dart_tool`, `.gradle`).
+Шаблон `idea/filewatchers/stop-ai-slop.xml` — готовый импорт через Settings → Tools → File Watchers → + → Import. После импорта заменить `<path-to-scan.mjs>` на абсолютный путь к `skill/scripts/scan.mjs` на вашей машине. Шаблон настроен на частые типы (Kotlin, Java, TypeScript, JavaScript, Python, YAML); остальные профили сканера покрываются External Tools или CLI `scan`. Запуск по каждому изменению файла; исключения из сканирования — стандартные каталоги артефактов (`venv`, `node_modules`, `.git`, `build`, `target`, `.next`, `out`, `Pods`, `site-packages`, `.dart_tool`, `.gradle`).
 
 Находки появляются в окне Run с кликабельными путями, потому что формат вывода сканера — `file:line`.
 
@@ -331,7 +331,7 @@ node skill/scripts/scan.mjs --audit 50     # последние 50
 | Правило | Severity | Суть |
 | --- | --- | --- |
 | `multi-line-comment` | error | комментарий занимает 2+ строки подряд (doc-блоки исключены) |
-| `changelog-marker` | error | комментарий пересказывает дифф (было/стало/раньше/вместо/fixes) |
+| `changelog-marker` | error | комментарий пересказывает дифф (changelog-маркеры ru/en/de/fr/es) |
 | `long-comment` | error | строка комментария длиннее 120 символов (doc-блоки исключены) |
 | `vend/step-numbered` | warning | нумерованный шаг в комментарии (Step N / Шаг N / Schritt N / Étape N / Paso N / N., маркер любого языка) |
 | `vend/section-divider` | warning | строка-разделитель из символов -=#* |
@@ -339,6 +339,7 @@ node skill/scripts/scan.mjs --audit 50     # последние 50
 | `vend/this-function-opener` | warning | комментарий начинается с «This function/class/method/component», «Эта функция/Этот класс», «Diese Funktion», «Cette fonction» или «Esta función» |
 | `vend/file-summary-header` | warning | шапка-резюме из 2+ строк комментария в начале файла |
 | `vend/generic-todo` | warning | TODO без ссылки на тикет |
+| `vend/self-suppression` | warning | директива подавления без списка правил пришла вместе с подавляемым кодом |
 | `vend/cjk-noise` | warning | CJK-иероглифы склеены с латиницей или цифрами в code-части строки (артефакт генерации) |
 | `vend/zero-width-chars` | error | невидимый символ нулевой ширины (U+200B, U+200C, U+200D, U+2060, U+FEFF или escape-форма) |
 | `vend/bidi-controls` | error | BiDi-контролы (U+202A–U+202E, U+2066–U+2069 или escape-форма) переопределяют направление текста |

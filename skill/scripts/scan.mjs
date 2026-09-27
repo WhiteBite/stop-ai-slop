@@ -19,7 +19,7 @@ export const RULES = [
   {
     id: "changelog-marker",
     severity: "error",
-    message: "комментарий пересказывает дифф (было/стало/раньше/вместо/fixes)",
+    message: "комментарий пересказывает дифф (changelog-маркеры ru/en/de/fr/es)",
     why: "История изменений живёт в гите. «Было/стало» в коде устаревает в момент коммита и дальше только врёт.",
     instead: "убрать комментарий; «почему» — в сообщение коммита",
     write: "ничего в коде — причину пишем в сообщение коммита",
@@ -37,7 +37,7 @@ export const RULES = [
   {
     id: "vend/step-numbered",
     severity: "warning",
-    message: "нумерованный шаг в комментарии (// Step N или // N.)",
+    message: "нумерованный шаг в комментарии (Step N / Шаг N / N., маркер любого языка)",
     why: "Нумерация дублирует порядок строк кода. После первой правки шаги вставляются между — номера врут.",
     instead: "говорящие имена функций и переменных вместо номеров; комментарий удалить",
     write: "const normalized = normalize(payload)",
@@ -64,7 +64,7 @@ export const RULES = [
   {
     id: "vend/this-function-opener",
     severity: "warning",
-    message: "комментарий начинается с «This function/class/method/component»",
+    message: "комментарий начинается с «This function/…», «Эта функция/…», «Diese Funktion…», «Cette fonction…» или «Esta función…»",
     why: "«This function does X» пересказывает сигнатуру. Ценность только в неочевидном ограничении.",
     instead: "удалить или переформулировать как инвариант/воркэраунд",
     write: "// дедупликация по id, т.к. источник шлёт повторы",
