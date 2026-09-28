@@ -75,9 +75,11 @@ Error rules block (exit 1; the write-time gate throws). Warning rules teach: the
 ```
 git clone https://github.com/WhiteBite/stop-ai-slop && cd stop-ai-slop
 node skill/scripts/scan.mjs --self-test       # detector sabotage test
-node skill/scripts/scan.mjs scan .            # full scan of all supported languages (see "Language profiles")
+node skill/scripts/scan.mjs scan .            # full scan: git-tracked + untracked non-ignored files, generated/binary/artifacts skipped
 node skill/scripts/scan.mjs --staged          # only lines added in git diff --cached
 node skill/scripts/scan.mjs --diff <ref>      # added lines of tracked files relative to <ref>; untracked files are invisible
+node skill/scripts/scan.mjs --fix --dry-run   # preview the mechanical fixes as a unified diff, change nothing
+node skill/scripts/scan.mjs --fix             # apply the mechanical fixes, then rescan and report what is left
 node skill/scripts/scan.mjs --strict          # warnings also block the gate (exit 1)
 node skill/scripts/scan.mjs --install         # npm scripts + pre-commit hook in the current repo
 node skill/scripts/scan.mjs --install --strict  # same, but the hook runs --strict
@@ -108,6 +110,33 @@ npx stop-ai-slop --diff origin/main --format json | reviewdog -f=rdjson -reporte
   with:
     sarif_file: results.sarif
 ```
+
+## Autofix (`--fix`)
+
+`--fix` applies the deterministic, mechanical fixes across the whole scan scope in one pass — no agent, no LLM, no per-finding rewrite. Preview first, then apply:
+
+```
+node skill/scripts/scan.mjs --fix --dry-run   # print a unified diff of every planned change, touch nothing
+node skill/scripts/scan.mjs --fix             # write the changes, then rescan and report what is left
+```
+
+`--dry-run` never writes: it prints a per-file unified diff (context 2) and a summary line `запланировано N правок в M файлах; не чинится автоматически: K`, exit 0. Apply mode writes the files, then rescans and prints the surviving findings through the normal text pipeline (exit 1 if an error finding remains outside the baseline, so it chains into CI). `--strict` also treats surviving warnings as a failure. The fixer is idempotent: a second `--fix` is a no-op.
+
+**Fixed mechanically** (deletion or in-place shrink — "delete" is always an acceptable outcome per the policy):
+
+| Rule | Fix |
+| --- | --- |
+| `multi-line-comment`, `vend/file-summary-header` | delete the whole comment run |
+| `vend/section-divider` | delete the divider line (or strip it from an inline comment) |
+| `changelog-marker` | delete a full-line comment; strip the trailing comment off a code line |
+| `vend/step-numbered` | strip the numbered-step prefix, keep the rest of the text |
+| `vend/zero-width-chars`, `vend/bidi-controls` | remove the real invisible/BiDi characters |
+
+**Not auto-fixed** — they need a human or an agent to write a replacement, so `--fix` leaves them and reports them: `long-comment` (compress the meaning), `vend/this-function-opener` (rephrase as an invariant), `vend/generic-todo` (add a ticket), `vend/markdown-in-comment` (semantic), `vend/cjk-noise` (rewrite the identifier).
+
+Safety rails: a block-comment opener is never deleted mid-block (only whole runs go); a real invisible character is stripped but its backslash-escape spelling in source (a BOM test literal) is left intact — that is the subject of the code, not slop; a legit emoji ZWJ sequence and a leading BOM are preserved; a `stop-ai-slop-ignore-next-line` directive is dropped together with the code it guarded only when that target line is itself deleted, so no directive is left dangling; suppression directives and the findings they cover are never touched. Generated, binary and git-ignored files are skipped exactly as in the scan.
+
+For bulk semantic cleanup (the not-auto-fixed rules), the intended flow is: `--fix` first to clear the mechanical majority, then an agent pass over the residual report — or `--baseline-write` to grandfather what the team decides to keep.
 
 ## Configuration
 
@@ -372,8 +401,8 @@ Comment syntax comes from a language profile, not a single shared list: `#` is a
 
 | Rule | Severity | What it catches |
 | --- | --- | --- |
-| `multi-line-comment` | error | a comment spans 2+ consecutive lines (doc-blocks exempt) |
-| `changelog-marker` | error | a comment restates the diff (changelog markers ru/en/de/fr/es) |
+| `multi-line-comment` | error | a comment spans 2+ consecutive lines (doc-blocks and `///` doc-comment runs exempt) |
+| `changelog-marker` | error | a comment restates the diff: a pair of weak markers (было/стало, вместо/теперь, previously/instead of, …) inside one comment run, or a strong marker (`this fixes`, `must take over`, `was X, now Y`, `broke, so`) on its own; a lone weak marker is ordinary prose and is not flagged |
 | `long-comment` | error | a comment line longer than 120 characters (doc-blocks exempt) |
 | `vend/step-numbered` | warning | a numbered step in a comment (Step N / Шаг N / Schritt N / Étape N / Paso N / N., any language marker) |
 | `vend/section-divider` | warning | a divider line made of -=#* characters |
@@ -386,7 +415,7 @@ Comment syntax comes from a language profile, not a single shared list: `#` is a
 | `vend/zero-width-chars` | error | an invisible zero-width character (U+200B, U+200C, U+200D, U+2060, U+FEFF or an escape form) |
 | `vend/bidi-controls` | error | BiDi controls (U+202A–U+202E, U+2066–U+2069 or an escape form) that override text direction |
 
-Error rules do not apply to doc-blocks (JSDoc `/** … */` and Python docstrings): contract documentation for classes and functions may be any length. Inside doc-blocks, changelog markers (error) and signature restatement "This function…" (warning) are still caught.
+Error rules do not apply to doc-blocks (JSDoc `/** … */`, Python docstrings, and `///` doc-comment lines — dartdoc, rustdoc, C# XML doc): contract documentation for classes and functions may be any length. Inside doc-blocks, changelog markers (error) and signature restatement "This function…" (warning) are still caught.
 
 Text rules (`step-numbered`, `markdown-in-comment`, `this-function-opener`) are matched on the text after the comment marker is stripped, so they work in every profile — `# Шаг 3` in yaml and `-- Step 3` in sql are caught identically. `step-numbered`, `this-function-opener` and `changelog-marker` understand RU + EN + DE + FR + ES ("Шаг N", "Schritt N", "Étape N", "Diese Funktion", "au lieu de", "ya no", etc.); other natural languages are not covered. Structural rules (multi-line, divider, header, todo) do not depend on the wording language. `step-numbered` and `markdown-in-comment` do not fire inside doc-blocks.
 
@@ -398,7 +427,13 @@ node skill/scripts/scan.mjs --explain <rule-id>
 
 Rule ids and service labels are EN; messages and rationales are RU. The `vend/` prefix = rules vendored from external pattern catalogs.
 
-The detector sees inline comments after code (`const x = 1 // was`), block comments without a marker on middle lines, doc-blocks of any length (contract JSDoc/docstrings), UTF-16 files with a BOM; zero-width characters (U+200B–U+200F, U+FEFF) are stripped when matching markers and simultaneously flagged as findings on raw lines together with BiDi controls (U+202A–U+202E, U+2066–U+2069) — including escape forms in the source; a ZWJ inside emoji sequences and a BOM at position 0 are not flagged. CJK adjacency to Latin letters or digits is checked only in the code part of a line: Chinese comments and i18n strings without Latin adjacency are legitimate. Not scanned: languages without a profile (see the table above; `.m` is ambiguous), binary and office formats; `--staged` and `--diff` do not see untracked files. Warnings do not block the gate unless `--strict` is given. Non-ASCII file names are supported in diff modes. Artifact directories are skipped (`venv`, `build`, `.next`, `target`, `out`, `.gradle`, `Pods`, `__pycache__`, `.idea`, `.codegraph`, `site-packages`, `.dart_tool`). License headers are exempt from the multi-line rule. Inline comments are detected by the profile markers (`//`, `#`, `--`, `%`, `;`, `!`) except py/fs floor division (`//`).
+The detector sees inline comments after code (`const x = 1 // was`), block comments without a marker on middle lines, doc-blocks of any length (contract JSDoc/docstrings/`///`), UTF-16 files with a BOM; zero-width characters (U+200B–U+200F, U+FEFF) are stripped when matching markers and simultaneously flagged as findings on raw lines together with BiDi controls (U+202A–U+202E, U+2066–U+2069) — including escape forms in the source; a ZWJ inside emoji sequences and a BOM at position 0 are not flagged. CJK adjacency to Latin letters or digits is checked only in the code part of a line: Chinese comments and i18n strings without Latin adjacency are legitimate. In prose formats (`.md`/`.mdx`/`.html`/`.xml`/`.rst`/`.adoc`) CJK adjacency is not checked at all: mixed JP/CN prose with Latin brand names is normal there. Not scanned: languages without a profile (see the table above; `.m` is ambiguous), binary and office formats; `--staged` and `--diff` do not see untracked files. Warnings do not block the gate unless `--strict` is given. Non-ASCII file names are supported in diff modes.
+
+**What the full scan walks.** Inside a git repository, `scan` enumerates files via `git ls-files --cached --others --exclude-standard`, so everything git-ignored is invisible: `__pycache__`, `.venv`, build outputs, vendored trees, downloaded toolchains, packaged runtimes, minified bundles, compiled `.dart.js`. Outside a repo it falls back to a directory walk. On top of that, hard-coded artifact directories are always skipped (`venv`, `build`, `.next`, `target`, `out`, `.gradle`, `Pods`, `__pycache__`, `.idea`, `.codegraph`, `site-packages`, `.dart_tool`, `coverage`, `.git`, `node_modules`, `dist`).
+
+**Generated files are skipped entirely**, in every mode (full scan, diff, write-time gate). Two signals, either is enough: a generated *file name* (`*.g.dart`, `*.freezed.dart`, `*.mocks.dart`, `*.pb.go`, `zz_generated.*`, `*_pb2.py`, `*.Designer.cs`, `*.min.js`, `*.dart.js`, `*.generated.ts`, …) or a generated *header* in the first 10 lines (`@generated`, `generated by`, `auto-generated`, `code generated`, `DO NOT EDIT/MODIFY`, `Dumped by pg_dump`, `database dump`). This keeps framework codegen (build_runner, OpenAPI generators, protoc, pg_dump, …) out of the report across languages. A file whose first 8 KB contain a NUL byte is treated as binary and skipped (UTF-16 with a BOM is decoded first, so it is not mistaken for binary). YAML block scalars (`key: |`, `- >`) are string content, not comments: their lines are never flagged.
+
+License headers are exempt from the multi-line rule. Inline comments are detected by the profile markers (`//`, `#`, `--`, `%`, `;`, `!`) except py/fs floor division (`//`).
 
 ## Comparison with alternatives
 

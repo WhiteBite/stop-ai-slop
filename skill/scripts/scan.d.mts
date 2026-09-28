@@ -24,6 +24,7 @@ export interface CommentProfile {
   doc: { openRe: RegExp; close: string }[]
   suffixes: string[]
   regexPrefixes: RegExp[]
+  blockScalars?: boolean
 }
 
 export declare function isCommentLine(line: string, profile?: CommentProfile): boolean
@@ -31,6 +32,7 @@ export declare function profileFor(filePath: string): CommentProfile | null
 export declare function detectCommentSlop(addedLines: string[], profile?: CommentProfile, diffMode?: boolean): Violation[]
 export declare function multisetDiff(oldText: string, newText: string): string[]
 export declare function isCodePath(filePath: string, extraSkippedSegments?: string[]): boolean
+export declare function isGeneratedPath(filePath: string): boolean
 export declare function addedFromToolArgs(
   tool: string,
   args: Record<string, unknown>,

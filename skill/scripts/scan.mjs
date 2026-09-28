@@ -14,13 +14,13 @@ export const RULES = [
     why: "Многострочный комментарий — почти всегда пересказ кода или диффа. Через год его никто не перечитает, а рассинхрон с кодом не заметит никто.",
     instead: "удалить или сжать до одной строки: только неочевидное внешнее ограничение, инвариант или воркэраунд",
     write: "// сбрасываем здесь, т.к. ниже освобождаем слот",
-    ignoreWhen: "doc-блок (JSDoc/docstring) с контрактной документацией; легаси — через baseline",
+    ignoreWhen: "doc-блок (JSDoc/docstring/`///` doc-комментарии) с контрактной документацией; легаси — через baseline",
   },
   {
     id: "changelog-marker",
     severity: "error",
-    message: "комментарий пересказывает дифф (changelog-маркеры ru/en/de/fr/es)",
-    why: "История изменений живёт в гите. «Было/стало» в коде устаревает в момент коммита и дальше только врёт.",
+    message: "комментарий пересказывает дифф (пара changelog-маркеров или сильный маркер, ru/en/de/fr/es)",
+    why: "История изменений живёт в гите. «Было/стало» в коде устаревает в момент коммита и дальше только врёт. Одиночное «вместо/было» — обычная проза; сигнал чейнджлога — пара маркеров в одном блоке комментария или сильный маркер (this fixes, must take over, was…, now…).",
     instead: "убрать комментарий; «почему» — в сообщение коммита",
     write: "ничего в коде — причину пишем в сообщение коммита",
     ignoreWhen: "дословная цитата внешней спеки, где формулировка зафиксирована",
@@ -128,16 +128,19 @@ export const RULES = [
 
 const RULE_BY_ID = new Map(RULES.map((r) => [r.id, r]))
 
-const P = (prefixes, blocks = [], doc = [], suffixes = [], regexPrefixes = []) => ({ prefixes, blocks, doc, suffixes, regexPrefixes })
+const P = (prefixes, blocks = [], doc = [], suffixes = [], regexPrefixes = [], flags = {}) => ({ prefixes, blocks, doc, suffixes, regexPrefixes, ...flags })
 const JSDOC = { openRe: /^\/\*\*/, close: "*/" }
+// close "" always matches the rest of the line, so each /// line is a self-contained doc line (dartdoc/rustdoc/XML doc)
+const TRIPLE_SLASH_DOC = { openRe: /^\/\/\//, close: "" }
 const PYDOC_DQ = { openRe: /^[rbf]?"""/, close: '"""' }
 const PYDOC_SQ = { openRe: /^[rbf]?'''/, close: "'''" }
 const PROFILES = {
-  legacy: P(["//", "#", "/*", "*"], [["/*", "*/"], ["{/*", "*/}"]], [JSDOC, PYDOC_DQ], ["*/"]),
-  cfamily: P(["//", "/*", "*"], [["/*", "*/"], ["{/*", "*/}"]], [JSDOC], ["*/"]),
+  legacy: P(["//", "#", "/*", "*"], [["/*", "*/"], ["{/*", "*/}"]], [JSDOC, TRIPLE_SLASH_DOC, PYDOC_DQ], ["*/"]),
+  cfamily: P(["//", "/*", "*"], [["/*", "*/"], ["{/*", "*/}"]], [JSDOC, TRIPLE_SLASH_DOC], ["*/"]),
   css: P(["//", "/*", "*"], [["/*", "*/"]], [], ["*/"]),
   py: P(["#"], [], [PYDOC_DQ, PYDOC_SQ]),
   hash: P(["#"]),
+  yaml: P(["#"], [], [], [], [], { blockScalars: true }),
   powershell: P(["#"], [["<#", "#>"]]),
   julia: P(["#"], [["#=", "=#"]]),
   nim: P(["#"], [["#[", "]#"]]),
@@ -164,6 +167,7 @@ const PROFILES = {
   handlebars: P(["{{!"], [["{{!--", "--}}"]]),
   gotmpl: P(["{{/*"], [["{{/*", "*/}}"]]),
 }
+const PROSE_PROFILES = new Set([PROFILES.markup, PROFILES.rst, PROFILES.adoc])
 const EXT_PROFILE = {
   ".ts": "cfamily", ".tsx": "cfamily", ".js": "cfamily", ".jsx": "cfamily", ".mjs": "cfamily", ".cjs": "cfamily",
   ".kt": "cfamily", ".kts": "cfamily", ".java": "cfamily", ".go": "cfamily", ".rs": "cfamily", ".cs": "cfamily",
@@ -176,7 +180,7 @@ const EXT_PROFILE = {
   ".py": "py", ".vy": "py",
   ".rb": "hash", ".php": "hash", ".sh": "hash", ".bash": "hash", ".zsh": "hash", ".ksh": "hash", ".fish": "hash",
   ".ex": "hash", ".exs": "hash", ".cr": "hash", ".pl": "hash", ".pm": "hash", ".r": "hash",
-  ".yaml": "hash", ".yml": "hash", ".toml": "hash", ".conf": "hash", ".cfg": "hash",
+  ".yaml": "yaml", ".yml": "yaml", ".toml": "hash", ".conf": "hash", ".cfg": "hash",
   ".graphql": "hash", ".gql": "hash", ".mk": "hash", ".cmake": "hash", ".bzl": "hash",
   ".raku": "hash", ".p6": "hash", ".org": "hash", ".awk": "hash",
   ".tf": "hashblock", ".tfvars": "hashblock", ".nix": "hashblock", ".hcl": "hashblock",
@@ -260,9 +264,19 @@ const SKIPPED_SEGMENTS = new Set([
 ])
 const CLI_SKIPPED_SEGMENTS = new Set([...SKIPPED_SEGMENTS, "coverage", ".git"])
 const MAX_COMMENT_LENGTH = 120
-// \b is ASCII-only in JS — Cyrillic markers get lookaround bounds so substrings inside longer words never match
-const CHANGELOG_MARKER =
-  /(?<![а-яё])(?:было|стало|раньше|вместо|теперь)(?![а-яё])|\bwas\b[^,.;\n]{0,60},\s*(?:and\s+)?now\b|\bnow we\b|\bpreviously\b|\binstead of\b|\bthis fixes\b|\bthis fix\b|\bmust take over\b|\bno longer\b|broke, so|(?<![a-zäöüß])(?:stattdessen|nicht mehr|früher war|war vorher)(?![a-zäöüß])|\bau lieu de\b|(?<![a-zéèêàùç])(?:auparavant|désormais)(?![a-zéèêàùç])|\ben lugar de\b|\bantes era\b|\bya no\b|\banteriormente\b/i
+// changelog pair semantics: lone weak marker is prose, signal is 2+ weak per comment run or one strong marker
+const CHANGELOG_STRONG = /\bwas\b[^,.;\n]{0,60},\s*(?:and\s+)?now\b|\bthis fixes\b|\bthis fix\b|\bmust take over\b|broke, so/i
+const CHANGELOG_WEAK =
+  /(?<![а-яё])(?:было|стало|раньше|вместо|теперь)(?![а-яё])|\bnow we\b|\bpreviously\b|\binstead of\b|\bno longer\b|(?<![a-zäöüß])(?:stattdessen|nicht mehr|früher war|war vorher)(?![a-zäöüß])|\bau lieu de\b|(?<![a-zéèêàùç])(?:auparavant|désormais)(?![a-zéèêàùç])|\ben lugar de\b|\bantes era\b|\bya no\b|\banteriormente\b/gi
+const weakMarkerHits = (text) => (text.match(CHANGELOG_WEAK) ?? []).length
+const GENERATED_NAME_RE =
+  /\.(?:g|gen|generated|freezed|mocks|gr|chopper|pb|pbenum|pbjson|pbgrpc|pbserver)\.dart$|\.dart\.js$|\.min\.[cm]?js$|\.min\.css$|\.pb\.go$|_(?:gen|generated)\.go$|zz_generated\.|_pb2(?:_grpc)?\.py$|_pb\.pyi$|\.Designer\.cs$|\.g\.[ci]s$|\.(?:generated|gen)\.[cm]?[jt]sx?$/i
+const GENERATED_HEADER_RE =
+  /@generated\b|\bgenerated by\b|\bgenerated code\b|\bauto-?generated\b|\bautomatically generated\b|\bcode generated\b|\bdo not (?:edit|modify)\b|\bthis file is generated\b|\bdumped by\b|\bdatabase dump\b/i
+export function isGeneratedPath(filePath) {
+  return GENERATED_NAME_RE.test(filePath.split(/[\\/]/).pop() ?? "")
+}
+const isGeneratedText = (text) => GENERATED_HEADER_RE.test(text.split("\n", 11).join("\n"))
 const STEP_NUMBERED = /^(?:step\s+\d+|шаг\s+\d+|schritt\s+\d+|(?<![a-zéèêàùç])étape\s+\d+|paso\s+\d+|\d+\.)/i
 const DIVIDER_CHARS = /^[-=#*\s─-╿]{6,}$/
 const MARKDOWN_BOLD = /^\*\*/
@@ -425,11 +439,23 @@ export function detectCommentSlop(addedLines, profile = PROFILES.legacy, diffMod
   const rawLines = addedLines.map((l) => l ?? "")
   const lines = rawLines.map((l) => l.replace(STRIP_INVISIBLE, ""))
   const suppress = collectSuppressions(lines, diffMode)
+  const YAML_LITERAL_KEY = /^( *)(?!#)(?:- )?.*?:\s*[|>][+-]?\d*\s*(?:#.*)?$/
+  const YAML_LITERAL_SEQ = /^( *)-\s*[|>][+-]?\d*\s*(?:#.*)?$/
   const makeClassify = () => {
     let blockClose = null
     let docClose = null
+    let literalIndent = null
     return (line) => {
       const t = line.trim()
+      if (profile.blockScalars === true) {
+        if (literalIndent !== null) {
+          if (t === "") return { comment: false, doc: false, literal: true }
+          if (line.length - line.trimStart().length > literalIndent) return { comment: false, doc: false, literal: true }
+          literalIndent = null
+        }
+        const key = YAML_LITERAL_KEY.exec(line) ?? YAML_LITERAL_SEQ.exec(line)
+        if (key !== null) literalIndent = key[1].length
+      }
       if (docClose !== null) {
         if (t.includes(docClose)) docClose = null
         return { comment: false, doc: true }
@@ -463,9 +489,10 @@ export function detectCommentSlop(addedLines, profile = PROFILES.legacy, diffMod
   }
   for (const ln of suppress.selfSuppress) push(finding("vend/self-suppression", ln, [lines[ln - 1] ?? ""]))
   if (suppress.file) return violations
+  const proseCjk = PROSE_PROFILES.has(profile)
   const testLine = (raw, i, doc) => {
     const t = raw.trim()
-    if (CHANGELOG_MARKER.test(raw)) push(finding("changelog-marker", i + 1, [raw]))
+    if (CHANGELOG_STRONG.test(raw)) push(finding("changelog-marker", i + 1, [raw]))
     if (!doc && raw.length > maxCommentLength) push(finding("long-comment", i + 1, [raw]))
     const stripped = stripCommentMarker(t)
     if (!doc && STEP_NUMBERED.test(stripped)) push(finding("vend/step-numbered", i + 1, [raw]))
@@ -475,6 +502,7 @@ export function detectCommentSlop(addedLines, profile = PROFILES.legacy, diffMod
     }
     if (THIS_OPENER.test(stripped)) push(finding("vend/this-function-opener", i + 1, [raw]))
     if (TODO_WORD.test(t) && !TICKET_REF.test(t) && !ISSUE_LINK.test(t)) push(finding("vend/generic-todo", i + 1, [raw]))
+    return weakMarkerHits(raw)
   }
   let runStart = -1
   const classifyRun = makeClassify()
@@ -499,6 +527,13 @@ export function detectCommentSlop(addedLines, profile = PROFILES.legacy, diffMod
     push(finding("vend/file-summary-header", 1, lines.slice(0, headerEnd)))
   }
   const classifyEach = makeClassify()
+  let weakRun = 0
+  let weakRunLine = -1
+  const flushWeakRun = () => {
+    if (weakRun >= 2) push(finding("changelog-marker", weakRunLine, [lines[weakRunLine - 1] ?? ""]))
+    weakRun = 0
+    weakRunLine = -1
+  }
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i] ?? ""
     const cls = classifyEach(line)
@@ -506,19 +541,27 @@ export function detectCommentSlop(addedLines, profile = PROFILES.legacy, diffMod
     if (rawLine !== "") {
       if (zeroWidthHit(rawLine, i)) push(finding("vend/zero-width-chars", i + 1, [rawLine]))
       if (BIDI.test(rawLine)) push(finding("vend/bidi-controls", i + 1, [rawLine]))
-      if (!cls.comment && !cls.doc) {
+      if (!cls.comment && !cls.doc && cls.literal !== true && !proseCjk) {
         const m = inlineMarkerAt(rawLine, profile)
         const codePart = m === null ? rawLine : rawLine.slice(0, m.idx)
         if (CJK_ADJACENT.test(codePart)) push(finding("vend/cjk-noise", i + 1, [rawLine]))
       }
     }
+    if (cls.literal === true) continue
     if (SUPPRESS_ANY.test(line)) continue
-    if (cls.comment || cls.doc) testLine(line, i, cls.doc)
-    else {
+    if (cls.comment || cls.doc) {
+      const weak = testLine(line, i, cls.doc)
+      if (weak > 0) {
+        weakRun += weak
+        if (weakRunLine === -1) weakRunLine = i + 1
+      }
+    } else {
+      flushWeakRun()
       const inline = inlineComment(line, profile)
-      if (inline !== null) testLine(inline, i, false)
+      if (inline !== null && testLine(inline, i, false) >= 2) push(finding("changelog-marker", i + 1, [inline]))
     }
   }
+  flushWeakRun()
   return violations
 }
 
@@ -552,9 +595,9 @@ function readDisk(filePath) {
 
 export function addedFromToolArgs(tool, args) {
   const filePath = typeof args.filePath === "string" ? args.filePath : null
-  if (filePath === null || !isCodePath(filePath)) return null
+  if (filePath === null || !isCodePath(filePath) || isGeneratedPath(filePath)) return null
   if (tool === "write") {
-    if (typeof args.content !== "string") return null
+    if (typeof args.content !== "string" || isGeneratedText(args.content)) return null
     const disk = readDisk(filePath)
     return {
       filePath,
@@ -584,42 +627,291 @@ function isExcludedPath(rel, excludePaths) {
   return excludePaths.some((p) => rel === p || rel.startsWith(p + "/"))
 }
 
+function gitListedFiles(root) {
+  try {
+    const out = execFileSync("git", ["ls-files", "-z", "--cached", "--others", "--exclude-standard"], {
+      cwd: root,
+      encoding: "utf8",
+      maxBuffer: 256 * 1024 * 1024,
+      stdio: ["ignore", "pipe", "pipe"],
+    })
+    return out.split("\0").filter((s) => s !== "")
+  } catch {
+    return null
+  }
+}
+
 function collectFiles(paths, root, excludePaths = []) {
   const out = []
+  for (const p of paths) {
+    const abs = resolve(root, p)
+    if (!existsSync(abs)) throw new Error(`slop-gate: путь не существует: ${p}`)
+    if (!statSync(abs).isDirectory()) {
+      if (profileFor(toRel(root, abs)) !== null && !isExcludedPath(toRel(root, abs), excludePaths)) out.push(abs)
+    }
+  }
+  const listed = gitListedFiles(root)
+  if (listed !== null) {
+    const prefixes = paths
+      .map((p) => resolve(root, p))
+      .filter((abs) => existsSync(abs) && statSync(abs).isDirectory())
+      .map((abs) => toRel(root, abs))
+    for (const rel of listed) {
+      if (!isCodePath(rel, [...CLI_SKIPPED_SEGMENTS]) || isGeneratedPath(rel)) continue
+      if (isExcludedPath(rel, excludePaths)) continue
+      if (!prefixes.some((p) => p === "" || rel === p || rel.startsWith(p + "/"))) continue
+      const abs = join(root, rel)
+      if (statSync(abs, { throwIfNoEntry: false })?.isFile() !== true) continue
+      out.push(abs)
+    }
+    return [...new Set(out)].sort()
+  }
   const walk = (dir) => {
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
       const full = join(dir, entry.name)
       if (entry.isDirectory()) {
         if (!CLI_SKIPPED_SEGMENTS.has(entry.name) && !isExcludedPath(toRel(root, full), excludePaths)) walk(full)
-      } else if (isCodePath(toRel(root, full), [...CLI_SKIPPED_SEGMENTS]) && !isExcludedPath(toRel(root, full), excludePaths)) {
+      } else if (
+        isCodePath(toRel(root, full), [...CLI_SKIPPED_SEGMENTS]) &&
+        !isGeneratedPath(full) &&
+        !isExcludedPath(toRel(root, full), excludePaths)
+      ) {
         out.push(full)
       }
     }
   }
   for (const p of paths) {
     const abs = resolve(root, p)
-    if (!existsSync(abs)) throw new Error(`slop-gate: путь не существует: ${p}`)
-    if (statSync(abs).isDirectory()) walk(abs)
-    else if (profileFor(toRel(root, abs)) !== null && !isExcludedPath(toRel(root, abs), excludePaths)) out.push(abs)
+    if (existsSync(abs) && statSync(abs).isDirectory()) walk(abs)
   }
-  return out
+  return [...new Set(out)]
+}
+
+function readScannable(file) {
+  if (isGeneratedPath(file)) return null
+  let text
+  try {
+    text = decodeText(readFileSync(file))
+  } catch {
+    return null
+  }
+  if (text.slice(0, 8192).includes("\u0000")) return null
+  if (isGeneratedText(text)) return null
+  return text
 }
 
 function scanFiles(files, root, options = null) {
   const findings = []
   for (const file of files) {
-    let text
-    try {
-      text = decodeText(readFileSync(file))
-    } catch {
-      continue
-    }
+    const text = readScannable(file)
+    if (text === null) continue
     const rel = toRel(root, file)
     for (const v of detectCommentSlop(text.replaceAll("\r\n", "\n").split("\n"), profileFor(file) ?? PROFILES.legacy, false, null, options)) {
       findings.push({ rel, ...v })
     }
   }
   return findings
+}
+
+const FIXABLE_RULES = new Set([
+  "multi-line-comment",
+  "changelog-marker",
+  "vend/section-divider",
+  "vend/file-summary-header",
+  "vend/step-numbered",
+  "vend/zero-width-chars",
+  "vend/bidi-controls",
+])
+const STEP_PREFIX_FIX = /^(?:step\s+\d+|шаг\s+\d+|schritt\s+\d+|étape\s+\d+|paso\s+\d+|\d+\.)\s*[:.、)–—-]?\s*/i
+const COMMENT_LEAD_FIX = /^(\s*(?:\/\/+|#+|--+|;+|%+|::+|\.\.+|!|\(\*+|<!--+|\{\{!--?|\{\{!))\s*/
+const BLOCK_OPENER = /^(?:\/\*|<!--|<#|\(\*|###|\{\{!--?|\{\{\/\*|-{2}\[\[|\{-|#\[|=#)/
+const BIDI_CHARS = new RegExp("[" + CP(0x202a, 0x202b, 0x202c, 0x202d, 0x202e, 0x2066, 0x2067, 0x2068, 0x2069) + "]", "g")
+
+// escape-формы невидимых символов — предмет кода (тесты BOM), вырезаются только настоящие символы
+function stripBadInvisibles(line, lineIdx) {
+  const chars = [...line]
+  const out = []
+  for (let k = 0; k < chars.length; k++) {
+    const cp = chars[k].codePointAt(0)
+    if (cp === 0x200d && EMOJI.test(chars[k - 1] ?? "") && EMOJI.test(chars[k + 1] ?? "")) {
+      out.push(chars[k])
+      continue
+    }
+    if (cp === 0xfeff && lineIdx === 0 && k === 0 && line.indexOf(FEFF_CHAR, 1) === -1) {
+      out.push(chars[k])
+      continue
+    }
+    const bad =
+      (cp >= 0x200b && cp <= 0x200f) ||
+      cp === 0x2060 ||
+      cp === 0xfeff ||
+      (cp >= 0x202a && cp <= 0x202e) ||
+      (cp >= 0x2066 && cp <= 0x2069)
+    if (!bad) out.push(chars[k])
+  }
+  return out.join("").replace(BIDI_CHARS, "")
+}
+
+function planFixes(lines, findings, profile) {
+  const removed = new Set()
+  const replaced = new Map()
+  for (const f of findings) {
+    if (!FIXABLE_RULES.has(f.rule)) continue
+    const i = f.lineNo - 1
+    const raw = lines[i] ?? ""
+    if (SUPPRESS_ANY.test(raw)) continue
+    if (f.rule === "multi-line-comment" || f.rule === "vend/file-summary-header") {
+      for (let k = 0; k < f.lines.length; k++) {
+        const ln = f.lineNo + k
+        if (!SUPPRESS_ANY.test(lines[ln - 1] ?? "")) removed.add(ln)
+      }
+    } else if (f.rule === "changelog-marker" || f.rule === "vend/section-divider") {
+      const trimmed = raw.trim()
+      if (BLOCK_OPENER.test(trimmed)) continue
+      const inline = isCommentLine(trimmed, profile) ? null : inlineMarkerAt(raw, profile)
+      if (inline !== null) replaced.set(f.lineNo, raw.slice(0, inline.idx).trimEnd())
+      else removed.add(f.lineNo)
+    } else if (f.rule === "vend/step-numbered") {
+      if (!isCommentLine(raw.trim(), profile)) continue
+      const stripped = stripCommentMarker(raw.trim())
+      const m = STEP_PREFIX_FIX.exec(stripped)
+      if (m === null) continue
+      const rest = stripped.slice(m[0].length).trim()
+      const lead = COMMENT_LEAD_FIX.exec(raw)
+      if (rest === "") removed.add(f.lineNo)
+      else if (lead !== null) replaced.set(f.lineNo, lead[0] + rest)
+    } else if (f.rule === "vend/zero-width-chars" || f.rule === "vend/bidi-controls") {
+      const cleaned = stripBadInvisibles(raw, i)
+      if (cleaned !== raw) replaced.set(f.lineNo, cleaned)
+    }
+  }
+  // a next-line directive whose target is being deleted would dangle
+  for (const k of [...removed]) {
+    if (!removed.has(k - 1) && SUPPRESS_NEXT.test(lines[k - 2] ?? "")) removed.add(k - 1)
+  }
+  return { removed, replaced }
+}
+
+function applyPlan(lines, { removed, replaced }) {
+  const out = []
+  for (let i = 0; i < lines.length; i++) {
+    const ln = i + 1
+    if (removed.has(ln)) continue
+    out.push(replaced.get(ln) ?? lines[i])
+  }
+  return out
+}
+
+function renderFixDiff(rel, lines, { removed, replaced }, context = 2) {
+  const entries = []
+  for (let i = 0; i < lines.length; i++) {
+    const ln = i + 1
+    if (removed.has(ln)) entries.push({ kind: "del", text: lines[i] })
+    else if (replaced.has(ln) && replaced.get(ln) !== lines[i]) entries.push({ kind: "rep", text: lines[i], newText: replaced.get(ln) })
+    else entries.push({ kind: "keep", text: lines[i] })
+  }
+  const changed = []
+  entries.forEach((e, idx) => {
+    if (e.kind !== "keep") changed.push(idx)
+  })
+  if (changed.length === 0) return ""
+  const groups = []
+  let cur = [changed[0]]
+  for (let k = 1; k < changed.length; k++) {
+    if (changed[k] - changed[k - 1] <= context * 2 + 1) cur.push(changed[k])
+    else {
+      groups.push(cur)
+      cur = [changed[k]]
+    }
+  }
+  groups.push(cur)
+  const out = [`--- a/${rel}`, `+++ b/${rel}`]
+  for (const g of groups) {
+    const start = Math.max(0, g[0] - context)
+    const end = Math.min(entries.length - 1, g[g.length - 1] + context)
+    let oldCount = 0
+    let newCount = 0
+    const body = []
+    for (let i = start; i <= end; i++) {
+      const e = entries[i]
+      if (e.kind === "keep") {
+        body.push(" " + e.text)
+        oldCount++
+        newCount++
+      } else if (e.kind === "del") {
+        body.push("-" + e.text)
+        oldCount++
+      } else {
+        body.push("-" + e.text)
+        body.push("+" + e.newText)
+        oldCount++
+        newCount++
+      }
+    }
+    let newStart = 1
+    for (let i = 0; i < start; i++) if (entries[i].kind !== "del") newStart++
+    out.push(`@@ -${start + 1},${oldCount} +${newStart},${newCount} @@`, ...body)
+  }
+  return out.join("\n")
+}
+
+function cmdFix(paths, { dryRun = false, strict = false } = {}) {
+  const root = gitToplevel(process.cwd())
+  let config
+  try {
+    config = loadConfig(root)
+  } catch (error) {
+    console.error(error.message)
+    return 2
+  }
+  let files
+  try {
+    files = collectFiles(paths, root, config?.excludePaths ?? [])
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : String(error))
+    return 2
+  }
+  const options = configOptions(config)
+  const remaining = []
+  let fixedOps = 0
+  let fixedFiles = 0
+  const previews = []
+  for (const file of files) {
+    const text = readScannable(file)
+    if (text === null) continue
+    const eol = text.includes("\r\n") ? "\r\n" : "\n"
+    const lines = text.replaceAll("\r\n", "\n").split("\n")
+    const profile = profileFor(file) ?? PROFILES.legacy
+    const findings = applyRuleConfig(detectCommentSlop(lines, profile, false, null, options), config)
+    if (findings.length === 0) continue
+    const rel = toRel(root, file)
+    const plan = planFixes(lines, findings, profile)
+    const ops = plan.removed.size + [...plan.replaced].filter(([ln, v]) => v !== lines[ln - 1]).length
+    if (ops === 0) {
+      for (const f of findings) remaining.push({ rel, ...f })
+      continue
+    }
+    const newLines = applyPlan(lines, plan)
+    if (dryRun) previews.push(renderFixDiff(rel, lines, plan))
+    else writeFileSync(file, newLines.join(eol))
+    fixedOps += ops
+    fixedFiles++
+    for (const f of applyRuleConfig(detectCommentSlop(newLines, profile, false, null, options), config)) {
+      remaining.push({ rel, ...f })
+    }
+  }
+  if (dryRun) {
+    for (const d of previews) console.log(d)
+    console.log(
+      `slop-gate: --fix dry-run: запланировано ${fixedOps} правок в ${fixedFiles} файлах; не чинится автоматически: ${remaining.length}`,
+    )
+    return 0
+  }
+  const baseline = loadBaseline(root)
+  const fresh = remaining.filter((f) => !baseline.has(baselineKey(f)))
+  printFindings(fresh, "text", strict)
+  console.log(`slop-gate: --fix применён: ${fixedOps} правок в ${fixedFiles} файлах`)
+  return failsGate(fresh, strict) ? 1 : 0
 }
 
 function loadBaseline(root) {
@@ -942,6 +1234,11 @@ function runDiffGate(diffText, root, strict, format = "text", config = null) {
   for (const [file, lines] of parseUnifiedDiff(diffText)) {
     if (!isCodePath(file, [...CLI_SKIPPED_SEGMENTS])) continue
     if (isExcludedPath(file, excludePaths)) continue
+    if (isGeneratedPath(file)) continue
+    try {
+      const head = decodeText(readFileSync(join(root, file)).subarray(0, 16384))
+      if (head.includes("\u0000") || isGeneratedText(head)) continue
+    } catch {}
     const fileIds = fileSuppressIds(lines.map((l) => l.text))
     for (const run of consecutiveRuns(lines)) {
       for (const v of detectCommentSlop(run.map((r) => r.text), profileFor(file) ?? PROFILES.legacy, true, fileIds, options)) {
@@ -1148,7 +1445,7 @@ function cmdSelfTest() {
     writeFileSync(join(dir, "inline.ts"), "const x = 1 // было так, стало иначе\n")
     writeFileSync(join(dir, "block.ts"), "/* removeSource rewrites every row\nwith fresh uuids all vanish at once\nand incremental has no centroids left */\nconst x = 1\n")
     writeFileSync(join(dir, "docstring.py"), 'def f():\n    """This function normalizes the payload\n    and validates input\n    """\n    return 1\n')
-    writeFileSync(join(dir, "zwsp.ts"), "// с" + CP(0x200b) + "тало иначе\nconst x = 1\n")
+    writeFileSync(join(dir, "zwsp.ts"), "// было, с" + CP(0x200b) + "тало иначе\nconst x = 1\n")
     writeFileSync(
       join(dir, "utf16.ts"),
       Buffer.concat([Buffer.from([0xff, 0xfe]), Buffer.from("// было так, стало иначе\nconst x = 1\n", "utf16le")]),
@@ -1225,18 +1522,18 @@ function cmdSelfTest() {
       BUILD: "# removeSource rewrites rows\n# with fresh uuids zones vanish\nx\n",
     }
     for (const [name, body] of Object.entries(langFixtures)) writeFileSync(join(dir, name), body)
-    writeFileSync(join(dir, "inline.sql"), "SELECT 1 -- было так\n")
+    writeFileSync(join(dir, "inline.sql"), "SELECT 1 -- было так, стало иначе\n")
     writeFileSync(join(dir, "inlinepy.py"), "x = y // было так\n")
-    writeFileSync(join(dir, "inline.lua"), "local x = 1 -- стало иначе\n")
+    writeFileSync(join(dir, "inline.lua"), "local x = 1 -- было так, стало иначе\n")
     writeFileSync(join(dir, "inlinefs.fs"), "let f x = x // было так\n")
-    writeFileSync(join(dir, "inline.tex"), "\\section{a} % было так\n")
-    writeFileSync(join(dir, "inline.clj"), "(def x 1) ; было так\n")
-    writeFileSync(join(dir, "inline.f90"), "x = 1 ! было так\n")
-    writeFileSync(join(dir, "inline.ini"), "key=1 ; было так\n")
+    writeFileSync(join(dir, "inline.tex"), "\\section{a} % было так, стало иначе\n")
+    writeFileSync(join(dir, "inline.clj"), "(def x 1) ; было так, стало иначе\n")
+    writeFileSync(join(dir, "inline.f90"), "x = 1 ! было так, стало иначе\n")
+    writeFileSync(join(dir, "inline.ini"), "key=1 ; было так, стало иначе\n")
     writeFileSync(join(dir, "Dockerfile.dev"), "# removeSource rewrites rows\n# with fresh uuids zones vanish\nRUN true\n")
     writeFileSync(join(dir, "Makefile.am"), "# removeSource rewrites rows\n# with fresh uuids zones vanish\nall:\n")
     writeFileSync(join(dir, "ru-ok.ts"), "// осталось реализовать\nconst x = 1\n")
-    writeFileSync(join(dir, "ru-bad.ts"), "// стало иначе\nconst x = 1\n")
+    writeFileSync(join(dir, "ru-bad.ts"), "// было иначе, стало так\nconst x = 1\n")
     writeFileSync(join(dir, "lic.ts"), "/*\n * Copyright (c) 2024 Foo Inc.\n * All rights reserved.\n */\nconst x = 1\n")
     writeFileSync(join(dir, "lic2.ts"), "/*\n * Copyright (c) 2024 Foo Inc.\n * Pruning is not maintenance - the mapping broke, so recompute takes over.\n */\nconst x = 1\n")
     writeFileSync(join(dir, "stub.pyi"), 'def f(raw):\n    """This function normalizes the payload\n    """\n    return raw\n')
@@ -1247,8 +1544,8 @@ function cmdSelfTest() {
       join(dir, "sabotage-de.ts"),
       "// Früher war das Verhalten anders, stattdessen lesen wir den Cache\n// Diese Funktion normalisiert die Nutzlast\nconst x = 1\n",
     )
-    writeFileSync(join(dir, "sabotage-fr.ts"), "// au lieu de recalculer, on lit le cache\n// Cette fonction normalise la charge\nconst x = 1\n")
-    writeFileSync(join(dir, "sabotage-es.ts"), "// en lugar de recalcular, leemos la caché\n// Esta función normaliza la carga\nconst x = 1\n")
+    writeFileSync(join(dir, "sabotage-fr.ts"), "// auparavant au lieu de recalculer, on lit le cache\n// Cette fonction normalise la charge\nconst x = 1\n")
+    writeFileSync(join(dir, "sabotage-es.ts"), "// anteriormente en lugar de recalcular, leemos la caché\n// Esta función normaliza la carga\nconst x = 1\n")
     writeFileSync(join(dir, "de-step.ts"), "// Schritt 3: Nutzlast normalisieren\nconst x = 1\n")
     writeFileSync(join(dir, "fr-step.py"), "# Étape 3 : normaliser la charge\nx = 1\n")
     writeFileSync(join(dir, "es-step.yaml"), "# Paso 3: normalizar\nkey: 1\n")
@@ -1273,8 +1570,20 @@ function cmdSelfTest() {
     writeFileSync(join(dir, "build.gradle"), "// removeSource rewrites rows\n// with fresh uuids zones vanish\nplugins {}\n")
     writeFileSync(join(dir, "wasnow.ts"), "const x = 1 // was 2, now 1\n")
     writeFileSync(join(dir, "wasnow-ok.ts"), "// timeout was raised because now() is monotonic here\nconst x = 1\n")
-    writeFileSync(join(dir, "case-label.ts"), "switch (x) {\n  case 1: // стало иначе\n    break\n}\n")
+    writeFileSync(join(dir, "case-label.ts"), "switch (x) {\n  case 1: // было 2, стало 1\n    break\n}\n")
     writeFileSync(join(dir, "header.ts"), "// Payload normalizer for the ingest pipe.\n// Wire format lives in docs/ingest.md.\nexport function normalize() {}\n")
+    writeFileSync(
+      join(dir, "dartdoc.dart"),
+      "/// Provider for the [Dio] instance.\n///\n/// - baseUrl from config\n/// - Bearer token interceptor with a very long description ".padEnd(140, "x") + "\nfinal dio = 1\n",
+    )
+    writeFileSync(join(dir, "dartdoc-slop.dart"), "/// Раньше считали синхронно, теперь читаем кэш\nfinal x = 1\n")
+    writeFileSync(join(dir, "changelog-single.ts"), "// instead of manual steps, one command\nconst x = 1\n")
+    writeFileSync(join(dir, "models.g.dart"), narrative + "\nfinal x = 1\n")
+    writeFileSync(join(dir, "genheader.ts"), "// Code generated by tool. DO NOT EDIT.\n// line one of a narrative\n// line two of a narrative\nconst x = 1\n")
+    writeFileSync(join(dir, "pgdump.sql"), "-- PostgreSQL database dump\n-- Dumped by pg_dump version 16\n-- narrative line one\n-- narrative line two\nSELECT 1;\n")
+    writeFileSync(join(dir, "lit.yaml"), "description: |\n  ## Changelog\n  - Initial release\n  - Chat management\nkey: 1\n")
+    writeFileSync(join(dir, "bin.ts"), Buffer.concat([Buffer.from("// было иначе, стало так\n"), Buffer.from([0]), Buffer.from("\nconst x = 1\n")]))
+    writeFileSync(join(dir, "cjk.md"), "AI" + CP(0x3067) + CP(0x5f37) + CP(0x5316) + "された team\n")
     const findings = scanFiles(collectFiles([dir], dir), dir)
     const byRel = (rel) => findings.filter((f) => f.rel === rel)
     const sabotageRules = byRel("sabotage.ts").map((f) => f.rule)
@@ -1310,6 +1619,19 @@ function cmdSelfTest() {
     check("wasnow-ok: «was raised because now()» без запятой не матчится", byRel("wasnow-ok.ts").length === 0, byRel("wasnow-ok.ts"))
     check("case-label: inline-комментарий после case-label [error]", byRel("case-label.ts").some((f) => f.rule === "changelog-marker"), byRel("case-label.ts"))
     check("header: vend/file-summary-header [warning]", byRel("header.ts").some((f) => f.rule === "vend/file-summary-header"), byRel("header.ts"))
+    check("dartdoc: /// doc-ран не даёт multi-line/long/markdown", byRel("dartdoc.dart").length === 0, byRel("dartdoc.dart"))
+    check(
+      "dartdoc-slop: пара маркеров внутри /// блокируется [error]",
+      byRel("dartdoc-slop.dart").some((f) => f.rule === "changelog-marker"),
+      byRel("dartdoc-slop.dart"),
+    )
+    check("changelog-single: одиночный слабый маркер — проза, не блокируется", byRel("changelog-single.ts").length === 0, byRel("changelog-single.ts"))
+    check("generated: *.g.dart пропускается целиком", byRel("models.g.dart").length === 0, byRel("models.g.dart"))
+    check("generated: шапка DO NOT EDIT пропускает файл", byRel("genheader.ts").length === 0, byRel("genheader.ts"))
+    check("generated: pg_dump-шапка пропускает файл", byRel("pgdump.sql").length === 0, byRel("pgdump.sql"))
+    check("yaml-literal: контент block scalar не комментарий", byRel("lit.yaml").length === 0, byRel("lit.yaml"))
+    check("binary: NUL в первых 8КБ — файл пропускается", byRel("bin.ts").length === 0, byRel("bin.ts"))
+    check("cjk-md: CJK+латиница в prose-файле не флагается", byRel("cjk.md").length === 0, byRel("cjk.md"))
     check("block: /* */ без * на средних строках [error]", byRel("block.ts").some((f) => f.rule === "multi-line-comment"), byRel("block.ts"))
     check(
       "docstring: vend/this-function-opener [warning]",
@@ -1363,7 +1685,7 @@ function cmdSelfTest() {
     check("fname: Dockerfile.dev сканируется [error]", byRel("Dockerfile.dev").some((f) => f.severity === "error"), byRel("Dockerfile.dev"))
     check("fname: Makefile.am сканируется [error]", byRel("Makefile.am").some((f) => f.severity === "error"), byRel("Makefile.am"))
     check("ru-ok: «осталось» не матчится как «стало»", byRel("ru-ok.ts").length === 0, byRel("ru-ok.ts"))
-    check("ru-bad: «стало иначе» блокируется [error]", byRel("ru-bad.ts").some((f) => f.rule === "changelog-marker"), byRel("ru-bad.ts"))
+    check("ru-bad: пара «было…стало» блокируется [error]", byRel("ru-bad.ts").some((f) => f.rule === "changelog-marker"), byRel("ru-bad.ts"))
     check("lic: лицензионная шапка не блокируется multi-line-comment", !byRel("lic.ts").some((f) => f.rule === "multi-line-comment"), byRel("lic.ts"))
     check("lic: лицензионная шапка не даёт file-summary-header", !byRel("lic.ts").some((f) => f.rule === "vend/file-summary-header"), byRel("lic.ts"))
     check(
@@ -1467,6 +1789,74 @@ function cmdSelfTest() {
     } finally {
       rmSync(artDir, { recursive: true, force: true })
     }
+    const fixDir = mkdtempSync(join(tmpdir(), "slop-gate-fix-"))
+    try {
+      writeFileSync(
+        join(fixDir, "fixme.ts"),
+        [
+          "// ====================",
+          "// Payload normalizer for the ingest pipe.",
+          "// Wire format lives in docs/ingest.md.",
+          'import x from "y"',
+          "",
+          "function f() {",
+          "  // Step 3: normalize the payload",
+          "  const a = 1 // было так, стало иначе",
+          "  // removeSource rewrites rows",
+          "  // with fresh uuids zones vanish",
+          "  const b = 2",
+          '  const esc = "' + BS + 'u200B"',
+          "  return b",
+          "}",
+          "",
+        ].join("\n"),
+      )
+      writeFileSync(
+        join(fixDir, "supp-keep.ts"),
+        "// stop-ai-slop-ignore-next-line multi-line-comment\n// первая строка легаси-блока\n// вторая строка легаси-блока\nconst x = 1\n",
+      )
+      const before = readFileSync(join(fixDir, "fixme.ts"), "utf8")
+      const dry = runCli(["--fix", "--dry-run"], fixDir)
+      const afterDry = readFileSync(join(fixDir, "fixme.ts"), "utf8")
+      check(
+        "fix-dry-run: печатает дифф и не меняет файл [exit 0]",
+        dry.status === 0 && dry.out.includes("--- a/fixme.ts") && dry.out.includes("-// ====================") && afterDry === before,
+        `exit ${dry.status}: ${dry.out.slice(0, 300)}`,
+      )
+      const applied = runCli(["--fix"], fixDir)
+      const after = readFileSync(join(fixDir, "fixme.ts"), "utf8")
+      check(
+        "fix: механические правила применены, escape-форма и код целы",
+        applied.status === 1 &&
+          !after.includes("====================") &&
+          !after.includes("Payload normalizer") &&
+          !after.includes("Step 3") &&
+          after.includes("// normalize the payload") &&
+          after.includes("const a = 1\n") &&
+          !after.includes("было так, стало иначе") &&
+          !after.includes("removeSource") &&
+          after.includes(BS + "u200B") &&
+          after.includes('import x from "y"') &&
+          after.includes("return b"),
+        `exit ${applied.status}: ${after}`,
+      )
+      check(
+        "fix: escape-форма zero-width осталась как error-находка [exit 1]",
+        applied.out.includes("vend/zero-width-chars"),
+        applied.out,
+      )
+      const suppAfter = readFileSync(join(fixDir, "supp-keep.ts"), "utf8")
+      check(
+        "fix: suppression-директива и подавленный код не тронуты",
+        suppAfter.includes("stop-ai-slop-ignore-next-line") && suppAfter.includes("первая строка легаси-блока"),
+        suppAfter,
+      )
+      const second = runCli(["--fix"], fixDir)
+      const afterSecond = readFileSync(join(fixDir, "fixme.ts"), "utf8")
+      check("fix: повторный запуск идемпотентен", afterSecond === after, `exit ${second.status}`)
+    } finally {
+      rmSync(fixDir, { recursive: true, force: true })
+    }
     const auditPath = join(dir, "audit.jsonl")
     appendAudit({ verdict: "blocked", tool: "write", filePath: "a.ts", rules: ["multi-line-comment"] }, auditPath)
     appendAudit({ verdict: "passed", tool: "edit", filePath: "b.ts", added: 3 }, auditPath)
@@ -1514,6 +1904,39 @@ function cmdSelfTest() {
       check("diff: main без diff против себя проходит [exit 0]", diffClean, diffCleanDetail)
     } finally {
       rmSync(repoDir, { recursive: true, force: true })
+    }
+    const gitScanDir = mkdtempSync(join(tmpdir(), "slop-gate-gitscan-"))
+    try {
+      const gitG = (args) =>
+        execFileSync("git", ["-c", "user.email=slop@test", "-c", "user.name=slop", "-c", "commit.gpgsign=false", ...args], {
+          cwd: gitScanDir,
+          stdio: "pipe",
+        })
+      gitG(["init", "-q", "-b", "main"])
+      writeFileSync(join(gitScanDir, ".gitignore"), "ignored/\n")
+      mkdirSync(join(gitScanDir, "ignored"))
+      writeFileSync(join(gitScanDir, "ignored", "slop.ts"), narrative + "\nconst x = 1\n")
+      writeFileSync(join(gitScanDir, "untracked.ts"), narrative + "\nconst x = 1\n")
+      mkdirSync(join(gitScanDir, "src"))
+      writeFileSync(join(gitScanDir, "src", "tracked.ts"), "const x = 1\n")
+      gitG(["add", ".gitignore", "src/tracked.ts"])
+      writeFileSync(join(gitScanDir, "models.g.dart"), narrative + "\nfinal x = 1\n")
+      writeFileSync(join(gitScanDir, "genheader.ts"), "// Code generated by tool. DO NOT EDIT.\n" + narrative + "\nconst x = 1\n")
+      gitG(["add", "models.g.dart", "genheader.ts"])
+      const stagedGenRun = runCli(["--staged"], gitScanDir)
+      check(
+        "git-scan: --staged пропускает сгенерированные файлы [exit 0]",
+        stagedGenRun.status === 0 && !stagedGenRun.out.includes("models.g.dart") && !stagedGenRun.out.includes("genheader.ts"),
+        `exit ${stagedGenRun.status}: ${stagedGenRun.out}`,
+      )
+      const gitScanRun = runCli(["scan", "."], gitScanDir)
+      check(
+        "git-scan: gitignored пропускается, untracked не-ignored виден [exit 1]",
+        gitScanRun.status === 1 && gitScanRun.out.includes("untracked.ts") && !gitScanRun.out.includes("ignored/"),
+        `exit ${gitScanRun.status}: ${gitScanRun.out}`,
+      )
+    } finally {
+      rmSync(gitScanDir, { recursive: true, force: true })
     }
     const warnDir = mkdtempSync(join(tmpdir(), "slop-gate-strict-"))
     try {
@@ -1640,7 +2063,7 @@ function cmdSelfTest() {
       writeFileSync(join(suppDiffDir, "clean.ts"), "const x = 1\n")
       gitS(["add", "clean.ts"])
       gitS(["commit", "-q", "-m", "init"])
-      writeFileSync(join(suppDiffDir, "clean.ts"), "const x = 1\n// stop-ai-slop-ignore-file\n// стало иначе\n")
+      writeFileSync(join(suppDiffDir, "clean.ts"), "const x = 1\n// stop-ai-slop-ignore-file\n// было иначе, стало так\n")
       gitS(["add", "clean.ts"])
       const staged = runCli(["--staged"], suppDiffDir)
       check(
@@ -1939,7 +2362,7 @@ function cmdSelfTest() {
     writeFileSync(join(dir, "edit-target.ts"), "const a = 1\n")
     const editDelta = preTool({
       tool_name: "Edit",
-      tool_input: { file_path: join(dir, "edit-target.ts"), old_string: "const a = 1\n", new_string: "const a = 1\n// стало иначе\n" },
+      tool_input: { file_path: join(dir, "edit-target.ts"), old_string: "const a = 1\n", new_string: "const a = 1\n// было иначе, стало так\n" },
     })
     check("pre-tool-edit-delta: Edit, добавляющий слоп [exit 2]", editDelta.status === 2, `exit ${editDelta.status}: ${editDelta.stderr.slice(0, 300)}`)
     const silentRead = preTool({ tool_name: "Read", tool_input: { file_path: join(dir, "clean.ts") } })
@@ -1969,6 +2392,8 @@ const KNOWN_FLAGS = new Set([
   "--install",
   "--staged",
   "--diff",
+  "--fix",
+  "--dry-run",
   "--baseline-write",
   "--baseline-prune",
   "--audit",
@@ -2202,6 +2627,8 @@ function cmdUsage() {
       "",
       "Режимы:",
       "  scan [paths...]     сканировать файлы (по умолчанию текущий каталог)",
+      "  --fix [paths...]    применить механические фиксы (удаление/сжатие slop-комментариев)",
+      "  --fix --dry-run     показать unified-diff планируемых правок, ничего не меняя",
       "  --staged            добавленные строки из git diff --cached",
       "  --diff <ref>        добавленные строки относительно ref",
       "  --baseline-write    записать текущие находки в baseline",
@@ -2238,6 +2665,10 @@ function main(argv) {
   const { format } = parsed
   argv = parsed.rest
   if (argv.includes("--install")) return cmdInstall(strict)
+  if (argv.includes("--fix")) {
+    const paths = argv.filter((a) => a !== "scan" && !a.startsWith("--"))
+    return cmdFix(paths.length > 0 ? paths : ["."], { dryRun: argv.includes("--dry-run"), strict })
+  }
   if (argv.includes("--staged")) return cmdStaged(strict, format)
   const diffIdx = argv.indexOf("--diff")
   if (diffIdx !== -1) {
