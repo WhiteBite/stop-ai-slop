@@ -1,10 +1,10 @@
 # Техдолг и передача смены
 
-Реестр остатка, ограничений и операционных заметок. Точка входа для следующей сессии: сначала этот файл, затем `AGENTS.md`. Состояние на коммит `a49f37e` (main, origin в синке).
+Реестр остатка, ограничений и операционных заметок. Точка входа для следующей сессии: сначала этот файл, затем `AGENTS.md`. Состояние на коммит `0081f51` (main, origin в синке).
 
 ## Текущее состояние
 
-- npm `latest` = **0.4.0**. Всё после тега `v0.4.0` ещё не в реестре: baseline v2 (`f598c57`), `--bench`/`--bench-write` + `bench-history.json` (`8cc6223`), RU-зеркала (`e005ff7` и ранее). Следующий релиз — **0.5.0**.
+- npm `latest` = **0.5.0** (опубликован 2026-09-28, тег `v0.5.0`, OIDC provenance): baseline v2, `--bench`, dual-плагин OpenCode 1.x+2.x, гейты `release-sync`/`plugin-v2-shape`. Следующий релиз — по накоплению.
 - Проверки перед любым коммитом: `node skill/scripts/scan.mjs --self-test` (exit 0, 211 PASS), `node skill/scripts/scan.mjs scan .` (exit 0), `gradle -p detekt-rules test` (BUILD SUCCESSFUL), pre-commit гейт срабатывает сам.
 - Self-test живёт внутри `scan.mjs` (`cmdSelfTest`), чеки через `check(name, ok, detail)`; RED-фазы новых фич прогоняются тем же бинарником.
 - Бэклог re-verified 2026-09-28: все deferred-триггеры не сработали, health checks green (self-test 211 PASS после release-sync check, scan clean, gradle green).
