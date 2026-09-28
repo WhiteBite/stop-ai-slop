@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- bench-когорта из 8 пин-репозиториев до-2025: `--bench` сравнивает счётчики по правилам с `bench-history.json`, рост = регрессия = exit 1; `--bench-write` пишет эталон
 - baseline v2 с fingerprint-ключами (hash правила + текст находки): правки выше baselined-строки больше не воскрешают легаси, изменённый текст флагается как новый слоп
 - v1-файлы baseline (`relpath:line`) читаются до следующего `--baseline-write`
 - `--baseline-prune` чистит пары ключей: `relpath:line` и её `fp:<hash>` удаляются вместе

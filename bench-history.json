@@ -1,0 +1,79 @@
+{
+  "PowerShell/PowerShell": {
+    "changelog-marker": 14,
+    "long-comment": 1783,
+    "multi-line-comment": 7515,
+    "vend/cjk-noise": 2,
+    "vend/file-summary-header": 11,
+    "vend/generic-todo": 237,
+    "vend/markdown-in-comment": 174,
+    "vend/section-divider": 244,
+    "vend/step-numbered": 137,
+    "vend/this-function-opener": 564
+  },
+  "expressjs/express": {
+    "multi-line-comment": 84,
+    "vend/cjk-noise": 1,
+    "vend/file-summary-header": 1,
+    "vend/markdown-in-comment": 3,
+    "vend/step-numbered": 3,
+    "vend/this-function-opener": 3
+  },
+  "gin-gonic/gin": {
+    "long-comment": 10,
+    "multi-line-comment": 265,
+    "vend/cjk-noise": 2,
+    "vend/file-summary-header": 2,
+    "vend/generic-todo": 7,
+    "vend/markdown-in-comment": 10,
+    "vend/step-numbered": 1,
+    "vend/this-function-opener": 4
+  },
+  "pallets/flask": {
+    "changelog-marker": 3,
+    "long-comment": 5,
+    "multi-line-comment": 203,
+    "vend/file-summary-header": 5,
+    "vend/markdown-in-comment": 4,
+    "vend/this-function-opener": 4
+  },
+  "rack/rack": {
+    "long-comment": 13,
+    "multi-line-comment": 257,
+    "vend/file-summary-header": 4,
+    "vend/generic-todo": 1,
+    "vend/step-numbered": 1,
+    "vend/this-function-opener": 5
+  },
+  "redis/redis": {
+    "changelog-marker": 21,
+    "long-comment": 133,
+    "multi-line-comment": 8876,
+    "vend/file-summary-header": 174,
+    "vend/generic-todo": 23,
+    "vend/markdown-in-comment": 410,
+    "vend/section-divider": 598,
+    "vend/step-numbered": 319,
+    "vend/this-function-opener": 326
+  },
+  "tokio-rs/tokio": {
+    "changelog-marker": 10,
+    "long-comment": 6,
+    "multi-line-comment": 1346,
+    "vend/file-summary-header": 83,
+    "vend/generic-todo": 50,
+    "vend/markdown-in-comment": 121,
+    "vend/section-divider": 2,
+    "vend/step-numbered": 12,
+    "vend/this-function-opener": 649
+  },
+  "vuejs/vue": {
+    "long-comment": 4,
+    "multi-line-comment": 534,
+    "vend/file-summary-header": 10,
+    "vend/generic-todo": 11,
+    "vend/step-numbered": 42,
+    "vend/this-function-opener": 1,
+    "vend/zero-width-chars": 1
+  }
+}

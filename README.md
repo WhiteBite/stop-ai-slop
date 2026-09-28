@@ -449,6 +449,21 @@ Two user signals sit on top of the layers: a `.gitattributes` line with `linguis
 
 Semantics: on a generated file the slop rules are exempt, but the security rules `vend/zero-width-chars`, `vend/bidi-controls` and `vend/cjk-noise` still fire — poisoned codegen is a supply-chain signal, not a style issue. The write-time gate ignores generated files entirely (machine output is not the moment to teach style). Set `scanGenerated: true` in `.stop-ai-slop.yaml` to lint generated code like any other file.
 
+## Bench (FP regression cohort)
+
+`--bench` pins a cohort of 8 mature open-source repositories (expressjs/express, pallets/flask, gin-gonic/gin, tokio-rs/tokio, rack/rack, redis/redis, PowerShell/PowerShell, vuejs/vue — each pinned in the `BENCH_COHORT` table in `skill/scripts/scan.mjs` to a commit dated before 2025-01-01), scans every one with the raw rule pipeline (no config, no baseline), and counts findings per rule id. Comparing the counts against the committed `bench-history.json` catches false-positive regressions: a rule whose count *grew* on a pinned tree means a rule change introduced new false positives. Counts only — no scoring.
+
+```
+node skill/scripts/scan.mjs --bench         # per-repo per-rule counts table + delta vs bench-history.json
+node skill/scripts/scan.mjs --bench-write   # overwrite bench-history.json with the current counts (exit 0)
+```
+
+Semantics: any increase of a rule's count on any repo is a regression — `--bench` prints the delta entries and exits 1; decreases and equal counts are fine (exit 0). A missing `bench-history.json` is treated as empty history (every finding counts as an increase), with a hint to run `--bench-write`. The history file is committed to this repository — it is the pinned FP baseline.
+
+The first run needs network and git: each repo is fetched once (`git init` + `git fetch --depth 1 <sha>`) into `~/.cache/stop-ai-slop/bench/<owner>--<name>` (override with the `STOP_AI_SLOP_BENCH_CACHE` environment variable). Later runs reuse the cache; a cached checkout at the wrong SHA is re-fetched. A fetch failure exits 2.
+
+Refreshing the cohort: edit `BENCH_COHORT` (repo + pinned SHA), re-run `--bench-write`, and review the resulting `bench-history.json` delta in the PR — every count increase must be explainable as a true positive, otherwise the rule change is a false-positive regression.
+
 ## Comparison with alternatives
 
 Facts from the competitors' READMEs (aislop, ai-slop-linter, vibecheck-slop-stopper, slop-scan, windbag), September 2026 (re-verified 2026-09-28).
