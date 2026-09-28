@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.5.0
 
 - plugin OpenCode: default-экспорт `{ id: "stop-ai-slop", server: CommentGate }` — стабильный id для лоадера (file-плагины с default-формой требуют id); именованные экспорты сохранены, старые стабы `export { CommentGate }` продолжают работать
 - README (EN+RU): стаб плагина теперь `export { default } from ...`; из примера убран `detectCommentSlop` — legacy-лоадер вызывает каждый функциональный экспорт как плагин
