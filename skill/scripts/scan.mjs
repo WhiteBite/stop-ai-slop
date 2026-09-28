@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { execFileSync } from "node:child_process"
+import { createHash } from "node:crypto"
 import { appendFileSync, chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs"
 import { homedir, tmpdir } from "node:os"
 import { dirname, extname, join, relative, resolve, sep } from "node:path"
@@ -957,7 +958,7 @@ function cmdFix(paths, { dryRun = false, strict = false } = {}) {
     return 0
   }
   const baseline = loadBaseline(root)
-  const fresh = remaining.filter((f) => !baseline.has(baselineKey(f)))
+  const fresh = maskBaselined(baseline, remaining)
   printFindings(fresh, "text", strict)
   console.log(`slop-gate: --fix применён: ${fixedOps} правок в ${fixedFiles} файлах`)
   return failsGate(fresh, strict) ? 1 : 0
@@ -965,18 +966,64 @@ function cmdFix(paths, { dryRun = false, strict = false } = {}) {
 
 function loadBaseline(root) {
   const path = join(root, "stop-ai-slop.baseline.txt")
-  const set = new Set()
-  if (!existsSync(path)) return set
+  const baseline = { legacy: new Set(), fp: new Set() }
+  if (!existsSync(path)) return baseline
   for (const line of readFileSync(path, "utf8").split(/\r?\n/)) {
     const t = line.trim()
     if (t === "" || t.startsWith("#")) continue
-    set.add(t)
+    if (t.startsWith("fp:")) {
+      baseline.fp.add(t.slice(3))
+      continue
+    }
+    if (/^.+:\d+$/.test(t)) baseline.legacy.add(t)
   }
-  return set
+  return baseline
 }
 
 function baselineKey(f) {
   return `${f.rel}:${f.lineNo}`
+}
+
+function fingerprint(f) {
+  return createHash("sha256")
+    .update(f.rule + "\n" + f.lines.map((l) => l.trim()).join("\n"))
+    .digest("hex")
+    .slice(0, 16)
+}
+
+function isBaselined(baseline, f) {
+  if (baseline.fp.size > 0) return baseline.fp.has(fingerprint(f))
+  return baseline.legacy.has(baselineKey(f))
+}
+
+function maskBaselined(baseline, findings) {
+  if (baseline.fp.size === 0) return findings.filter((f) => !isBaselined(baseline, f))
+  const pool = new Map()
+  for (const p of baseline.fp) pool.set(p, (pool.get(p) ?? 0) + 1)
+  return findings.filter((f) => {
+    const p = fingerprint(f)
+    const left = pool.get(p) ?? 0
+    if (left === 0) return true
+    pool.set(p, left - 1)
+    return false
+  })
+}
+
+function writeBaselineFile(root, findings) {
+  const seen = new Set()
+  const pairs = []
+  for (const f of findings) {
+    const key = baselineKey(f)
+    const fp = fingerprint(f)
+    if (seen.has(key + " " + fp)) continue
+    seen.add(key + " " + fp)
+    pairs.push([key, fp])
+  }
+  pairs.sort((a, b) => (a[0] === b[0] ? (a[1] < b[1] ? -1 : a[1] > b[1] ? 1 : 0) : a[0] < b[0] ? -1 : 1))
+  const lines = ["# slop-gate baseline v2: relpath:line + fp:<hash>"]
+  for (const [key, fp] of pairs) lines.push(key, `fp:${fp}`)
+  writeFileSync(join(root, "stop-ai-slop.baseline.txt"), lines.join("\n") + "\n")
+  return pairs.length
 }
 
 function loadConfig(root) {
@@ -1190,23 +1237,26 @@ function cmdScan(paths, { writeBaseline = false, strict = false, prune = false, 
   }
   const findings = applyRuleConfig(scanFiles(files, root, configOptions(config), genContext(root, config)), config)
   if (writeBaseline) {
-    const lines = [...new Set(findings.map(baselineKey))].sort()
-    const body = ["# slop-gate baseline: relpath:line", ...lines].join("\n") + "\n"
-    writeFileSync(join(root, "stop-ai-slop.baseline.txt"), body)
-    console.log(`slop-gate: baseline записан (${lines.length} записей) -> stop-ai-slop.baseline.txt`)
+    const n = writeBaselineFile(root, findings)
+    console.log(`slop-gate: baseline записан (${n} записей) -> stop-ai-slop.baseline.txt`)
     return 0
   }
   if (prune) {
     const baseline = loadBaseline(root)
+    if (baseline.fp.size > 0) {
+      const n = writeBaselineFile(root, findings.filter((f) => baseline.fp.has(fingerprint(f))))
+      console.log(`slop-gate: baseline прорежен (${baseline.fp.size - n} записей удалено)`)
+      return 0
+    }
     const keys = new Set(findings.map(baselineKey))
-    const kept = [...baseline].filter((k) => keys.has(k)).sort()
+    const kept = [...baseline.legacy].filter((k) => keys.has(k)).sort()
     const body = ["# slop-gate baseline: relpath:line", ...kept].join("\n") + "\n"
     writeFileSync(join(root, "stop-ai-slop.baseline.txt"), body)
-    console.log(`slop-gate: baseline прорежен (${baseline.size - kept.length} записей удалено)`)
+    console.log(`slop-gate: baseline прорежен (${baseline.legacy.size - kept.length} записей удалено)`)
     return 0
   }
   const baseline = loadBaseline(root)
-  const fresh = findings.filter((f) => !baseline.has(baselineKey(f)))
+  const fresh = maskBaselined(baseline, findings)
   printFindings(fresh, format, strict)
   return failsGate(fresh, strict) ? 1 : 0
 }
@@ -1307,7 +1357,7 @@ function runDiffGate(diffText, root, strict, format = "text", config = null, gen
     }
   }
   const baseline = loadBaseline(root)
-  const fresh = applyRuleConfig(findings, config).filter((f) => !baseline.has(baselineKey(f)))
+  const fresh = maskBaselined(baseline, applyRuleConfig(findings, config))
   printFindings(fresh, format, strict)
   return failsGate(fresh, strict) ? 1 : 0
 }
@@ -2224,6 +2274,50 @@ function cmdSelfTest() {
     } finally {
       rmSync(baseDir, { recursive: true, force: true })
     }
+    const fpShiftDir = mkdtempSync(join(tmpdir(), "slop-gate-fp-shift-"))
+    try {
+      writeFileSync(join(fpShiftDir, "slop.ts"), "// this fixes the cache miss\n// second line\nconst x = 1\n")
+      runCli(["--baseline-write"], fpShiftDir)
+      writeFileSync(join(fpShiftDir, "slop.ts"), "const top = 1\n// this fixes the cache miss\n// second line\nconst x = 1\n")
+      const shifted = runCli(["scan", "."], fpShiftDir)
+      check("fp: правка выше baselined-строки не воскрешает легаси [exit 0]", shifted.status === 0, `exit ${shifted.status}: ${shifted.out}`)
+    } finally {
+      rmSync(fpShiftDir, { recursive: true, force: true })
+    }
+    const fpTextDir = mkdtempSync(join(tmpdir(), "slop-gate-fp-text-"))
+    try {
+      writeFileSync(join(fpTextDir, "slop.ts"), "// this fixes the cache miss\n// second line\nconst x = 1\n")
+      runCli(["--baseline-write"], fpTextDir)
+      writeFileSync(join(fpTextDir, "slop.ts"), "// must take over the cache miss\n// second line\nconst x = 1\n")
+      const changed = runCli(["scan", "."], fpTextDir)
+      check("fp: изменённый текст находки флагается как новый слоп [exit 1]", changed.status === 1, `exit ${changed.status}: ${changed.out}`)
+    } finally {
+      rmSync(fpTextDir, { recursive: true, force: true })
+    }
+    const fpV1Dir = mkdtempSync(join(tmpdir(), "slop-gate-fp-v1-"))
+    try {
+      writeFileSync(join(fpV1Dir, "slop.ts"), "// this fixes the cache miss\n// second line\nconst x = 1\n")
+      writeFileSync(join(fpV1Dir, "stop-ai-slop.baseline.txt"), "# slop-gate baseline: relpath:line\nslop.ts:1\n")
+      const v1Run = runCli(["scan", "."], fpV1Dir)
+      check("fp: v1-baseline продолжает маскировать по rel:line [exit 0]", v1Run.status === 0, `exit ${v1Run.status}: ${v1Run.out}`)
+    } finally {
+      rmSync(fpV1Dir, { recursive: true, force: true })
+    }
+    const fpPruneDir = mkdtempSync(join(tmpdir(), "slop-gate-fp-prune-"))
+    try {
+      writeFileSync(join(fpPruneDir, "slop.ts"), "// this fixes the cache miss\n// second line\nconst x = 1\n")
+      runCli(["--baseline-write"], fpPruneDir)
+      writeFileSync(join(fpPruneDir, "slop.ts"), "const x = 1\n")
+      const pruned = runCli(["--baseline-prune"], fpPruneDir)
+      const body = readFileSync(join(fpPruneDir, "stop-ai-slop.baseline.txt"), "utf8")
+      check(
+        "fp: prune v2-базелайна удаляет обе записи пары [exit 0]",
+        pruned.status === 0 && !body.includes("slop.ts:1") && !body.split(/\r?\n/).some((l) => l.startsWith("fp:")),
+        `exit ${pruned.status}: ${body}`,
+      )
+    } finally {
+      rmSync(fpPruneDir, { recursive: true, force: true })
+    }
     mkdirSync(join(dir, "adir.ts"))
     const unreadable = addedFromToolArgs("write", { filePath: join(dir, "adir.ts"), content: narrative + "\nconst x = 1\n" })
     check("readDisk: нечитаемый файл проверяется целиком, а не пропускается", unreadable !== null && unreadable.added.length > 0, unreadable)
@@ -2595,7 +2689,7 @@ function cmdStdinPath() {
   }
   const findings = scanFiles([filePath], root, null, genContext(root, config)).map((f) => ({ ...f, rel: toRel(root, resolve(filePath)) }))
   const baseline = loadBaseline(root)
-  const fresh = findings.filter((f) => !baseline.has(baselineKey(f)))
+  const fresh = maskBaselined(baseline, findings)
   printFindings(fresh)
   return failsGate(fresh, false) ? 1 : 0
 }
@@ -2639,14 +2733,15 @@ function mcpCallTool(name, args) {
       config,
     )
     const baseline = loadBaseline(root)
-    return mcpToolResult(findingsToText(findings.filter((f) => !baseline.has(baselineKey(f)))))
+    return mcpToolResult(findingsToText(maskBaselined(baseline, findings)))
   }
   if (name === "slop_explain") {
     const text = explainText(String(args?.ruleId ?? ""))
     return text === null ? mcpToolResult("правило не найдено", true) : mcpToolResult(text)
   }
   if (name === "slop_baseline") {
-    const entries = [...loadBaseline(gitToplevel(process.cwd()))]
+    const baseline = loadBaseline(gitToplevel(process.cwd()))
+    const entries = [...baseline.legacy, ...[...baseline.fp].map((p) => `fp:${p}`)]
     return mcpToolResult(entries.length === 0 ? "baseline пуст" : entries.join("\n"))
   }
   return mcpToolResult(`неизвестный инструмент ${name}`, true)

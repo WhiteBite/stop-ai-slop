@@ -68,7 +68,7 @@ Error rules block (exit 1; the write-time gate throws). Warning rules teach: the
 1. **OpenCode write-time plugin** — `plugin/comment-gate.ts` intercepts `write`/`edit`/`multiedit` and rejects an edit that has error findings at the moment of the write. Mounted into `~/.config/opencode/plugins/` via a re-export stub.
 2. **Pre-commit hook via `--install`** — one command weaves `node .../scan.mjs --staged` into `.git/hooks/pre-commit` (idempotent: appends a marked block without clobbering an existing hook) and adds the `stop-ai-slop` / `stop-ai-slop:all` npm scripts to package.json. The hook and npm scripts embed the absolute path to the scanner as of install time — after moving or re-cloning the scanner, run `--install` again.
 3. **Agent skill** — `skill/SKILL.md` (name: `stop-ai-slop`): the policy, the rule table, the run modes. Mounts into OpenCode and Claude Code.
-4. **Baseline for legacy** — 1) `--install`, 2) `--baseline-write` (records current findings), 3) commit the baseline, 4) from then on the gate sees only new findings; edits above baselined lines shift line numbers and resurrect legacy — fix with `--baseline-prune`, which removes baseline entries that have no live finding; a repeated `--baseline-write` would also amnesty new slop — do not do that.
+4. **Baseline for legacy** — 1) `--install`, 2) `--baseline-write` (records current findings), 3) commit the baseline, 4) from then on the gate sees only new findings. Baseline v2 stores each finding as a pair of lines — `relpath:line` plus `fp:<hash>`, the fingerprint being a SHA-256 hash (first 16 hex chars) of the rule id and the trimmed comment text — and matches by fingerprint, not by position: edits above a baselined line no longer resurrect legacy, while changed comment text surfaces as new slop. The same text pasted again is masked only up to the number of baselined occurrences, so a fresh copy of legacy slop still counts as new slop. Old v1 baselines (`relpath:line` lines only) keep masking by position until the next `--baseline-write`. `--baseline-prune` removes entries that have no live finding (in v2 the pair dies together); a repeated `--baseline-write` would also amnesty new slop — do not do that.
 
 ## Quick start
 
@@ -160,7 +160,7 @@ rules:
   vend/step-numbered: error
 ```
 
-Severity remap is applied after detection and before baseline filtering and exit-code computation; the baseline matches on `rel:line` regardless of severity, so changing a severity in the config neither resurrects nor masks baselined findings.
+Severity remap is applied after detection and before baseline filtering and exit-code computation; the baseline matches on the finding fingerprint (rule id + trimmed text; on `rel:line` for old v1 baselines) regardless of severity, so changing a severity in the config neither resurrects nor masks baselined findings.
 
 ## MCP server
 
@@ -178,7 +178,7 @@ Three tools:
 | --- | --- | --- |
 | `slop_scan` | `{ path?: string }` | Full scan of a directory or file; returns text findings |
 | `slop_explain` | `{ ruleId: string }` | Returns a rule's rationale (Why / Instead of / Write / Ignore it when) |
-| `slop_baseline` | `{}` | Prints the baseline entries (`relpath:line` format) |
+| `slop_baseline` | `{}` | Prints the baseline entries (`relpath:line` and `fp:<hash>` lines) |
 
 Client setup:
 
