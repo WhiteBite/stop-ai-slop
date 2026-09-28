@@ -1,5 +1,7 @@
 # AGENTS.md — instructions for AI coding agents
 
+Tech debt ledger and session handoff live in `docs/TECH_DEBT.md`: read it first when resuming work (release procedure, deferred/rejected backlog, detector limitations, semantics that break easily, parallel-session discipline).
+
 ## Comment policy (dogfooded)
 
 This repo enforces its own comment-slop gate. Every commit MUST pass:
