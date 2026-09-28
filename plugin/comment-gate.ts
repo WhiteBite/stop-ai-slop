@@ -44,3 +44,5 @@ export const CommentGate: Plugin = async () => {
     },
   }
 }
+
+export default { id: "stop-ai-slop", server: CommentGate }

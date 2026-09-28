@@ -40,7 +40,7 @@ npx stop-ai-slop --install        # вшивает pre-commit hook + npm scripts
 ### Какие точки выбрать
 
 - **Только git** — две команды выше; готово.
-- **Пользователи OpenCode** — добавьте стаб плагина, чтобы слоп отклонялся в момент записи: файл `~/.config/opencode/plugins/comment-gate.ts` из одной строки `export { CommentGate } from "<путь к node_modules>/stop-ai-slop/plugin/comment-gate.ts"`.
+- **Пользователи OpenCode** — добавьте стаб плагина, чтобы слоп отклонялся в момент записи: файл `~/.config/opencode/plugins/comment-gate.ts` из одной строки `export { default } from "<путь к node_modules>/stop-ai-slop/plugin/comment-gate.ts"`.
 - **Пользователи Claude Code** — `/plugin marketplace add WhiteBite/stop-ai-slop`, затем `/plugin install stop-ai-slop`; скилл и оба хука приходят автоматически.
 - **Любой MCP-клиент (Cursor, Codex и др.)** — stdio-запись `npx stop-ai-slop --mcp` (см. «MCP-сервер»).
 - **CI** — GitHub Action или GitLab include (см. «IDE и CI»).
@@ -63,7 +63,7 @@ Error-правила блокируют (exit 1, write-time gate бросает 
 
 ## Точки приложения
 
-1. **OpenCode write-time плагин** — `plugin/comment-gate.ts` перехватывает `write`/`edit`/`multiedit` и отклоняет правку с error-находками в момент записи. Монтируется в `~/.config/opencode/plugins/` стабом-реэкспортом.
+1. **OpenCode write-time плагин** — `plugin/comment-gate.ts` перехватывает `write`/`edit`/`multiedit` и отклоняет правку с error-находками в момент записи. Монтируется в `~/.config/opencode/plugins/` стабом-реэкспортом. Default-экспорт `{ id: "stop-ai-slop", server: CommentGate }` даёт стабильный id плагина; legacy-экспорт `CommentGate` сохраняет работоспособность старых стабов; OpenCode показывает локальные плагины по имени файла стаба — назовите стаб `stop-ai-slop.ts` вместо `comment-gate.ts`, если хотите такую метку.
 2. **Pre-commit через `--install`** — одна команда вшивает `node .../scan.mjs --staged` в `.git/hooks/pre-commit` (идемпотентно, дописывает блок с маркером, не затирая существующий hook) и добавляет npm scripts `stop-ai-slop` / `stop-ai-slop:all` в package.json. Hook и npm scripts содержат абсолютный путь к сканеру на момент установки — после переноса или повторного клонирования сканера запустите `--install` заново.
 3. **Agent skill** — `skill/SKILL.md` (name: `stop-ai-slop`): политика, таблица правил, режимы запуска. Монтируется в OpenCode и Claude Code.
 4. **Baseline для легаси** — 1) `--install`, 2) `--baseline-write` (записывает текущие находки), 3) закоммитить baseline, 4) дальше гейт видит только новое; правки выше baselined-строк сдвигают номера и воскрешают легаси — лечится `--baseline-prune`, который удаляет из baseline записи без живых находок; повторный `--baseline-write` амнистирует и новый слоп — не делать.
@@ -311,7 +311,7 @@ New-Item -ItemType Junction -Path "$env:USERPROFILE\.claude\skills\stop-ai-slop"
 ```
 
 Write-time плагин OpenCode: файл `%USERPROFILE%\.config\opencode\plugins\comment-gate.ts` из одной строки
-`export { CommentGate, detectCommentSlop } from "<path>/plugin/comment-gate.ts"`.
+`export { default } from "<path>/plugin/comment-gate.ts"`.
 Эквивалент для cmd.exe — `mklink /J`; на Linux/macOS — `ln -s`. В любом git-репо без агентов работает `scan.mjs --install`.
 
 ## Другие интеграции

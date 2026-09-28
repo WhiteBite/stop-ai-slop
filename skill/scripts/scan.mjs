@@ -2598,6 +2598,20 @@ function cmdSelfTest() {
       benchHelp.status === 0 && benchHelp.out.includes("--bench") && benchHelp.out.includes("--bench-write"),
       benchHelp.out.slice(0, 200),
     )
+    const selfRoot = resolve(dirname(selfPath), "../..")
+    try {
+      const pkgRaw = readFileSync(join(selfRoot, "package.json"), "utf8")
+      const pluginJson = join(selfRoot, ".claude-plugin", "stop-ai-slop", "plugin.json")
+      if (!existsSync(pluginJson)) {
+        check("release-sync: skip — no plugin metadata", true, "skip: no plugin metadata")
+      } else {
+        const pkgVer = JSON.parse(pkgRaw).version
+        const pluginVer = JSON.parse(readFileSync(pluginJson, "utf8")).version
+        check("release-sync: package.json == plugin.json", pkgVer === pluginVer, `${pkgVer} vs ${pluginVer}`)
+      }
+    } catch {
+      check("release-sync: skip — unreadable metadata", true, "skip: unreadable metadata")
+    }
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }

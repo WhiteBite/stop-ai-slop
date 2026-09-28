@@ -1,20 +1,33 @@
 # Техдолг и передача смены
 
-Реестр остатка, ограничений и операционных заметок. Точка входа для следующей сессии: сначала этот файл, затем `AGENTS.md`. Состояние на коммит `e005ff7` (main, origin в синке).
+Реестр остатка, ограничений и операционных заметок. Точка входа для следующей сессии: сначала этот файл, затем `AGENTS.md`. Состояние на коммит `a49f37e` (main, origin в синке).
 
 ## Текущее состояние
 
 - npm `latest` = **0.4.0**. Всё после тега `v0.4.0` ещё не в реестре: baseline v2 (`f598c57`), `--bench`/`--bench-write` + `bench-history.json` (`8cc6223`), RU-зеркала (`e005ff7` и ранее). Следующий релиз — **0.5.0**.
 - Проверки перед любым коммитом: `node skill/scripts/scan.mjs --self-test` (exit 0, ~209 PASS), `node skill/scripts/scan.mjs scan .` (exit 0), `gradle -p detekt-rules test` (BUILD SUCCESSFUL), pre-commit гейт срабатывает сам.
 - Self-test живёт внутри `scan.mjs` (`cmdSelfTest`), чеки через `check(name, ok, detail)`; RED-фазы новых фич прогоняются тем же бинарником.
+- Бэклог re-verified 2026-09-28: все deferred-триггеры не сработали, health checks green (self-test 209→210 PASS после release-sync check, scan clean, gradle green).
 
 ## Процедура релиза
 
-1. bump `package.json` version (minor для фич, patch для фиксов).
+1. bump `package.json` version (minor для фич, patch для фиксов) + `.claude-plugin/stop-ai-slop/plugin.json` (гейт release-sync в self-test).
 2. `CHANGELOG.md`: `## Unreleased` → `## X.Y.Z`.
 3. Коммит, `git tag vX.Y.Z`, `git push origin main --tags`.
 4. `.github/workflows/publish.yml` публикует сам через OIDC trusted publishing; идемпотентен (пропускает, если версия уже в реестре). Провал публикации с E404 = не настроен trusted publisher на npmjs.com (Settings пакета → Trusted publishing → repo `WhiteBite/stop-ai-slop`, workflow `publish.yml`); лечится re-run упавшего run после настройки.
 5. Реестр пропагирует несколько минут после success — не считать это провалом.
+
+## OpenCode V2 readiness
+
+Исследование: ветка `dev` репозитория `anomalyco/opencode` (ранее `sst/opencode`, теперь редирект) + документация opencode.ai/v2, 2026-09-28. Stable v1 = **1.18.33**.
+
+- V1-контракт нашего плагина работает на текущем stable: хук `tool.execute.before` диспатчится (`packages/opencode/src/session/tools.ts`), input теперь включает sessionID/callID — плагин читает только `input.tool` и `output.args`, совместим.
+- Лоадер (`packages/opencode/src/plugin/index.ts`, `applyPlugin`): сначала `readV1Plugin(mod, spec, "server", "detect")` — объект `mod.default` формы `{ id, server }`; при находке — ранний возврат, legacy-скан именованных экспортов не выполняется (двойной регистрации нет). Для file-плагинов с default-формой обязателен строковый `id` (иначе TypeError "Path plugin must export id"); legacy-путь (именованные экспорты) id не требует.
+- По этой причине `plugin/comment-gate.ts` получил `export default { id: "stop-ai-slop", server: CommentGate }` (именованные экспорты сохранены, TECH_DEBT:64 back-compat не нарушен). Стаб-реэкспорт в README теперь `export { default } from ...` (одна строка, даёт плагину стабильный id); старая форма `export { CommentGate } from ...` продолжает работать через legacy-путь.
+- Отображаемое имя локального плагина = имя файла стаба (discovery-glob `{plugin,plugins}/*.{ts,js}`, identity — file:// URL; `install.ts`: `pkg.json.name ?? basename`). Поэтому в OpenCode плагин виден как "comment-gate" — по имени стаба из наших же README-инструкций; при желании пользователь может назвать стаб `stop-ai-slop.ts`.
+- V2 API (`@opencode-ai/plugin/v2/promise` и `/v2/effect`, уже в экспортах пакета 1.18.33): `define({ id, setup(ctx) })`, императивная регистрация хуков; домены ctx: agent/aisdk/catalog/command/integration/plugin/reference/skill. В V2 НЕТ `tool.execute.before` — runtime-хуки только `aisdk.sdk`/`aisdk.language`. Write-time-перехват инструмента в V2-контракте пока отсутствует.
+- V2-конфиг: ключ `plugins` (массив, вместо `plugin`), entries: npm-имя/версия/путь/объект `{package, options}`; префикс `-` отключает по id; CLI `opencode plugin add/list/check/update/remove`.
+- Watch-триггер: при GA релиза V2 (или появлении v2-хука перехвата инструментов / объявлении удаления v1-совместимости) — портировать плагин на v2 API и/или поддерживать обе формы. До тех пор действий нет: legacy+v1-default форма работает на всех stable.
 
 ## Бэклог: отложено до триггера
 
@@ -62,6 +75,7 @@
 - `skill/scripts/scan.d.mts` — ручные type-декларации экспортов scan.mjs: менять синхронно с сигнатурами (`addedFromToolArgs` opts, `isGeneratedFile`).
 - `.gitignore` vs локальный exclude: агент-каталоги `.omo/`, `.opencode/`, `.playwright-mcp/` лежат в `.git/info/exclude` (локально, по прецеденту `.codegraph`). В новых клонах их нет — если агенты станут нормой для контрибьюторов, перенести в публикуемый `.gitignore`.
 - `plugin/comment-gate.ts` импортирует `addedFromToolArgs/detectCommentSlop/profileFor/RULES` из scan.mjs с 2-аргументной сигнатурой — любые изменения этих экспортов держать back-compatible.
+- Версия `.claude-plugin/stop-ai-slop/plugin.json` исторически разъезжалась с `package.json` (0.3.1 при 0.4.0; CHANGELOG 0.4.0 ошибочно заявлял синхронизацию) — теперь гейт: self-test чек `release-sync` (`scan.mjs` cmdSelfTest) сверяет версии, skip при отсутствии файлов; релиз-процедура bump'ит оба файла.
 
 ## Операционные заметки
 
