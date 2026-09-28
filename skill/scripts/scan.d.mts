@@ -32,10 +32,16 @@ export declare function profileFor(filePath: string): CommentProfile | null
 export declare function detectCommentSlop(addedLines: string[], profile?: CommentProfile, diffMode?: boolean): Violation[]
 export declare function multisetDiff(oldText: string, newText: string): string[]
 export declare function isCodePath(filePath: string, extraSkippedSegments?: string[]): boolean
-export declare function isGeneratedPath(filePath: string): boolean
+export interface GeneratedContext {
+  gitattr: ((rel: string) => boolean) | null
+  cfgPaths: string[]
+  scanGenerated: boolean
+}
+export declare function isGeneratedFile(relPath: string, text: string, extra?: GeneratedContext | null): boolean
 export declare function addedFromToolArgs(
   tool: string,
   args: Record<string, unknown>,
+  opts?: { includeGenerated?: boolean },
 ): { filePath: string; added: string[] } | null
 export declare function auditLogPath(): string
 export declare function appendAudit(entry: Record<string, unknown>, path?: string): void

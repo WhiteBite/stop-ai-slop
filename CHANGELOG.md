@@ -22,6 +22,8 @@
 - `///` doc-комментарии — doc-блок в c-family профиле (dartdoc, rustdoc, C# XML doc): exempt от multi-line / long-comment / markdown-in-comment, как JSDoc
 - YAML block scalars (`key: |`, `- >`) — строковый контент, а не комментарий: их строки не флагуются
 - `vend/cjk-noise` не проверяется в prose-профилях (`.md`/`.mdx`/`.html`/`.xml`/`.rst`/`.adoc`): смешанная JP/CN-проза с латинскими брендами там норма
+- generated-детекция по экосистемным конвенциям: суффиксы имён 8 стеков (build_runner, protoc py/go/c++/mojom, k8s `zz_generated`, stringer, sqlc, .NET, min/bundle), tool-named заголовки первых 10 строк, lax-пара «generat/codegen + do not edit», `.gitattributes` `linguist-generated`, `generatedPaths` в конфиге; голый «DO NOT EDIT» и шапка pg_dump больше не эксемптят, неоднозначные имена (`*.gen.go`, `*.generated.ts`, `*.g.cs`, `mock_*.go`, `*.d.ts`) эксемптятся только по заголовку
+- slop-правила на сгенерированных файлах эксемптся, security-правила (`vend/zero-width-chars`, `vend/bidi-controls`, `vend/cjk-noise`) продолжают флагать — отравленный codegen это supply-chain сигнал; `scanGenerated: true` в конфиге снимает эксемпт; write-time гейт читает `scanGenerated` в режиме `--pre-tool`
 
 ## 0.3.0
 
