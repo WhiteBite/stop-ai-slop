@@ -2,10 +2,11 @@
 
 ## 0.5.0
 
-- plugin OpenCode: default-экспорт `{ id: "stop-ai-slop", server: CommentGate }` — стабильный id для лоадера (file-плагины с default-формой требуют id); именованные экспорты сохранены, старые стабы `export { CommentGate }` продолжают работать
+- plugin OpenCode: dual-поддержка 1.x + 2.x одним default-экспортом `{ id: "stop-ai-slop", server: CommentGate, setup }` — официальный migration-паттерн: 1.18.29+ вызывает `server()`, 2.x вызывает `setup()` с `ctx.tool.hook("execute.before")`; стаб `export { default }` требует >= 1.18.29, для старых 1.x остаётся `export { CommentGate }`; именованные экспорты сохранены
 - README (EN+RU): стаб плагина теперь `export { default } from ...`; из примера убран `detectCommentSlop` — legacy-лоадер вызывает каждый функциональный экспорт как плагин
 - self-test: чек `release-sync` — сверка версий `package.json` и `.claude-plugin/stop-ai-slop/plugin.json` (skip при отсутствии файлов); рассинхрон 0.3.1/0.4.0 устранён
-- docs/TECH_DEBT.md: секция OpenCode V2 readiness — статус V2 API (нет `tool.execute.before` в v2-контракте, watch-триггер до GA), верификация бэклога на 2026-09-28
+- self-test: чек `plugin-v2-shape` — симуляция обоих лоадеров OpenCode (v1 server-хуки + v2 tool.hook) с отклонением slop-записи; skip на Node < 22.6
+- docs/TECH_DEBT.md: секция OpenCode V2 readiness — V2 выпущен (v2.0.x), write-time хук в V2 существует, статус-кво и watch-триггер по npm latest
 - bench-когорта из 8 пин-репозиториев до-2025: `--bench` сравнивает счётчики по правилам с `bench-history.json`, рост = регрессия = exit 1; `--bench-write` пишет эталон
 - baseline v2 с fingerprint-ключами (hash правила + текст находки): правки выше baselined-строки больше не воскрешают легаси, изменённый текст флагается как новый слоп
 - v1-файлы baseline (`relpath:line`) читаются до следующего `--baseline-write`

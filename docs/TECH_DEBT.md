@@ -5,9 +5,9 @@
 ## Текущее состояние
 
 - npm `latest` = **0.4.0**. Всё после тега `v0.4.0` ещё не в реестре: baseline v2 (`f598c57`), `--bench`/`--bench-write` + `bench-history.json` (`8cc6223`), RU-зеркала (`e005ff7` и ранее). Следующий релиз — **0.5.0**.
-- Проверки перед любым коммитом: `node skill/scripts/scan.mjs --self-test` (exit 0, ~209 PASS), `node skill/scripts/scan.mjs scan .` (exit 0), `gradle -p detekt-rules test` (BUILD SUCCESSFUL), pre-commit гейт срабатывает сам.
+- Проверки перед любым коммитом: `node skill/scripts/scan.mjs --self-test` (exit 0, 211 PASS), `node skill/scripts/scan.mjs scan .` (exit 0), `gradle -p detekt-rules test` (BUILD SUCCESSFUL), pre-commit гейт срабатывает сам.
 - Self-test живёт внутри `scan.mjs` (`cmdSelfTest`), чеки через `check(name, ok, detail)`; RED-фазы новых фич прогоняются тем же бинарником.
-- Бэклог re-verified 2026-09-28: все deferred-триггеры не сработали, health checks green (self-test 209→210 PASS после release-sync check, scan clean, gradle green).
+- Бэклог re-verified 2026-09-28: все deferred-триггеры не сработали, health checks green (self-test 211 PASS после release-sync check, scan clean, gradle green).
 
 ## Процедура релиза
 
@@ -23,11 +23,14 @@
 
 - V1-контракт нашего плагина работает на текущем stable: хук `tool.execute.before` диспатчится (`packages/opencode/src/session/tools.ts`), input теперь включает sessionID/callID — плагин читает только `input.tool` и `output.args`, совместим.
 - Лоадер (`packages/opencode/src/plugin/index.ts`, `applyPlugin`): сначала `readV1Plugin(mod, spec, "server", "detect")` — объект `mod.default` формы `{ id, server }`; при находке — ранний возврат, legacy-скан именованных экспортов не выполняется (двойной регистрации нет). Для file-плагинов с default-формой обязателен строковый `id` (иначе TypeError "Path plugin must export id"); legacy-путь (именованные экспорты) id не требует.
-- По этой причине `plugin/comment-gate.ts` получил `export default { id: "stop-ai-slop", server: CommentGate }` (именованные экспорты сохранены, TECH_DEBT:64 back-compat не нарушен). Стаб-реэкспорт в README теперь `export { default } from ...` (одна строка, даёт плагину стабильный id); старая форма `export { CommentGate } from ...` продолжает работать через legacy-путь.
+- По этой причине `plugin/comment-gate.ts` получил `export default { id: "stop-ai-slop", server: CommentGate, setup }` (именованные экспорты сохранены, TECH_DEBT:64 back-compat не нарушен). Стаб-реэкспорт в README теперь `export { default } from ...` (одна строка, даёт плагину стабильный id); старая форма `export { CommentGate } from ...` продолжает работать через legacy-путь.
 - Отображаемое имя локального плагина = имя файла стаба (discovery-glob `{plugin,plugins}/*.{ts,js}`, identity — file:// URL; `install.ts`: `pkg.json.name ?? basename`). Поэтому в OpenCode плагин виден как "comment-gate" — по имени стаба из наших же README-инструкций; при желании пользователь может назвать стаб `stop-ai-slop.ts`.
-- V2 API (`@opencode-ai/plugin/v2/promise` и `/v2/effect`, уже в экспортах пакета 1.18.33): `define({ id, setup(ctx) })`, императивная регистрация хуков; домены ctx: agent/aisdk/catalog/command/integration/plugin/reference/skill. В V2 НЕТ `tool.execute.before` — runtime-хуки только `aisdk.sdk`/`aisdk.language`. Write-time-перехват инструмента в V2-контракте пока отсутствует.
-- V2-конфиг: ключ `plugins` (массив, вместо `plugin`), entries: npm-имя/версия/путь/объект `{package, options}`; префикс `-` отключает по id; CLI `opencode plugin add/list/check/update/remove`.
-- Watch-триггер: при GA релиза V2 (или появлении v2-хука перехвата инструментов / объявлении удаления v1-совместимости) — портировать плагин на v2 API и/или поддерживать обе формы. До тех пор действий нет: legacy+v1-default форма работает на всех stable.
+- V2 выпущен (теги v2.0.0…v2.0.18; npm dist-tag `latest` пока 1.18.33). V2-контракт модуля: default-экспорт обязан быть `{ id, setup }` или `{ id, effect }` (packages/core/src/plugin/module.ts), лишние ключи игнорируются; v1-имплементации (функция-экспорт, возвращающая объект хуков) в V2 НЕ выполняются (официальный migration guide).
+- Write-time гейт в V2 есть: `ctx.tool.hook("execute.before", cb)` — единственный хук V2, которому разрешено падать; throw отклоняет вызов инструмента (packages/plugin/src/effect/tool.ts, packages/core/src/plugin/hooks.ts). Прежняя заметка «в V2 нет tool.execute.before» основывалась на устаревшем dev-README и неверна.
+- Плагин теперь dual-formы: `export default { id: "stop-ai-slop", server: CommentGate, setup }` — официальный паттерн поддержки V1+V2 из одного модуля (migration guide): 1.18.29+ вызывает `server()`, 2.x вызывает `setup(ctx)`; `setup` регистрирует тот же гейт через `ctx.tool.hook("execute.before")`, `event.input` отображается 1:1 на v1 `output.args` (filePath/content/oldString/newString/edits), `addedFromToolArgs` общий.
+- Стаб `export { default } from ...` требует OpenCode >= 1.18.29 (включая 2.x); на более старых 1.x работает только legacy-стаб `export { CommentGate } from ...` (лоадер < 1.18.29 вызывает каждый экспорт как функцию — default-объект там не грузится).
+- Чек self-test `plugin-v2-shape` (scan.mjs cmdSelfTest): дочерний node c type-stripping (skip на Node < 22.6) импортирует плагин и симулирует ОБА лоадера, включая отклонение slop-записи; всего 211 PASS.
+- Watch-триггер: когда npm `latest` переключится на 2.x — проверить на живом 2.x: запись в аудит-логе (`loaded`), блокировка slop-записи, И что имена/аргументы инструментов write/edit в 2.x не переименованы (addedFromToolArgs при несовпадении формы молча возвращает null — гейт станет no-op); следить за изменениями API `@opencode/plugin`.
 
 ## Бэклог: отложено до триггера
 

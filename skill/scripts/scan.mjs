@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { execFileSync } from "node:child_process"
+import { execFileSync, spawnSync } from "node:child_process"
 import { createHash } from "node:crypto"
 import { appendFileSync, chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs"
 import { homedir, tmpdir } from "node:os"
@@ -2611,6 +2611,98 @@ function cmdSelfTest() {
       }
     } catch {
       check("release-sync: skip — unreadable metadata", true, "skip: unreadable metadata")
+    }
+    const nodeMajor = Number(process.versions.node.split(".")[0])
+    const nodeMinor = Number(process.versions.node.split(".")[1])
+    if (nodeMajor < 22 || (nodeMajor === 22 && nodeMinor < 6)) {
+      check("plugin-v2-shape: skip — node < 22.6", true, "skip: node < 22.6")
+    } else {
+      const v2Fixture = join(dir, "plugin-v2-check.mjs")
+      const pluginUrl = pathToFileURL(join(selfRoot, "plugin", "comment-gate.ts")).href
+      writeFileSync(
+        v2Fixture,
+        `import { writeFileSync } from "node:fs"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
+const done = (payload) => {
+  writeFileSync(1, JSON.stringify(payload) + "\\n")
+  process.exit(0)
+}
+const assert = (cond, msg) => {
+  if (!cond) throw new Error(msg)
+}
+let mod
+try {
+  mod = await import(${JSON.stringify(pluginUrl)})
+} catch (error) {
+  done({ ok: false, error: "import: " + String(error && error.message ? error.message : error) })
+}
+try {
+  assert(mod.default !== null && typeof mod.default === "object", "default export missing")
+  assert(mod.default.id === "stop-ai-slop", "default.id: " + String(mod.default.id))
+  assert(typeof mod.default.server === "function", "default.server is not a function")
+  assert(typeof mod.default.setup === "function", "default.setup is not a function")
+  assert(typeof mod.CommentGate === "function", "named CommentGate is not a function")
+  assert(typeof mod.detectCommentSlop === "function", "named detectCommentSlop is not a function")
+  let captured = null
+  await mod.default.setup({
+    tool: {
+      hook: async (name, cb) => {
+        captured = { name, cb }
+        return { dispose: async () => {} }
+      },
+    },
+  })
+  assert(captured !== null, "setup did not register a tool hook")
+  assert(captured.name === "execute.before", "hook name: " + String(captured.name))
+  assert(typeof captured.cb === "function", "hook callback is not a function")
+  const slopPath = join(tmpdir(), "slop-v2-check.ts")
+  const slopContent = "const a = 1\\n// slop line one\\n// slop line two\\n"
+  const cleanContent = "const a = 1\\n"
+  let thrown = null
+  try {
+    await captured.cb({ tool: "write", input: { filePath: slopPath, content: slopContent } })
+  } catch (error) {
+    thrown = error
+  }
+  assert(thrown !== null, "v2 slop write did not throw")
+  assert(String(thrown.message).startsWith("comment-gate:"), "v2 error prefix: " + String(thrown.message).slice(0, 80))
+  await captured.cb({ tool: "write", input: { filePath: slopPath, content: cleanContent } })
+  await captured.cb({ tool: "read", input: { filePath: slopPath } })
+  const hooks = await mod.default.server({})
+  assert(typeof hooks["tool.execute.before"] === "function", "v1 tool.execute.before missing")
+  thrown = null
+  try {
+    await hooks["tool.execute.before"]({ tool: "write" }, { args: { filePath: slopPath, content: slopContent } })
+  } catch (error) {
+    thrown = error
+  }
+  assert(thrown !== null, "v1 slop write did not throw")
+  assert(String(thrown.message).startsWith("comment-gate:"), "v1 error prefix: " + String(thrown.message).slice(0, 80))
+  await hooks["tool.execute.before"]({ tool: "write" }, { args: { filePath: slopPath, content: cleanContent } })
+  done({ ok: true })
+} catch (error) {
+  done({ ok: false, error: String(error && error.message ? error.message : error) })
+}
+`,
+      )
+      const v2Audit = join(dir, "audit.jsonl")
+      const v2Run = spawnSync(process.execPath, ["--experimental-strip-types", v2Fixture], {
+        encoding: "utf8",
+        env: { ...process.env, STOP_AI_SLOP_LOG: v2Audit },
+      })
+      let v2Result = null
+      try {
+        v2Result = JSON.parse((v2Run.stdout ?? "").trim().split(/\r?\n/).pop() ?? "")
+      } catch {
+        v2Result = null
+      }
+      const v2AuditOk = existsSync(v2Audit) && readFileSync(v2Audit, "utf8").includes('"event":"loaded"')
+      check(
+        "plugin-v2-shape: dual export + v2 tool hook gate",
+        v2Run.status === 0 && v2Result !== null && v2Result.ok === true && v2AuditOk,
+        v2Result && v2Result.error ? v2Result.error : `exit ${v2Run.status}: ${(v2Run.stderr ?? "").slice(0, 300)}`,
+      )
     }
   } finally {
     rmSync(dir, { recursive: true, force: true })

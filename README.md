@@ -52,7 +52,7 @@ npx stop-ai-slop --install        # writes the pre-commit hook + npm scripts int
 ### Which surfaces to pick
 
 - **Git-only teams** — the two commands above; done.
-- **OpenCode users** — add the plugin stub so slop is rejected at write time: create `~/.config/opencode/plugins/comment-gate.ts` with one line, `export { default } from "<path to node_modules>/stop-ai-slop/plugin/comment-gate.ts"`.
+- **OpenCode users** — add the plugin stub so slop is rejected at write time: create `~/.config/opencode/plugins/comment-gate.ts` with one line, `export { default } from "<path to node_modules>/stop-ai-slop/plugin/comment-gate.ts"` (OpenCode 1.18.29+ and 2.x; on older 1.x use `export { CommentGate } from ...` instead).
 - **Claude Code users** — `/plugin marketplace add WhiteBite/stop-ai-slop` then `/plugin install stop-ai-slop`; the skill and both hooks arrive automatically.
 - **Any MCP client (Cursor, Codex, others)** — add the stdio entry `npx stop-ai-slop --mcp` (see "MCP server").
 - **CI** — add the GitHub Action or the GitLab include (see "IDE and CI").
@@ -65,7 +65,7 @@ Error rules block (exit 1; the write-time gate throws). Warning rules teach: the
 
 ## Enforcement points
 
-1. **OpenCode write-time plugin** — `plugin/comment-gate.ts` intercepts `write`/`edit`/`multiedit` and rejects an edit that has error findings at the moment of the write. Mounted into `~/.config/opencode/plugins/` via a re-export stub. The plugin module exports `{ id: "stop-ai-slop", server: CommentGate }` as default, so the stub re-export registers a stable plugin id; the legacy named export `CommentGate` keeps old stubs working. OpenCode displays local plugins by their stub file name — name the stub `stop-ai-slop.ts` instead of `comment-gate.ts` if you want that label.
+1. **OpenCode write-time plugin** — `plugin/comment-gate.ts` intercepts `write`/`edit`/`multiedit` and rejects an edit that has error findings at the moment of the write. Mounted into `~/.config/opencode/plugins/` via a re-export stub. The default export `{ id: "stop-ai-slop", server: CommentGate, setup }` serves both APIs: OpenCode 1.18.29+ calls `server()` (v1 hook `tool.execute.before`), OpenCode 2.x calls `setup()` (registers `ctx.tool.hook("execute.before")`, the only V2 hook that may reject a call); the legacy named export `CommentGate` keeps old stubs on older 1.x working. OpenCode displays local plugins by their stub file name — name the stub `stop-ai-slop.ts` instead of `comment-gate.ts` if you want that label.
 2. **Pre-commit hook via `--install`** — one command weaves `node .../scan.mjs --staged` into `.git/hooks/pre-commit` (idempotent: appends a marked block without clobbering an existing hook) and adds the `stop-ai-slop` / `stop-ai-slop:all` npm scripts to package.json. The hook and npm scripts embed the absolute path to the scanner as of install time — after moving or re-cloning the scanner, run `--install` again.
 3. **Agent skill** — `skill/SKILL.md` (name: `stop-ai-slop`): the policy, the rule table, the run modes. Mounts into OpenCode and Claude Code.
 4. **Baseline for legacy** — 1) `--install`, 2) `--baseline-write` (records current findings), 3) commit the baseline, 4) from then on the gate sees only new findings. Baseline v2 stores each finding as a pair of lines — `relpath:line` plus `fp:<hash>`, the fingerprint being a SHA-256 hash (first 16 hex chars) of the rule id and the trimmed comment text — and matches by fingerprint, not by position: edits above a baselined line no longer resurrect legacy, while changed comment text surfaces as new slop. The same text pasted again is masked only up to the number of baselined occurrences, so a fresh copy of legacy slop still counts as new slop. Old v1 baselines (`relpath:line` lines only) keep masking by position until the next `--baseline-write`. `--baseline-prune` removes entries that have no live finding (in v2 the pair dies together); a repeated `--baseline-write` would also amnesty new slop — do not do that.
@@ -313,7 +313,7 @@ New-Item -ItemType Junction -Path "$env:USERPROFILE\.claude\skills\stop-ai-slop"
 ```
 
 OpenCode write-time plugin: a file `%USERPROFILE%\.config\opencode\plugins\comment-gate.ts` with the single line
-`export { default } from "<path>/plugin/comment-gate.ts"`.
+`export { default } from "<path>/plugin/comment-gate.ts"`. The default-export stub requires OpenCode 1.18.29 or newer (including 2.x); on older 1.x releases use the legacy one-liner `export { CommentGate } from "<path>/plugin/comment-gate.ts"`.
 The cmd.exe equivalent is `mklink /J`; on Linux/macOS use `ln -s`. In any git repo without agents, `scan.mjs --install` works.
 
 ## Other integrations
