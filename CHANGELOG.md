@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.6.0
 
 - `--pre-tool` понимает инструменты Gemini CLI и Qwen Code (`write_file`/`replace`), `apply_patch` Codex CLI (V4A-патчи, мультифайл) и неизвестные имена по форме payload (VS Code Copilot, Devin CLI); read-only инструменты не гейтятся
 - `--install-hooks` — хук-конфиги для Codex CLI, VS Code Copilot (Preview) и Devin CLI + сниппеты для Gemini CLI/Qwen Code; идемпотентен, чужие хуки не затирает
