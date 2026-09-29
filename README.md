@@ -414,7 +414,7 @@ The repository is a ready Claude Code plugin marketplace:
 /plugin install stop-ai-slop
 ```
 
-The plugin carries the skill and a PostToolUse hook (`Write|Edit` → `scan.mjs --stdin-path`) that prints findings for the just-written file back into the session. Cursor and Codex read the same hook schema: copy `.claude-plugin/stop-ai-slop/hooks/hooks.json` into your repo's `.cursor/hooks.json` / `.codex/hooks.json`, fixing the path to `scan.mjs`.
+The plugin carries the skill and a PostToolUse hook (`Write|Edit` → `scan.mjs --stdin-path`) that prints findings for the just-written file back into the session. For Codex CLI, run `npx stop-ai-slop --install-hooks` to write `.codex/hooks.json` (see "Agent hook integrations") instead of copying the Claude hook by hand. Cursor has no public write-time hook surface yet — use `npx stop-ai-slop --install-rules` to drop the policy into `.cursor/rules/`.
 
 ## IntelliJ IDEA
 

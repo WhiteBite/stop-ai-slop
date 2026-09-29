@@ -1546,8 +1546,16 @@ function cmdInstallHooks() {
         console.log(`slop-gate: ${rel} — не JSON, пропущен`)
         return
       }
+      if (
+        typeof obj !== "object" ||
+        obj === null ||
+        Array.isArray(obj) ||
+        (nested && obj.hooks !== undefined && (typeof obj.hooks !== "object" || obj.hooks === null || Array.isArray(obj.hooks)))
+      ) {
+        console.log(`slop-gate: ${rel} — не объект, пропущен`)
+        return
+      }
     }
-    if (typeof obj !== "object" || obj === null || Array.isArray(obj)) obj = {}
     const box = nested ? (obj.hooks = typeof obj.hooks === "object" && obj.hooks !== null && !Array.isArray(obj.hooks) ? obj.hooks : {}) : obj
     const list = Array.isArray(box.PreToolUse) ? box.PreToolUse : (box.PreToolUse = [])
     const idx = list.findIndex((e) => Array.isArray(e?.hooks) && e.hooks.some((h) => typeof h?.command === "string" && h.command.includes("--pre-tool")))
@@ -1577,7 +1585,7 @@ function cmdInstallHooks() {
   return 0
 }
 
-export function generateRulesContent() {
+function generateRulesContent() {
   const lines = [
     "# stop-ai-slop — политика комментариев",
     "",
@@ -2378,6 +2386,7 @@ function cmdSelfTest() {
     const ihDir = mkdtempSync(join(tmpdir(), "slop-gate-install-hooks-"))
     const mpDir = mkdtempSync(join(tmpdir(), "slop-gate-hooks-merge-"))
     const bjDir = mkdtempSync(join(tmpdir(), "slop-gate-hooks-broken-"))
+    const faDir = mkdtempSync(join(tmpdir(), "slop-gate-hooks-foreign-array-"))
     const voDir = mkdtempSync(join(tmpdir(), "slop-gate-hooks-vscode-"))
     try {
       const ihFiles = [".codex/hooks.json", ".devin/hooks.v1.json", ".github/hooks/stop-ai-slop.json"]
@@ -2459,6 +2468,18 @@ function cmdSelfTest() {
           bj.out.includes("не JSON"),
         `exit ${bj.status}: ${bj.out.slice(0, 200)}`,
       )
+      mkdirSync(join(faDir, ".codex"), { recursive: true })
+      const faPlanted = '[{"matcher":"Bash","hooks":[{"type":"command","command":"foreign.sh"}]}]\n'
+      writeFileSync(join(faDir, ".codex", "hooks.json"), faPlanted)
+      const fa = runCli(["--install-hooks"], faDir)
+      check(
+        "install-hooks-foreign-array-preserve: чужой массив в hooks.json не затёрт [exit 0]",
+        fa.status === 0 &&
+          readFileSync(join(faDir, ".codex", "hooks.json"), "utf8") === faPlanted &&
+          fa.out.includes(".codex/hooks.json") &&
+          fa.out.includes("не объект"),
+        `exit ${fa.status}: ${fa.out.slice(0, 200)}`,
+      )
       mkdirSync(join(voDir, ".github", "hooks"), { recursive: true })
       writeFileSync(join(voDir, ".github", "hooks", "stop-ai-slop.json"), "{}")
       const vo = runCli(["--install-hooks"], voDir)
@@ -2484,6 +2505,7 @@ function cmdSelfTest() {
       rmSync(ihDir, { recursive: true, force: true })
       rmSync(mpDir, { recursive: true, force: true })
       rmSync(bjDir, { recursive: true, force: true })
+      rmSync(faDir, { recursive: true, force: true })
       rmSync(voDir, { recursive: true, force: true })
     }
     const irDir = mkdtempSync(join(tmpdir(), "slop-gate-install-rules-"))

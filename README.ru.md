@@ -412,7 +412,7 @@ repos:
 /plugin install stop-ai-slop
 ```
 
-Плагин несёт скилл и PostToolUse-хук (`Write|Edit` → `scan.mjs --stdin-path`), который печатает находки по только что записанному файлу обратно в сессию. Cursor и Codex читают ту же схему хуков: скопируйте `.claude-plugin/stop-ai-slop/hooks/hooks.json` в `.cursor/hooks.json` / `.codex/hooks.json` своего репо, поправив путь к `scan.mjs`.
+Плагин несёт скилл и PostToolUse-хук (`Write|Edit` → `scan.mjs --stdin-path`), который печатает находки по только что записанному файлу обратно в сессию. Для Codex CLI запустите `npx stop-ai-slop --install-hooks`, чтобы записать `.codex/hooks.json` (см. «Хук-интеграции с агентами»), вместо ручного копирования хука Claude. У Cursor пока нет публичной поверхности write-time хуков — используйте `npx stop-ai-slop --install-rules`, чтобы добавить политику в `.cursor/rules/`.
 
 ## IntelliJ IDEA
 
