@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- `--pre-tool` понимает инструменты Gemini CLI и Qwen Code (`write_file`/`replace`), `apply_patch` Codex CLI (V4A-патчи, мультифайл) и неизвестные имена по форме payload (VS Code Copilot, Devin CLI); read-only инструменты не гейтятся
+- `--install-hooks` — хук-конфиги для Codex CLI, VS Code Copilot (Preview) и Devin CLI + сниппеты для Gemini CLI/Qwen Code; идемпотентен, чужие хуки не затирает
+- `--install-rules` — rules-файлы для Cursor, Windsurf, Aider, Cline, Devin и блок в copilot-instructions из таблицы RULES; чужой контент без маркера не затирается
+- JSON Schema конфига `schema/stop-ai-slop.schema.json` (draft-07) с modeline для yaml-language-server; parity-гейты в self-test
+- self-test: 242 PASS (+31 чек)
+
 ## 0.5.0
 
 - plugin OpenCode: dual-поддержка 1.x + 2.x одним default-экспортом `{ id: "stop-ai-slop", server: CommentGate, setup }` — официальный migration-паттерн: 1.18.29+ вызывает `server()`, 2.x вызывает `setup()` с `ctx.tool.hook("execute.before")`; стаб `export { default }` требует >= 1.18.29, для старых 1.x остаётся `export { CommentGate }`; именованные экспорты сохранены

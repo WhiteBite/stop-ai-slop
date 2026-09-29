@@ -8,11 +8,11 @@ stop-ai-slop is for teams using AI coding agents (OpenCode, Claude Code, Cursor,
 
 - [npm package](https://www.npmjs.com/package/stop-ai-slop): `npm i -D stop-ai-slop`, then `npx stop-ai-slop --install` to add npm scripts and a pre-commit hook
 - [GitHub repository](https://github.com/WhiteBite/stop-ai-slop): clone and run `node skill/scripts/scan.mjs --self-test`
-- [Components and installation](https://github.com/WhiteBite/stop-ai-slop/blob/main/README.md#what-you-get-and-what-installs-automatically): the eight surfaces (CLI, pre-commit hook, OpenCode plugin, Claude Code plugin, agent skill, MCP server, CI, IDE) and which install automatically vs by a manual snippet
+- [Components and installation](https://github.com/WhiteBite/stop-ai-slop/blob/main/README.md#what-you-get-and-what-installs-automatically): the eleven surfaces (CLI, pre-commit hook, OpenCode plugin, Claude Code plugin, agent skill, MCP server, CI, IDE, agent hook configs, agent rules files, config JSON Schema) and which install automatically vs by a manual snippet
 
 ## Usage
 
-- [Quick start](https://github.com/WhiteBite/stop-ai-slop/blob/main/README.md#quick-start): all CLI modes — `scan`, `--staged`, `--diff <ref>`, `--strict`, `--install`, `--baseline-write`, `--baseline-prune`, `--explain`, `--audit`, `--self-test`; suppression directives; exit codes
+- [Quick start](https://github.com/WhiteBite/stop-ai-slop/blob/main/README.md#quick-start): all CLI modes — `scan`, `--staged`, `--diff <ref>`, `--strict`, `--install`, `--install-hooks`, `--install-rules`, `--baseline-write`, `--baseline-prune`, `--explain`, `--audit`, `--self-test`; suppression directives; exit codes
 - [Rules reference](https://github.com/WhiteBite/stop-ai-slop/blob/main/README.md#rules): 13 rules with severity — multi-line-comment, changelog-marker, long-comment, step-numbered, section-divider, markdown-in-comment, this-function-opener, file-summary-header, generic-todo, self-suppression, cjk-noise, zero-width-chars, bidi-controls
 - [Output formats](https://github.com/WhiteBite/stop-ai-slop/blob/main/README.md#output-formats): text (default), Reviewdog rdjson (`--format json`), SARIF 2.1.0 (`--format sarif`) for GitHub code scanning
 - [Configuration](https://github.com/WhiteBite/stop-ai-slop/blob/main/README.md#configuration): `.stop-ai-slop.yaml` — maxCommentLength, excludePaths, per-rule severity overrides including off
@@ -23,6 +23,8 @@ stop-ai-slop is for teams using AI coding agents (OpenCode, Claude Code, Cursor,
 - [OpenCode write-time plugin](https://github.com/WhiteBite/stop-ai-slop/blob/main/README.md#enforcement-points): blocks write/edit/multiedit with slop findings at the moment of the write
 - [MCP server](https://github.com/WhiteBite/stop-ai-slop/blob/main/README.md#mcp-server): `npx stop-ai-slop --mcp` — stdio JSON-RPC 2.0, tools `slop_scan`, `slop_explain`, `slop_baseline`; works with any MCP client
 - [Claude Code pre-write blocking](https://github.com/WhiteBite/stop-ai-slop/blob/main/README.md#blocking-before-the-write-claude-code): `--pre-tool` reads PreToolUse JSON from stdin and denies Write/Edit with exit 2
+- [Agent hook integrations](https://github.com/WhiteBite/stop-ai-slop/blob/main/README.md#agent-hook-integrations): `--pre-tool` generalization (Gemini CLI / Qwen Code `write_file`/`replace`, Codex CLI `apply_patch` V4A, shape-gating for VS Code Copilot / Devin), `--install-hooks`, `--install-rules`
+- [Config JSON Schema](https://github.com/WhiteBite/stop-ai-slop/blob/main/README.md#config-json-schema): `schema/stop-ai-slop.schema.json` draft-07 with a yaml-language-server modeline and self-test parity gate
 - [Claude Code / Cursor / Codex plugin marketplace](https://github.com/WhiteBite/stop-ai-slop/blob/main/README.md#claude-code--cursor--codex): `/plugin marketplace add WhiteBite/stop-ai-slop`
 - [GitHub Action](https://github.com/WhiteBite/stop-ai-slop/blob/main/README.md#ci-github-actions): `uses: WhiteBite/stop-ai-slop@main` in pull_request workflows, strict and format inputs
 - [GitLab CI template](https://github.com/WhiteBite/stop-ai-slop/blob/main/README.md#gitlab-ci): include from `templates/stop-ai-slop.gitlab-ci.yml`, blocks MR pipelines

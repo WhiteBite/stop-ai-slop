@@ -11,7 +11,7 @@
 
 ## Что входит и что ставится автоматически
 
-Один сканер (`skill/scripts/scan.mjs`, таблица `RULES`) представлен восемью точками приложения. Они независимы: включайте нужные, они не конфликтуют и применяют одни и те же правила.
+Один сканер (`skill/scripts/scan.mjs`, таблица `RULES`) представлен двенадцатью точками приложения. Они независимы: включайте нужные, они не конфликтуют и применяют одни и те же правила.
 
 | Точка | Что делает | Как попадает к вам |
 | --- | --- | --- |
@@ -23,6 +23,9 @@
 | MCP-сервер (`--mcp`) | pull-mode `slop_scan` / `slop_explain` / `slop_baseline` для любого MCP-клиента | вручную: одна запись в конфиге клиента |
 | GitHub Action / GitLab CI-шаблон | блокирует PR/MR-пайплайны на диффе | вручную: сниппет воркфлоу/CI |
 | VS Code task / IDEA File Watcher | скан по требованию или при сохранении в IDE | вручную: сниппет/импорт шаблона |
+| `--install-hooks` | пишет конфиги хуков агентов (`.codex/hooks.json`, `.github/hooks/stop-ai-slop.json`, `.devin/hooks.v1.json`) + печатает сниппеты настроек для Gemini CLI / Qwen Code; shape-gating для неизвестных имён инструментов | вручную: `npx stop-ai-slop --install-hooks` |
+| `--install-rules` | генерирует файлы инструкций агентов из таблицы RULES (`.cursor/rules/stop-ai-slop.mdc`, `.windsurfrules`, `CONVENTIONS.md`, `.clinerules`, `.devin/rules/stop-ai-slop.md`, отмеченный блок в `.github/copilot-instructions.md`) | вручную: `npx stop-ai-slop --install-rules` |
+| Конфиг JSON Schema (`schema/stop-ai-slop.schema.json`) | draft-07 схема для `.stop-ai-slop.yaml` с автоподстановкой в IDE и проверкой паритета | поставляется в npm-тарболе; modeline в начале конфига |
 
 ### Установка в две команды
 
@@ -44,6 +47,9 @@ npx stop-ai-slop --install        # вшивает pre-commit hook + npm scripts
 - **Пользователи Claude Code** — `/plugin marketplace add WhiteBite/stop-ai-slop`, затем `/plugin install stop-ai-slop`; скилл и оба хука приходят автоматически.
 - **Любой MCP-клиент (Cursor, Codex и др.)** — stdio-запись `npx stop-ai-slop --mcp` (см. «MCP-сервер»).
 - **CI** — GitHub Action или GitLab include (см. «IDE и CI»).
+- **Пользователи Codex CLI / VS Code Copilot / Devin** — `npx stop-ai-slop --install-hooks` пишет `.codex/hooks.json`, `.github/hooks/stop-ai-slop.json`, `.devin/hooks.v1.json`; shape-gating делает безопасным для неизвестных имён инструментов.
+- **Пользователи Cursor / Windsurf / Cline / Aider** — `npx stop-ai-slop --install-rules` генерирует файлы инструкций из таблицы RULES; см. «Хук-интеграции с агентами».
+- **Gemini CLI / Qwen Code** — `--install-hooks` печатает готовые сниппеты настроек в `.gemini/settings.json` и `.qwen/settings.json`.
 
 ## Зачем stop-ai-slop
 
@@ -81,6 +87,8 @@ node skill/scripts/scan.mjs --fix             # применить механи�
 node skill/scripts/scan.mjs --strict          # warning тоже блокируют гейт (exit 1)
 node skill/scripts/scan.mjs --install         # npm scripts + pre-commit hook в текущем репо
 node skill/scripts/scan.mjs --install --strict  # то же самое, но hook запускает --strict
+node skill/scripts/scan.mjs --install-hooks     # написать конфиги хуков агентов (Codex CLI, VS Code Copilot local hooks, Devin CLI) + напечатать сниппеты настроек для Gemini CLI / Qwen Code
+node skill/scripts/scan.mjs --install-rules     # сгенерировать файлы инструкций агентов из таблицы RULES (.cursor/rules/.windsurfrules/CONVENTIONS.md/.clinerules/.devin/rules/, отмеченный блок в .github/copilot-instructions.md)
 node skill/scripts/scan.mjs --baseline-write    # записать текущие находки в baseline
 node skill/scripts/scan.mjs --baseline-prune    # удалить из baseline записи без живых находок
 node skill/scripts/scan.mjs --help              # справка по всем флагам
@@ -160,6 +168,16 @@ rules:
 
 Remap severity применяется после детекции и до фильтрации baseline и подсчёта exit-кода; baseline матчится по `rel:line` независимо от severity, поэтому смена severity в конфиге не воскрешает и не маскирует baselined-находки.
 
+### Schema JSON конфигурации
+
+`schema/stop-ai-slop.schema.json` (draft-07, поставляется в npm-тарболе). Modeline в начале `.stop-ai-slop.yaml`:
+
+```yaml
+# yaml-language-server: $schema=https://raw.githubusercontent.com/WhiteBite/stop-ai-slop/v0.6.0/schema/stop-ai-slop.schema.json
+```
+
+(или путь node_modules `./node_modules/stop-ai-slop/schema/stop-ai-slop.schema.json`). Паритет с парсером обеспечивается гейтом self-test (`schema-parity-config` / `schema-parity-rules`).
+
 ## MCP-сервер
 
 Флаг `--mcp` запускает stop-ai-slop как MCP-сервер по stdio (JSON-RPC 2.0). Это pull-mode: любой MCP-клиент вызывает сканер сам перед редактированием файла.
@@ -230,6 +248,52 @@ npx stop-ai-slop --mcp
 
 Альтернативная форма принятия решений через `hookSpecificOutput.permissionDecision` (deny) существует, но данный хук использует exit 2 + stderr для многострочного вывода находок.
 
+## Хук-интеграции с агентами
+
+### Обобщение `--pre-tool`
+
+Помимо `Write`/`Edit`/`MultiEdit` Claude Code, `--pre-tool` теперь понимает:
+
+- **Gemini CLI / Qwen Code** — инструменты `write_file`{file_path,content} и `replace`{file_path,old_string,new_string}.
+- **OpenAI Codex CLI** — `apply_patch`: в `tool_input.command` содержится V4A-патч (`*** Begin Patch` / `*** Add File:` / `*** Update File:` / `*** Move to:` / `*** Delete File:` / `*** End Patch`, `+lines` = добавленный контент); мультифайловые патчи сканируются по файлам.
+- **UNKNOWN tool names** — gating по SHAPE: пейлоад с `file_path`+`content`, или `file_path`+`old_string`+`new_string`, или `file_path`+`edits[]`, или текст патча, содержащий `*** Begin Patch`. Это покрывает VS Code Copilot local hooks (Preview feature) и Devin CLI, чьи имена инструментов не являются стабильным API. Имена инструментов только для чтения (содержащие `read`/`view`/`grep`/`search`/`glob`/`list`/`ls`/`bash`/`shell`/`exec`/`run`/`fetch`/`web`/`think`/`todo`/`plan`) никогда не блокируют.
+
+### `--install-hooks`
+
+Пишет конфиги хуков агентов, вызывающие `node <abs>/scan.mjs --pre-tool`:
+
+- **`.codex/hooks.json`** — Codex CLI, конверт в стиле Claude; matcher `Write|Edit|MultiEdit|write_file|replace|apply_patch`; объединяется с существующими записями, никогда не затирает чужие хуки; сломанный JSON пропускается с предупреждением.
+- **`.github/hooks/stop-ai-slop.json`** — VS Code Copilot local hooks (Preview feature); свой файл перезаписывается каждый раз; без matcher в этом формате — shape-gating держит безопасность; timeout 30s.
+- **`.devin/hooks.v1.json`** — Devin CLI, без matcher → все инструменты → shape-gating. Идемпотентно; обновляет встроенный путь к сканеру на месте.
+
+Печатает готовые для вставки сниппеты для Gemini CLI (`.gemini/settings.json`, `hooks.BeforeTool`, matcher `write_file|replace`, timeout ms) и Qwen Code (`.qwen/settings.json`, `hooks.PreToolUse`) — `settings.json` глобален для пользователя, поэтому автоматически не редактируется.
+
+### `--install-rules`
+
+Генерирует файлы инструкций агентов из таблицы RULES (единый источник правды):
+
+- **`.cursor/rules/stop-ai-slop.mdc`** — Cursor; frontmatter `description`/`globs`/`alwaysApply`.
+- **`.windsurfrules`** — Windsurf.
+- **`CONVENTIONS.md`** — Aider; пара с `--read CONVENTIONS.md`.
+- **`.clinerules`** — Cline.
+- **`.devin/rules/stop-ai-slop.md`** — Devin.
+- **Отмеченный блок внутри `.github/copilot-instructions.md`** — VS Code Copilot; чужой контент сохраняется, блок заменяется на месте.
+
+Файлы, принадлежащие нам, перезаписываются; файлы с общими именами БЕЗ нашего маркера первой строки никогда не затираются (пропускаются с предупреждением). Сгенерированные файлы проходят наш собственный сканер.
+
+### Сводка покрытия инструментов
+
+| Агент | Интеграция |
+| --- | --- |
+| Claude Code | PreToolUse exit 2 (см. «Блокировка до записи») |
+| Codex CLI | `.codex/hooks.json` (matcher `write_file|replace|apply_patch`) |
+| VS Code Copilot | Local hooks (Preview), `.github/hooks/stop-ai-slop.json` |
+| Devin CLI | `.devin/hooks.v1.json` (также автоматически читает `.claude/` хуки) |
+| Gemini CLI / Qwen Code | Печатные сниппеты настроек (`.gemini/settings.json` / `.qwen/settings.json`) |
+| OpenCode | Write-time плагин (см. «Точки приложения») |
+| Cursor / Windsurf / Cline / Roo / Aider / Goose / OpenHands / Codex / Copilot | AGENTS.md или их файлы правил → `--install-rules` + наш скилл совместимый с AGENTS.md покрывает их |
+| MCP-клиенты (Cursor, Zed, JetBrains AI, Cody, …) | Существующий `--mcp` |
+
 ## IDE и CI
 
 ### VS Code
@@ -278,6 +342,18 @@ include:
   - project: 'WhiteBite/stop-ai-slop'
     file: '/templates/stop-ai-slop.gitlab-ci.yml'
     ref: <tag>
+```
+
+### Bitbucket Pipelines
+
+```yaml
+pipelines:
+  pull-requests:
+    "**":
+      - step:
+          image: node:20
+          script:
+            - npx stop-ai-slop --diff origin/$BITBUCKET_PR_DESTINATION_BRANCH
 ```
 
 ## CI (GitHub Actions)

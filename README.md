@@ -23,7 +23,7 @@ AI coding agents over-comment: multi-line narrative blocks, `// was X, now Y` ch
 
 ## What you get, and what installs automatically
 
-One scanner (`skill/scripts/scan.mjs`, the `RULES` table) is exposed through eight surfaces. They are independent: enable the ones you need, none conflict, and all enforce the same rules.
+One scanner (`skill/scripts/scan.mjs`, the `RULES` table) is exposed through eleven surfaces. They are independent: enable the ones you need, none conflict, and all enforce the same rules.
 
 | Surface | What it does | How it gets installed |
 | --- | --- | --- |
@@ -35,6 +35,9 @@ One scanner (`skill/scripts/scan.mjs`, the `RULES` table) is exposed through eig
 | MCP server (`--mcp`) | pull-mode `slop_scan` / `slop_explain` / `slop_baseline` for any MCP client | manual: one config entry per client |
 | GitHub Action / GitLab CI template | blocks PR/MR pipelines on the diff | manual: a workflow / CI snippet |
 | VS Code task / IDEA File Watcher | on-demand or on-save scan inside the IDE | manual: a snippet / template import |
+| `--install-hooks` | writes agent hook configs (`.codex/hooks.json`, `.github/hooks/stop-ai-slop.json`, `.devin/hooks.v1.json`) + prints settings snippets for Gemini CLI / Qwen Code; shape-gates UNKNOWN tool names | manual: `npx stop-ai-slop --install-hooks` |
+| `--install-rules` | generates agent instruction files from the RULES table (`.cursor/rules/stop-ai-slop.mdc`, `.windsurfrules`, `CONVENTIONS.md`, `.clinerules`, `.devin/rules/stop-ai-slop.md`, marked block in `.github/copilot-instructions.md`) | manual: `npx stop-ai-slop --install-rules` |
+| Config JSON Schema (`schema/stop-ai-slop.schema.json`) | draft-07 schema for `.stop-ai-slop.yaml` with IDE autocomplete and parity enforcement | shipped in npm tarball; modeline at top of config file |
 
 ### Install in two commands
 
@@ -56,6 +59,9 @@ npx stop-ai-slop --install        # writes the pre-commit hook + npm scripts int
 - **Claude Code users** — `/plugin marketplace add WhiteBite/stop-ai-slop` then `/plugin install stop-ai-slop`; the skill and both hooks arrive automatically.
 - **Any MCP client (Cursor, Codex, others)** — add the stdio entry `npx stop-ai-slop --mcp` (see "MCP server").
 - **CI** — add the GitHub Action or the GitLab include (see "IDE and CI").
+- **Codex CLI / VS Code Copilot / Devin users** — `npx stop-ai-slop --install-hooks` writes `.codex/hooks.json`, `.github/hooks/stop-ai-slop.json`, `.devin/hooks.v1.json`; shape-gating keeps it safe for unknown tool names.
+- **Cursor / Windsurf / Cline / Aider users** — `npx stop-ai-slop --install-rules` generates instruction files from the RULES table; see "Agent hook integrations".
+- **Gemini CLI / Qwen Code** — `--install-hooks` prints ready-to-paste settings snippets into `.gemini/settings.json` and `.qwen/settings.json`.
 
 ## What it enforces, and why
 
@@ -83,6 +89,8 @@ node skill/scripts/scan.mjs --fix             # apply the mechanical fixes, then
 node skill/scripts/scan.mjs --strict          # warnings also block the gate (exit 1)
 node skill/scripts/scan.mjs --install         # npm scripts + pre-commit hook in the current repo
 node skill/scripts/scan.mjs --install --strict  # same, but the hook runs --strict
+node skill/scripts/scan.mjs --install-hooks     # write agent hook configs (Codex CLI, VS Code Copilot local hooks, Devin CLI) + print settings snippets for Gemini CLI / Qwen Code
+node skill/scripts/scan.mjs --install-rules     # generate agent instruction files from the RULES table (.cursor/rules/.windsurfrules/CONVENTIONS.md/.clinerules/.devin/rules/, marked block in .github/copilot-instructions.md)
 node skill/scripts/scan.mjs --baseline-write    # record current findings into the baseline
 node skill/scripts/scan.mjs --baseline-prune    # remove baseline entries with no live finding
 node skill/scripts/scan.mjs --help              # help for all flags
@@ -162,6 +170,16 @@ rules:
 
 Severity remap is applied after detection and before baseline filtering and exit-code computation; the baseline matches on the finding fingerprint (rule id + trimmed text; on `rel:line` for old v1 baselines) regardless of severity, so changing a severity in the config neither resurrects nor masks baselined findings.
 
+### Config JSON Schema
+
+`schema/stop-ai-slop.schema.json` (draft-07, shipped in the npm tarball). Modeline at top of `.stop-ai-slop.yaml`:
+
+```yaml
+# yaml-language-server: $schema=https://raw.githubusercontent.com/WhiteBite/stop-ai-slop/v0.6.0/schema/stop-ai-slop.schema.json
+```
+
+(or node_modules path `./node_modules/stop-ai-slop/schema/stop-ai-slop.schema.json`). Parity with the parser is enforced by a self-test gate (`schema-parity-config` / `schema-parity-rules`).
+
 ## MCP server
 
 The `--mcp` flag runs stop-ai-slop as an MCP server over stdio (JSON-RPC 2.0). This is pull-mode: any MCP client calls the scanner itself before editing a file.
@@ -232,6 +250,52 @@ The plugin already carries the hook (`.claude-plugin/stop-ai-slop/hooks/hooks.js
 
 The alternative decision form via `hookSpecificOutput.permissionDecision` (deny) exists, but this hook uses exit 2 + stderr to surface multi-line findings.
 
+## Agent hook integrations
+
+### `--pre-tool` generalization
+
+Beyond Claude Code's `Write`/`Edit`/`MultiEdit`, `--pre-tool` now understands:
+
+- **Gemini CLI / Qwen Code** — tools `write_file`{file_path,content} and `replace`{file_path,old_string,new_string}.
+- **OpenAI Codex CLI** — `apply_patch`: `tool_input.command` carries a V4A patch (`*** Begin Patch` / `*** Add File:` / `*** Update File:` / `*** Move to:` / `*** Delete File:` / `*** End Patch`, `+lines` = added content); multi-file patches are scanned per file.
+- **UNKNOWN tool names** — gated by SHAPE: payload with `file_path`+`content`, or `file_path`+`old_string`+`new_string`, or `file_path`+`edits[]`, or patch text containing `*** Begin Patch`. This covers VS Code Copilot local hooks (Preview feature) and Devin CLI whose tool names are not a stable API. Read-only tool names (containing `read`/`view`/`grep`/`search`/`glob`/`list`/`ls`/`bash`/`shell`/`exec`/`run`/`fetch`/`web`/`think`/`todo`/`plan`) never gate.
+
+### `--install-hooks`
+
+Writes agent hook configs invoking `node <abs>/scan.mjs --pre-tool`:
+
+- **`.codex/hooks.json`** — Codex CLI, Claude-style envelope; matcher `Write|Edit|MultiEdit|write_file|replace|apply_patch`; merges with existing entries, never clobbers foreign hooks; broken JSON skipped with warning.
+- **`.github/hooks/stop-ai-slop.json`** — VS Code Copilot local hooks (Preview feature); own file rewritten each run; no matcher in that format — shape-gating keeps it safe; timeout 30s.
+- **`.devin/hooks.v1.json`** — Devin CLI, no matcher → all tools → shape-gating. Idempotent; refreshes the embedded scanner path in place.
+
+Prints ready-to-paste snippets for Gemini CLI (`.gemini/settings.json`, `hooks.BeforeTool`, matcher `write_file|replace`, timeout ms) and Qwen Code (`.qwen/settings.json`, `hooks.PreToolUse`) — `settings.json` is user-global so it is never auto-edited.
+
+### `--install-rules`
+
+Generates agent instruction files from the RULES table (single source of truth):
+
+- **`.cursor/rules/stop-ai-slop.mdc`** — Cursor; frontmatter `description`/`globs`/`alwaysApply`.
+- **`.windsurfrules`** — Windsurf.
+- **`CONVENTIONS.md`** — Aider; pair with `--read CONVENTIONS.md`.
+- **`.clinerules`** — Cline.
+- **`.devin/rules/stop-ai-slop.md`** — Devin.
+- **Marked block inside `.github/copilot-instructions.md`** — VS Code Copilot; foreign content preserved, block replaced in place.
+
+Files owned by us are overwritten; shared-name files WITHOUT our first-line marker are never clobbered (skipped with a warning). Generated files pass our own scanner.
+
+### Tool coverage summary
+
+| Agent | Integration |
+| --- | --- |
+| Claude Code | PreToolUse exit 2 (see "Blocking before the write") |
+| Codex CLI | `.codex/hooks.json` (matcher `write_file|replace|apply_patch`) |
+| VS Code Copilot | Local hooks (Preview), `.github/hooks/stop-ai-slop.json` |
+| Devin CLI | `.devin/hooks.v1.json` (also auto-reads `.claude/` hooks) |
+| Gemini CLI / Qwen Code | Printed settings snippets (`.gemini/settings.json` / `.qwen/settings.json`) |
+| OpenCode | Write-time plugin (see "Enforcement points") |
+| Cursor / Windsurf / Cline / Roo / Aider / Goose / OpenHands / Codex / Copilot | AGENTS.md or their rules files → `--install-rules` + our AGENTS.md-compatible skill cover them |
+| MCP clients (Cursor, Zed, JetBrains AI, Cody, …) | Existing `--mcp` |
+
 ## IDE and CI
 
 ### VS Code
@@ -280,6 +344,18 @@ include:
   - project: 'WhiteBite/stop-ai-slop'
     file: '/templates/stop-ai-slop.gitlab-ci.yml'
     ref: <tag>
+```
+
+### Bitbucket Pipelines
+
+```yaml
+pipelines:
+  pull-requests:
+    "**":
+      - step:
+          image: node:20
+          script:
+            - npx stop-ai-slop --diff origin/$BITBUCKET_PR_DESTINATION_BRANCH
 ```
 
 ## CI (GitHub Actions)

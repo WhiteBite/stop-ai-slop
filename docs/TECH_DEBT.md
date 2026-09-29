@@ -1,17 +1,18 @@
 # Техдолг и передача смены
 
-Реестр остатка, ограничений и операционных заметок. Точка входа для следующей сессии: сначала этот файл, затем `AGENTS.md`. Состояние на коммит `0081f51` (main, origin в синке).
+Реестр остатка, ограничений и операционных заметок. Точка входа для следующей сессии: сначала этот файл, затем `AGENTS.md`. Состояние на коммит `7632d97` (main, origin в синке до пуша 0.6.0).
 
 ## Текущее состояние
 
-- npm `latest` = **0.5.0** (опубликован 2026-09-28, тег `v0.5.0`, OIDC provenance): baseline v2, `--bench`, dual-плагин OpenCode 1.x+2.x, гейты `release-sync`/`plugin-v2-shape`. Следующий релиз — по накоплению.
-- Проверки перед любым коммитом: `node skill/scripts/scan.mjs --self-test` (exit 0, 211 PASS), `node skill/scripts/scan.mjs scan .` (exit 0), `gradle -p detekt-rules test` (BUILD SUCCESSFUL), pre-commit гейт срабатывает сам.
+- npm `latest` = **0.5.0** (опубликован 2026-09-28, тег `v0.5.0`, OIDC provenance): baseline v2, `--bench`, dual-плагин OpenCode 1.x+2.x, гейты `release-sync`/`plugin-v2-shape`.
+- После `v0.5.0` накопились (ещё не в реестре): `f77002e` (--pre-tool generalization), `5c71e05` (--install-hooks), `7bb2bd1` (--install-rules), `7632d97` (config JSON Schema). Следующий релиз — **0.6.0**.
+- Проверки перед любым коммитом: `node skill/scripts/scan.mjs --self-test` (exit 0, 242 PASS), `node skill/scripts/scan.mjs scan .` (exit 0), `gradle -p detekt-rules test` (BUILD SUCCESSFUL), pre-commit гейт срабатывает сам.
 - Self-test живёт внутри `scan.mjs` (`cmdSelfTest`), чеки через `check(name, ok, detail)`; RED-фазы новых фич прогоняются тем же бинарником.
-- Бэклог re-verified 2026-09-28: все deferred-триггеры не сработали, health checks green (self-test 211 PASS после release-sync check, scan clean, gradle green).
+- Бэклог re-verified 2026-09-28: все deferred-триггеры не сработали, health checks green.
 
 ## Процедура релиза
 
-1. bump `package.json` version (minor для фич, patch для фиксов) + `.claude-plugin/stop-ai-slop/plugin.json` (гейт release-sync в self-test).
+1. bump `package.json` version (minor для фич, patch для фиксов) + `.claude-plugin/stop-ai-slop/plugin.json` (гейт release-sync в self-test) + `$id` в `schema/stop-ai-slop.schema.json` (URL запинен на тег — release-sync его НЕ покрывает, менять вручную при любом релизе).
 2. `CHANGELOG.md`: `## Unreleased` → `## X.Y.Z`.
 3. Коммит, `git tag vX.Y.Z`, `git push origin main --tags`.
 4. `.github/workflows/publish.yml` публикует сам через OIDC trusted publishing; идемпотентен (пропускает, если версия уже в реестре). Провал публикации с E404 = не настроен trusted publisher на npmjs.com (Settings пакета → Trusted publishing → repo `WhiteBite/stop-ai-slop`, workflow `publish.yml`); лечится re-run упавшего run после настройки.
@@ -66,6 +67,8 @@
 - Write-time плагин OpenCode (`plugin/comment-gate.ts`) НЕ читает `.stop-ai-slop.yaml` — конфиг действует в CLI/diff/MCP-режимах; задокументировано в README «Configuration».
 - PreToolUse-хук Claude Code: зависший хук НЕ блокирует вызов (таймаут command-хука 600 с, по докам Claude) — гейт обязан оставаться быстрым, не добавлять в `--pre-tool` сетевые/тяжёлые операции.
 - MCP `tools/list` несёт `resultType: "complete"` (schema 2026-07-28); строго-консервативные клиенты могут ворчать на лишнее поле — принято осознанно, самопроверка live-сессией пройдена.
+- `--pre-tool` apply_patch-ветвь (`extractPatchDeltas`): V4A-патч разбирается построчно (заголовки `*** Add/Update File`, `*** Move to`, `*** Delete File`, `+`-строки), не grammar-парсером. Экзотический/битый патч без распознанных `+`-строк даёт пустой added → exit 0 (fail-open, как весь `--pre-tool`). Приемлемо: гейт-помощник, не security-граница.
+- `--pre-tool` shape-gating для неизвестных имён инструментов: read-only guard — substring-совпадение по lowercased имени (`read|view|grep|search|glob|list|ls|bash|shell|exec|run|fetch|web|think|todo|plan`). Инструмент с write-формой payload, но read-only-словом в имени, не гейтится. Осознанно: имена нестабильны (VS Code Copilot, Devin), ложное блокирование чтения хуже пропуска.
 
 ## Семантики, которые легко сломать невнимательной правкой
 
@@ -81,6 +84,8 @@
 - `.gitignore` vs локальный exclude: агент-каталоги `.omo/`, `.opencode/`, `.playwright-mcp/` лежат в `.git/info/exclude` (локально, по прецеденту `.codegraph`). В новых клонах их нет — если агенты станут нормой для контрибьюторов, перенести в публикуемый `.gitignore`.
 - `plugin/comment-gate.ts` импортирует `addedFromToolArgs/detectCommentSlop/profileFor/RULES` из scan.mjs с 2-аргументной сигнатурой — любые изменения этих экспортов держать back-compatible.
 - Версия `.claude-plugin/stop-ai-slop/plugin.json` исторически разъезжалась с `package.json` (0.3.1 при 0.4.0; CHANGELOG 0.4.0 ошибочно заявлял синхронизацию) — теперь гейт: self-test чек `release-sync` (`scan.mjs` cmdSelfTest) сверяет версии, skip при отсутствии файлов; релиз-процедура bump'ит оба файла.
+- Хук-интеграции 0.6.0 — статус внешних контрактов (проверено 2026-09-29 по первоисточникам): VS Code Copilot local hooks = **Preview**, имена инструментов явно НЕ стабильный API (доки велят смотреть debug-логи) → наш контракт для них shape-gating, не имена; watch GA. Cursor hooks docs = 404/beta (2026-09) → Cursor покрыт ТОЛЬКО rules-файлом (`.cursor/rules/*.mdc`); watch-триггер: публичная дока hooks. Trae rules-формат неверифицируем (доки недоступны 2026-09) → намеренно не генерируется. Devin CLI авто-читает `.claude/` хуки → юзеры Claude-плагина уже покрыты; `.devin/hooks.v1.json` пишется для standalone. Codex/Gemini/Qwen/Devin/Copilot contracts: stdin `{tool_name, tool_input}` + block = exit 2 со stderr в модель — универсально, `--pre-tool` его и реализует.
+- `schema/stop-ai-slop.schema.json`: `$id` запинен на тег `v0.6.0` (raw GitHub URL) — при релизе с изменениями схемы bump'ить вручную (release-sync не покрывает); parity с парсером держат чеки `schema-parity-config` (properties == ключи инициализатора `loadConfig`, извлекаются regex'ом из исходника) и `schema-parity-rules` (regex покрывает ровно id из RULES).
 
 ## Операционные заметки
 
