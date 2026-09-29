@@ -4,10 +4,12 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
 
 permissions:
   id-token: write
-  contents: read
+  contents: write
+  packages: write
 
 jobs:
   npm:
@@ -33,3 +35,70 @@ jobs:
       - name: Publish to npm via OIDC
         if: steps.ver.outputs.skip == 'false'
         run: npm publish --provenance
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Resolve tag
+        id: tag
+        run: |
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            echo "value=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=v$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Extract changelog section
+        run: |
+          version="${{ steps.tag.outputs.value }}"
+          version="${version#v}"
+          node -e '
+            const fs = require("fs");
+            const lines = fs.readFileSync("CHANGELOG.md", "utf8").split(/\r?\n/);
+            const out = [];
+            let on = false;
+            for (const line of lines) {
+              if (line.startsWith("## ")) { on = line.trim() === "## " + process.argv[1]; continue; }
+              if (on) out.push(line);
+            }
+            while (out.length && out[out.length - 1].trim() === "") out.pop();
+            fs.writeFileSync(process.argv[2], (out.length ? out.join("\n") : "See CHANGELOG.md.") + "\n");
+          ' "$version" notes.md
+      - name: Create GitHub release when missing
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          tag="${{ steps.tag.outputs.value }}"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "release $tag already exists, skipping"
+          else
+            gh release create "$tag" --title "$tag" --notes-file notes.md
+          fi
+  github-packages:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: https://npm.pkg.github.com
+      - name: Check whether this exact version is already mirrored
+        id: ver
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          local_version="$(node -p "require('./package.json').version")"
+          echo "local=${local_version}"
+          if npm view "@whitebite/stop-ai-slop@${local_version}" version >/dev/null 2>&1; then
+            echo "version already mirrored, skipping publish"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "version not mirrored yet"
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Publish scoped mirror to GitHub Packages
+        if: steps.ver.outputs.skip == 'false'
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          node -e "const fs=require('fs');const p=JSON.parse(fs.readFileSync('package.json','utf8'));p.name='@whitebite/stop-ai-slop';delete p.publishConfig;fs.writeFileSync('package.json',JSON.stringify(p,null,2)+'\n')"
+          npm publish
