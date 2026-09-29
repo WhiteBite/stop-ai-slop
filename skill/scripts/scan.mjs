@@ -670,6 +670,29 @@ export function addedFromToolArgs(tool, args, opts) {
   return { filePath, added }
 }
 
+function extractPatchDeltas(patchText) {
+  const byFile = new Map()
+  let currentFile = null
+  for (const line of patchText.split(/\r?\n/)) {
+    if (line.startsWith("*** Add File: ")) currentFile = line.slice(14).trim()
+    else if (line.startsWith("*** Update File: ")) currentFile = line.slice(17).trim()
+    else if (line.startsWith("*** Move to: ")) currentFile = line.slice(13).trim()
+    else if (line.startsWith("*** Delete File: ")) currentFile = null
+    else if (line.startsWith("*** ")) continue
+    else if (currentFile !== null && line.startsWith("+")) {
+      const list = byFile.get(currentFile) ?? []
+      list.push(line.slice(1))
+      byFile.set(currentFile, list)
+    }
+  }
+  const out = []
+  for (const [filePath, added] of byFile) {
+    if (filePath === "" || added.length === 0 || !isCodePath(filePath)) continue
+    out.push({ filePath, added })
+  }
+  return out
+}
+
 function toRel(root, absPath) {
   return relative(root, absPath).split(sep).join("/")
 }
@@ -2581,6 +2604,104 @@ function cmdSelfTest() {
       multiEdit.status === 2 && multiEdit.stderr.includes("changelog-marker"),
       `exit ${multiEdit.status}: ${multiEdit.stderr.slice(0, 300)}`,
     )
+    const writeFileDeny = preTool({
+      tool_name: "write_file",
+      tool_input: { file_path: join(dir, "x.ts"), content: "const a = 1\n// было так, стало иначе\n" },
+    })
+    check(
+      "pretool-write_file-deny: Gemini write_file со слопом [exit 2]",
+      writeFileDeny.status === 2 && writeFileDeny.stderr.includes("changelog-marker"),
+      `exit ${writeFileDeny.status}: ${writeFileDeny.stderr.slice(0, 300)}`,
+    )
+    const writeFileAllow = preTool({ tool_name: "write_file", tool_input: { file_path: join(dir, "x.ts"), content: "const a = 1\n" } })
+    check(
+      "pretool-write_file-allow: чистый write_file [exit 0]",
+      writeFileAllow.status === 0 && writeFileAllow.stderr === "",
+      `exit ${writeFileAllow.status}: ${writeFileAllow.stderr}`,
+    )
+    const replaceDeny = preTool({
+      tool_name: "replace",
+      tool_input: { file_path: join(dir, "edit-target.ts"), old_string: "const a = 1\n", new_string: "const a = 1\n// было так, стало иначе\n" },
+    })
+    check("pretool-replace-deny: Qwen replace со слопом [exit 2]", replaceDeny.status === 2, `exit ${replaceDeny.status}: ${replaceDeny.stderr.slice(0, 300)}`)
+    const replaceAllow = preTool({
+      tool_name: "replace",
+      tool_input: { file_path: join(dir, "edit-target.ts"), old_string: "const a = 1\n", new_string: "const a = 1\nconst b = 2\n" },
+    })
+    check(
+      "pretool-replace-allow: чистый replace [exit 0]",
+      replaceAllow.status === 0 && replaceAllow.stderr === "",
+      `exit ${replaceAllow.status}: ${replaceAllow.stderr}`,
+    )
+    const patchDeny = preTool({
+      tool_name: "apply_patch",
+      tool_input: { command: "*** Begin Patch\n*** Add File: slop.ts\n+const a = 1\n+// было так, стало иначе\n*** End Patch\n" },
+    })
+    check(
+      "pretool-apply_patch-deny: Codex apply_patch со слопом [exit 2]",
+      patchDeny.status === 2 && patchDeny.stderr.includes("slop.ts"),
+      `exit ${patchDeny.status}: ${patchDeny.stderr.slice(0, 300)}`,
+    )
+    const patchMulti = preTool({
+      tool_name: "apply_patch",
+      tool_input: {
+        command:
+          "*** Begin Patch\n*** Update File: clean.ts\n const x = 1\n+const y = 2\n*** Update File: dirty.py\n+# было так, стало иначе\n*** End Patch\n",
+      },
+    })
+    check(
+      "pretool-apply_patch-multifile: слоп только в dirty.py [exit 2]",
+      patchMulti.status === 2 && patchMulti.stderr.includes("dirty.py") && !patchMulti.stderr.includes("clean.ts"),
+      `exit ${patchMulti.status}: ${patchMulti.stderr.slice(0, 300)}`,
+    )
+    const patchMove = preTool({
+      tool_name: "apply_patch",
+      tool_input: { command: "*** Begin Patch\n*** Update File: old.ts\n*** Move to: new.ts\n+// было так, стало иначе\n*** End Patch\n" },
+    })
+    check(
+      "pretool-apply_patch-move: слоп после Move to относится к new.ts [exit 2]",
+      patchMove.status === 2 && patchMove.stderr.includes("new.ts"),
+      `exit ${patchMove.status}: ${patchMove.stderr.slice(0, 300)}`,
+    )
+    const patchAllow = preTool({
+      tool_name: "apply_patch",
+      tool_input: { command: "*** Begin Patch\n*** Add File: clean.ts\n+const a = 1\n*** End Patch\n" },
+    })
+    check(
+      "pretool-apply_patch-allow: чистый apply_patch [exit 0]",
+      patchAllow.status === 0 && patchAllow.stderr === "",
+      `exit ${patchAllow.status}: ${patchAllow.stderr}`,
+    )
+    const shapeWriteDeny = preTool({
+      tool_name: "strReplaceEditor",
+      tool_input: { file_path: join(dir, "x.ts"), content: "// было так, стало иначе\n" },
+    })
+    check(
+      "pretool-shape-unknown-write-deny: неизвестный инструмент с write-формой [exit 2]",
+      shapeWriteDeny.status === 2,
+      `exit ${shapeWriteDeny.status}: ${shapeWriteDeny.stderr.slice(0, 300)}`,
+    )
+    const shapeReadPass = preTool({ tool_name: "strReplaceEditor", tool_input: { file_path: join(dir, "x.ts") } })
+    const shapeExecPass = preTool({ tool_name: "runInTerminal", tool_input: { command: "apply_patch <<'EOF'\n*** Begin Patch\n+// было\n" } })
+    check(
+      "pretool-shape-read-pass: неизвестный read без content и exec-имя с patch-текстом [exit 0]",
+      shapeReadPass.status === 0 && shapeReadPass.stderr === "" && shapeExecPass.status === 0 && shapeExecPass.stderr === "",
+      `read: exit ${shapeReadPass.status}: ${shapeReadPass.stderr}; exec: exit ${shapeExecPass.status}: ${shapeExecPass.stderr}`,
+    )
+    const regressWrite = preTool({
+      tool_name: "Write",
+      tool_input: { file_path: join(dir, "slop-write.ts"), content: "// стало иначе\n// было по-другому\nconst x = 1\n" },
+    })
+    const regressEdit = preTool({
+      tool_name: "Edit",
+      tool_input: { file_path: join(dir, "edit-target.ts"), old_string: "const a = 1\n", new_string: "const a = 1\nconst b = 2\n" },
+    })
+    const regressRead = preTool({ tool_name: "Read", tool_input: { file_path: join(dir, "clean.ts") } })
+    check(
+      "pretool-regression-claude: Write deny + Edit allow + Read pass без изменений",
+      regressWrite.status === 2 && regressEdit.status === 0 && regressEdit.stderr === "" && regressRead.status === 0 && regressRead.stderr === "",
+      `write: exit ${regressWrite.status}; edit: exit ${regressEdit.status}: ${regressEdit.stderr}; read: exit ${regressRead.status}: ${regressRead.stderr}`,
+    )
     const benchUp = benchDelta({ "a/b": { "r/one": 1 } }, { "a/b": { "r/one": 3 } })
     check(
       "bench-delta: рост счётчика — одна запись с was/now",
@@ -2928,6 +3049,37 @@ function cmdMcp() {
   })
 }
 
+const PRE_TOOL_READ_ONLY = /read|view|grep|search|glob|list|ls|bash|shell|exec|run|fetch|web|think|todo|plan/
+
+function preToolPatch(ti) {
+  const text = [ti.command, ti.input, ti.patch, ti.text].find((v) => typeof v === "string")
+  if (text === undefined) return 0
+  const deltas = extractPatchDeltas(text)
+  if (deltas.length === 0) return 0
+  const root = gitToplevel(process.cwd())
+  let config = null
+  try {
+    config = loadConfig(root)
+  } catch {
+    config = null
+  }
+  let blocked = false
+  for (const { filePath, added } of deltas) {
+    if (isGeneratedFile(filePath, "", { gitattr: null, cfgPaths: [], scanGenerated: config?.scanGenerated === true })) continue
+    let violations = detectCommentSlop(added, profileFor(filePath) ?? undefined, true).filter((v) => v.severity === "error")
+    const disk = readDisk(filePath)
+    const genText = typeof disk === "string" ? disk : added.join("\n")
+    if (isGeneratedFile(toRel(root, resolve(filePath)), genText, genContext(root, config))) {
+      violations = violations.filter((v) => SECURITY_RULES.has(v.rule))
+    }
+    for (const v of violations) {
+      process.stderr.write(`slop-gate: ${v.rule} [${v.severity}] at ${filePath}:${v.lineNo}\n${v.lines.join("\n")}\ninstead: ${RULE_BY_ID.get(v.rule).instead}\n`)
+    }
+    if (violations.length > 0) blocked = true
+  }
+  return blocked ? 2 : 0
+}
+
 function cmdPreTool() {
   let payload
   try {
@@ -2936,9 +3088,26 @@ function cmdPreTool() {
     process.stderr.write("slop-gate: --pre-tool: stdin не является JSON — проверка пропущена\n")
     return 0
   }
-  const tool = String(payload?.tool_name ?? "").toLowerCase()
-  if (tool !== "write" && tool !== "edit" && tool !== "multiedit") return 0
+  let tool = String(payload?.tool_name ?? "").toLowerCase()
+  if (tool === "write_file") tool = "write"
+  else if (tool === "replace") tool = "edit"
   const ti = payload?.tool_input ?? {}
+  if (tool === "apply_patch") return preToolPatch(ti)
+  if (tool !== "write" && tool !== "edit" && tool !== "multiedit") {
+    if (PRE_TOOL_READ_ONLY.test(tool)) return 0
+    const shapePath = ti.file_path ?? ti.filePath
+    const shapePatch = [ti.command, ti.input, ti.patch, ti.text].find((v) => typeof v === "string")
+    if (typeof shapePath === "string" && typeof ti.content === "string") tool = "write"
+    else if (
+      typeof shapePath === "string" &&
+      typeof (ti.old_string ?? ti.oldString ?? ti.old_str) === "string" &&
+      typeof (ti.new_string ?? ti.newString ?? ti.new_str) === "string"
+    )
+      tool = "edit"
+    else if (typeof shapePath === "string" && Array.isArray(ti.edits)) tool = "multiedit"
+    else if (typeof shapePatch === "string" && shapePatch.includes("*** Begin Patch")) return preToolPatch(ti)
+    else return 0
+  }
   const root = gitToplevel(process.cwd())
   let config = null
   try {
@@ -2951,8 +3120,8 @@ function cmdPreTool() {
     {
       filePath: ti.file_path ?? ti.filePath,
       content: ti.content,
-      oldString: ti.old_string ?? ti.oldString,
-      newString: ti.new_string ?? ti.newString,
+      oldString: ti.old_string ?? ti.oldString ?? ti.old_str,
+      newString: ti.new_string ?? ti.newString ?? ti.new_str,
       edits: Array.isArray(ti.edits)
         ? ti.edits.map((e) => ({ oldString: e?.old_string ?? e?.oldString, newString: e?.new_string ?? e?.newString }))
         : ti.edits,
