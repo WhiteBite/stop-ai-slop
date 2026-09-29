@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.7.0
 
 - publish.yml: GitHub Release из тега с нотами из секции CHANGELOG (идемпотентно) + зеркало пакета в GitHub Packages как `@whitebite/stop-ai-slop` (scoped, идемпотентно); `workflow_dispatch` гоняет release/зеркало без публикации в npmjs (guard по событию), concurrency-группа сериализует прогоны; релизы v0.2.1…v0.6.0 забэкфиллены
 
