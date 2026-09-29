@@ -1531,6 +1531,52 @@ function cmdInstall(strict = false) {
   return 0
 }
 
+function cmdInstallHooks() {
+  const root = process.cwd()
+  const abs = fileURLToPath(import.meta.url).split(sep).join("/")
+  const command = `node "${abs}" --pre-tool`
+  const matcher = "Write|Edit|MultiEdit|write_file|replace|apply_patch"
+  const mergeHook = (rel, entry, nested) => {
+    const file = join(root, rel)
+    let obj = {}
+    if (existsSync(file)) {
+      try {
+        obj = JSON.parse(readFileSync(file, "utf8"))
+      } catch {
+        console.log(`slop-gate: ${rel} — не JSON, пропущен`)
+        return
+      }
+    }
+    if (typeof obj !== "object" || obj === null || Array.isArray(obj)) obj = {}
+    const box = nested ? (obj.hooks = typeof obj.hooks === "object" && obj.hooks !== null && !Array.isArray(obj.hooks) ? obj.hooks : {}) : obj
+    const list = Array.isArray(box.PreToolUse) ? box.PreToolUse : (box.PreToolUse = [])
+    const idx = list.findIndex((e) => Array.isArray(e?.hooks) && e.hooks.some((h) => typeof h?.command === "string" && h.command.includes("--pre-tool")))
+    if (idx === -1) {
+      list.push(entry)
+      console.log(`slop-gate: ${rel} — хук добавлен`)
+    } else {
+      list[idx] = entry
+      console.log(`slop-gate: ${rel} — хук обновлён`)
+    }
+    mkdirSync(dirname(file), { recursive: true })
+    writeFileSync(file, JSON.stringify(obj, null, 2) + "\n")
+  }
+  mergeHook(".codex/hooks.json", { matcher, hooks: [{ type: "command", command }] }, true)
+  mergeHook(".devin/hooks.v1.json", { hooks: [{ type: "command", command }] }, false)
+  const vscodeRel = ".github/hooks/stop-ai-slop.json"
+  const vscodeFile = join(root, vscodeRel)
+  const vscodeData = JSON.stringify({ hooks: { PreToolUse: [{ type: "command", command, timeout: 30 }] } }, null, 2) + "\n"
+  const prev = existsSync(vscodeFile) ? readFileSync(vscodeFile, "utf8") : null
+  mkdirSync(dirname(vscodeFile), { recursive: true })
+  if (prev !== vscodeData) writeFileSync(vscodeFile, vscodeData)
+  console.log(`slop-gate: ${vscodeRel} — ${prev === null ? "создан" : prev === vscodeData ? "уже на месте" : "обновлён"}`)
+  console.log("slop-gate: добавьте в .gemini/settings.json:")
+  console.log(`"hooks": ${JSON.stringify({ BeforeTool: [{ matcher: "write_file|replace", hooks: [{ type: "command", command: "npx stop-ai-slop --pre-tool", timeout: 60000 }] }] }, null, 2)}`)
+  console.log("slop-gate: добавьте в .qwen/settings.json:")
+  console.log(`"hooks": ${JSON.stringify({ PreToolUse: [{ matcher: "write_file|replace", hooks: [{ type: "command", command: "npx stop-ai-slop --pre-tool" }] }] }, null, 2)}`)
+  return 0
+}
+
 function cmdSelfTest() {
   const dir = mkdtempSync(join(tmpdir(), "slop-gate-"))
   let failures = 0
@@ -2261,6 +2307,117 @@ function cmdSelfTest() {
     } finally {
       rmSync(hooksPathDir, { recursive: true, force: true })
     }
+    const ihDir = mkdtempSync(join(tmpdir(), "slop-gate-install-hooks-"))
+    const mpDir = mkdtempSync(join(tmpdir(), "slop-gate-hooks-merge-"))
+    const bjDir = mkdtempSync(join(tmpdir(), "slop-gate-hooks-broken-"))
+    const voDir = mkdtempSync(join(tmpdir(), "slop-gate-hooks-vscode-"))
+    try {
+      const ihFiles = [".codex/hooks.json", ".devin/hooks.v1.json", ".github/hooks/stop-ai-slop.json"]
+      const ihJson = (base, rel) => {
+        try {
+          return JSON.parse(readFileSync(join(base, rel), "utf8"))
+        } catch {
+          return null
+        }
+      }
+      const ihBytes = (base) => ihFiles.map((f) => (existsSync(join(base, f)) ? readFileSync(join(base, f), "utf8") : null))
+      const ours = (e) => Array.isArray(e?.hooks) && e.hooks.some((h) => typeof h?.command === "string" && h.command.includes("--pre-tool"))
+      const fresh = runCli(["--install-hooks"], ihDir)
+      const codexFirst = ihJson(ihDir, ihFiles[0])?.hooks?.PreToolUse?.[0]
+      const devinFirst = ihJson(ihDir, ihFiles[1])?.PreToolUse?.[0]
+      const vscodeFirst = ihJson(ihDir, ihFiles[2])?.hooks?.PreToolUse?.[0]
+      check(
+        "install-hooks-fresh: три файла с верной структурой [exit 0]",
+        fresh.status === 0 &&
+          codexFirst?.matcher === "Write|Edit|MultiEdit|write_file|replace|apply_patch" &&
+          codexFirst.hooks[0].command.includes("--pre-tool") &&
+          devinFirst !== undefined &&
+          devinFirst !== null &&
+          !("matcher" in devinFirst) &&
+          devinFirst.hooks[0].command.includes("--pre-tool") &&
+          vscodeFirst?.type === "command" &&
+          vscodeFirst.timeout === 30 &&
+          !("matcher" in vscodeFirst),
+        `exit ${fresh.status}: ${fresh.out.slice(0, 200)}`,
+      )
+      runCli(["--install-hooks"], ihDir)
+      const after2 = ihBytes(ihDir)
+      const codexList2 = ihJson(ihDir, ihFiles[0])?.hooks?.PreToolUse ?? []
+      const devinList2 = ihJson(ihDir, ihFiles[1])?.PreToolUse ?? []
+      const third = runCli(["--install-hooks"], ihDir)
+      const after3 = ihBytes(ihDir)
+      check(
+        "install-hooks-idempotent: одна запись, байты стабильны между запусками",
+        third.status === 0 &&
+          codexList2.filter(ours).length === 1 &&
+          devinList2.filter(ours).length === 1 &&
+          after2.every((s, i) => s !== null && s === after3[i]),
+        `exit ${third.status}`,
+      )
+      const rfFile = join(ihDir, ihFiles[0])
+      if (existsSync(rfFile)) {
+        const stale = JSON.parse(readFileSync(rfFile, "utf8"))
+        stale.hooks.PreToolUse[0].hooks[0].command += " STALE"
+        writeFileSync(rfFile, JSON.stringify(stale, null, 2) + "\n")
+      }
+      const rf = runCli(["--install-hooks"], ihDir)
+      const rfList = ihJson(ihDir, ihFiles[0])?.hooks?.PreToolUse ?? []
+      check(
+        "install-hooks-refresh-path: устаревший command обновлён на месте",
+        rf.status === 0 && rfList.length === 1 && rfList.filter(ours).length === 1 && !JSON.stringify(rfList).includes("STALE"),
+        `exit ${rf.status}: ${JSON.stringify(rfList).slice(0, 200)}`,
+      )
+      mkdirSync(join(mpDir, ".codex"), { recursive: true })
+      const foreign = { matcher: "Bash", hooks: [{ type: "command", command: "my-own-check.sh" }] }
+      writeFileSync(join(mpDir, ".codex", "hooks.json"), JSON.stringify({ hooks: { PreToolUse: [foreign] } }, null, 2) + "\n")
+      const mp = runCli(["--install-hooks"], mpDir)
+      const mpList = ihJson(mpDir, ihFiles[0])?.hooks?.PreToolUse ?? []
+      check(
+        "install-hooks-merge-preserve: чужая запись сохранена, наша добавлена",
+        mp.status === 0 &&
+          mpList.length === 2 &&
+          JSON.stringify(mpList[0]) === JSON.stringify(foreign) &&
+          mpList[1]?.matcher === "Write|Edit|MultiEdit|write_file|replace|apply_patch",
+        `exit ${mp.status}: ${mp.out.slice(0, 200)}`,
+      )
+      mkdirSync(join(bjDir, ".devin"), { recursive: true })
+      writeFileSync(join(bjDir, ".devin", "hooks.v1.json"), "{ not json")
+      const bj = runCli(["--install-hooks"], bjDir)
+      check(
+        "install-hooks-broken-json: битый JSON пропущен без затирания [exit 0]",
+        bj.status === 0 &&
+          readFileSync(join(bjDir, ".devin", "hooks.v1.json"), "utf8") === "{ not json" &&
+          bj.out.includes("hooks.v1.json") &&
+          bj.out.includes("не JSON"),
+        `exit ${bj.status}: ${bj.out.slice(0, 200)}`,
+      )
+      mkdirSync(join(voDir, ".github", "hooks"), { recursive: true })
+      writeFileSync(join(voDir, ".github", "hooks", "stop-ai-slop.json"), "{}")
+      const vo = runCli(["--install-hooks"], voDir)
+      const voFirst = ihJson(voDir, ihFiles[2])?.hooks?.PreToolUse?.[0]
+      check(
+        "install-hooks-vscode-overwrite: собственный файл перезаписан полностью",
+        vo.status === 0 &&
+          voFirst?.type === "command" &&
+          voFirst?.timeout === 30 &&
+          typeof voFirst?.command === "string" &&
+          voFirst.command.includes("--pre-tool") &&
+          !("matcher" in voFirst),
+        `exit ${vo.status}: ${vo.out.slice(0, 200)}`,
+      )
+      const ihHelp = runCli(["--help"], dir)
+      const ihBogus = runCli(["--definitely-not-a-flag"], dir)
+      check(
+        "install-hooks-help: --help упоминает --install-hooks, неизвестный флаг [exit 2]",
+        ihHelp.status === 0 && ihHelp.out.includes("--install-hooks") && ihBogus.status === 2,
+        `help exit ${ihHelp.status}; bogus exit ${ihBogus.status}`,
+      )
+    } finally {
+      rmSync(ihDir, { recursive: true, force: true })
+      rmSync(mpDir, { recursive: true, force: true })
+      rmSync(bjDir, { recursive: true, force: true })
+      rmSync(voDir, { recursive: true, force: true })
+    }
     const rotatePath = join(dir, "rotate.jsonl")
     writeFileSync(rotatePath, Array.from({ length: 10000 }, (_, i) => `{"ts":"t${i}","verdict":"passed"}`).join("\n") + "\n")
     appendAudit({ verdict: "passed", tool: "write", filePath: "r.ts" }, rotatePath)
@@ -2836,6 +2993,7 @@ const KNOWN_FLAGS = new Set([
   "--explain",
   "--strict",
   "--install",
+  "--install-hooks",
   "--staged",
   "--diff",
   "--fix",
@@ -3271,6 +3429,7 @@ function cmdUsage() {
       "  --bench             счётчики находок по правилам на пин-когорте OSS-репо + дельта против bench-history.json",
       "  --bench-write       перезаписать bench-history.json текущими счётчиками когорты",
       "  --install           npm scripts + pre-commit hook в текущем репо",
+      "  --install-hooks     хук-конфиги агентов (Codex, VS Code Copilot, Devin) + сниппеты Gemini/Qwen",
       "  --explain <rule-id> обоснование правила",
       "  --audit [N]         последние N записей аудит-лога решений гейта",
       "  --self-test         саботаж-тест детектора",
@@ -3302,6 +3461,7 @@ function main(argv) {
   const { format } = parsed
   argv = parsed.rest
   if (argv.includes("--install")) return cmdInstall(strict)
+  if (argv.includes("--install-hooks")) return cmdInstallHooks()
   if (argv.includes("--fix")) {
     const paths = argv.filter((a) => a !== "scan" && !a.startsWith("--"))
     return cmdFix(paths.length > 0 ? paths : ["."], { dryRun: argv.includes("--dry-run"), strict })
