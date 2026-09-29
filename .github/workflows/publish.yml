@@ -11,8 +11,13 @@ permissions:
   contents: write
   packages: write
 
+concurrency:
+  group: publish
+  cancel-in-progress: false
+
 jobs:
   npm:
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -61,6 +66,7 @@ jobs:
               if (on) out.push(line);
             }
             while (out.length && out[out.length - 1].trim() === "") out.pop();
+            while (out.length && out[0].trim() === "") out.shift();
             fs.writeFileSync(process.argv[2], (out.length ? out.join("\n") : "See CHANGELOG.md.") + "\n");
           ' "$version" notes.md
       - name: Create GitHub release when missing
