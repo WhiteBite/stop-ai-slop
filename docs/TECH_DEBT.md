@@ -1,12 +1,11 @@
 # Техдолг и передача смены
 
-Реестр остатка, ограничений и операционных заметок. Точка входа для следующей сессии: сначала этот файл, затем `AGENTS.md`. Состояние на коммит `7632d97` (main, origin в синке до пуша 0.6.0).
+Реестр остатка, ограничений и операционных заметок. Точка входа для следующей сессии: сначала этот файл, затем `AGENTS.md`. Состояние на коммит `76e1d65` (main, origin в синке).
 
 ## Текущее состояние
 
-- npm `latest` = **0.5.0** (опубликован 2026-09-28, тег `v0.5.0`, OIDC provenance): baseline v2, `--bench`, dual-плагин OpenCode 1.x+2.x, гейты `release-sync`/`plugin-v2-shape`.
-- После `v0.5.0` накопились (ещё не в реестре): `f77002e` (--pre-tool generalization), `5c71e05` (--install-hooks), `7bb2bd1` (--install-rules), `7632d97` (config JSON Schema). Следующий релиз — **0.6.0**.
-- Проверки перед любым коммитом: `node skill/scripts/scan.mjs --self-test` (exit 0, 242 PASS), `node skill/scripts/scan.mjs scan .` (exit 0), `gradle -p detekt-rules test` (BUILD SUCCESSFUL), pre-commit гейт срабатывает сам.
+- npm `latest` = **0.7.0** (опубликован 2026-09-29, тег `v0.7.0`, OIDC provenance). Зеркало `@whitebite/stop-ai-slop` 0.7.0 в GitHub Packages; GitHub Releases v0.2.0…v0.7.0 создаёт воркфлоу сам (ноты из секции CHANGELOG тега).
+- Проверки перед любым коммитом: `node skill/scripts/scan.mjs --self-test` (exit 0, 243 PASS), `node skill/scripts/scan.mjs scan .` (exit 0), `gradle -p detekt-rules test` (BUILD SUCCESSFUL), pre-commit гейт срабатывает сам.
 - Self-test живёт внутри `scan.mjs` (`cmdSelfTest`), чеки через `check(name, ok, detail)`; RED-фазы новых фич прогоняются тем же бинарником.
 - Бэклог re-verified 2026-09-28: все deferred-триггеры не сработали, health checks green.
 
