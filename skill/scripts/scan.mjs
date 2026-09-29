@@ -3076,6 +3076,67 @@ function cmdSelfTest() {
     } catch {
       check("release-sync: skip — unreadable metadata", true, "skip: unreadable metadata")
     }
+    let schema = null
+    let schemaError = null
+    try {
+      schema = JSON.parse(readFileSync(join(selfRoot, "schema", "stop-ai-slop.schema.json"), "utf8"))
+    } catch (error) {
+      schemaError = error
+    }
+    check(
+      "schema-parse: schema/stop-ai-slop.schema.json — валидный JSON draft-07",
+      schema !== null &&
+        schema.$schema === "http://json-schema.org/draft-07/schema#" &&
+        typeof schema.$id === "string" &&
+        schema.$id.includes("schema/stop-ai-slop.schema.json"),
+      schemaError !== null ? String(schemaError.message ?? schemaError) : `${schema.$schema} / ${schema.$id}`,
+    )
+    const expectedConfigKeys = ["excludePaths", "generatedPaths", "maxCommentLength", "rules", "scanGenerated"]
+    const sameKeys = (a, b) => a.length === b.length && a.every((v, i) => v === b[i])
+    let configOk = false
+    let configDetail = "schema missing"
+    if (schema !== null && schema.properties !== null && typeof schema.properties === "object") {
+      const schemaKeys = Object.keys(schema.properties).sort()
+      const initMatch = /const config = \{([^}]*)\}/.exec(readFileSync(selfPath, "utf8"))
+      if (initMatch === null) {
+        configDetail = "loadConfig initializer not found"
+      } else {
+        const configKeys = [...initMatch[1].matchAll(/([A-Za-z_$][\w$]*)\s*:/g)].map((m) => m[1]).sort()
+        configOk = sameKeys(schemaKeys, expectedConfigKeys) && sameKeys(configKeys, schemaKeys)
+        configDetail = `schema: ${schemaKeys.join(",")}; loadConfig: ${configKeys.join(",")}`
+      }
+    }
+    check("schema-parity-config: properties == ключи конфига loadConfig", configOk, configDetail)
+    const rulesSchema = schema !== null && schema.properties ? schema.properties.rules : null
+    const patterns = rulesSchema && rulesSchema.patternProperties ? Object.keys(rulesSchema.patternProperties) : []
+    let patternOk = false
+    let patternDetail = "schema missing"
+    if (patterns.length === 1) {
+      try {
+        const pattern = patterns[0]
+        const re = new RegExp(pattern)
+        const isAnchored = pattern.startsWith("^") && pattern.endsWith("$")
+        const allMatch = RULES.every((r) => re.test(r.id))
+        const rejects = !re.test("bogus-rule") && !re.test("multi-line-commentX")
+        patternOk = isAnchored && allMatch && rejects
+        patternDetail = `anchored: ${isAnchored}; allMatch: ${allMatch}; rejects: ${rejects}`
+      } catch (error) {
+        patternDetail = `bad regex: ${String(error && error.message ? error.message : error)}`
+      }
+    } else if (patterns.length > 0) {
+      patternDetail = `patternProperties keys: ${patterns.length}`
+    }
+    check("schema-parity-rules: patternProperties покрывает все RULES и только их", patternOk, patternDetail)
+    let shippedOk = false
+    let shippedDetail = ""
+    try {
+      const pkgFiles = JSON.parse(readFileSync(join(selfRoot, "package.json"), "utf8")).files
+      shippedOk = Array.isArray(pkgFiles) && pkgFiles.includes("schema/")
+      shippedDetail = JSON.stringify(pkgFiles)
+    } catch (error) {
+      shippedDetail = String(error && error.message ? error.message : error)
+    }
+    check("schema-npm-shipped: package.json files[] содержит schema/", shippedOk, shippedDetail)
     const nodeMajor = Number(process.versions.node.split(".")[0])
     const nodeMinor = Number(process.versions.node.split(".")[1])
     if (nodeMajor < 22 || (nodeMajor === 22 && nodeMinor < 6)) {

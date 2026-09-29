@@ -39,7 +39,8 @@
   "files": [
     "skill/",
     "plugin/",
-    "action.yml"
+    "action.yml",
+    "schema/"
   ],
   "engines": {
     "node": ">=18"
