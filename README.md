@@ -380,6 +380,13 @@ Bootstrap, once: the first publish of a new package needs interactive confirmati
 
 After that, deploy is tag-driven: bump the version in `package.json` + add a CHANGELOG entry, commit, `git tag vX.Y.Z && git push origin main --tags`. The `.github/workflows/publish.yml` workflow (trigger `push: tags: v*`) runs the self-test, skips the publish if that version is already in the registry (tag arrival order does not matter), and publishes via OIDC with provenance. Node 24 in the workflow is required: OIDC publishing needs npm CLI >= 11.5.1.
 
+The same workflow also creates the GitHub Release for the tag (notes taken from the matching `CHANGELOG.md` section, skipped when the release already exists) and mirrors the package to GitHub Packages as `@whitebite/stop-ai-slop` (the GitHub npm registry only accepts scoped names; the mirror is skipped when that version is already there). Consumers of the mirror configure the registry per scope:
+
+```
+//npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}
+@whitebite:registry=https://npm.pkg.github.com
+```
+
 ## Mounting on another machine
 
 ```

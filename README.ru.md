@@ -378,6 +378,13 @@ Action сам подтягивает базовый реф, поэтому ст�
 
 Дальше деплой идёт по тегам: bump версии в `package.json` + запись в CHANGELOG, коммит, `git tag vX.Y.Z && git push origin main --tags`. Воркфлоу `.github/workflows/publish.yml` (триггер `push: tags: v*`) прогоняет self-test, пропускает публикацию, если эта версия уже в реестре (порядок прилёта тегов не важен), и публикует через OIDC с provenance. Node 24 в воркфлоу обязателен: OIDC-публикация требует npm CLI ≥ 11.5.1.
 
+Тот же воркфлоу создаёт GitHub Release для тега (ноты берутся из соответствующей секции `CHANGELOG.md`, пропускается, если release уже существует) и зеркалирует пакет в GitHub Packages как `@whitebite/stop-ai-slop` (npm-реестр GitHub принимает только scoped-имена; зеркало пропускается, если эта версия уже там). Потребители зеркала настраивают реестр по скоупу:
+
+```
+//npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}
+@whitebite:registry=https://npm.pkg.github.com
+```
+
 ## Монтаж на другую машину
 
 ```

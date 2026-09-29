@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- publish.yml: GitHub Release из тега с нотами из секции CHANGELOG (идемпотентно) + зеркало пакета в GitHub Packages как `@whitebite/stop-ai-slop` (scoped, идемпотентно); триггер `workflow_dispatch` для ручного прогона; релизы v0.2.1…v0.6.0 забэкфиллены
+
 ## 0.6.0
 
 - `--pre-tool` понимает инструменты Gemini CLI и Qwen Code (`write_file`/`replace`), `apply_patch` Codex CLI (V4A-патчи, мультифайл) и неизвестные имена по форме payload (VS Code Copilot, Devin CLI); read-only инструменты не гейтятся

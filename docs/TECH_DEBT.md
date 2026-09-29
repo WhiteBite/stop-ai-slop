@@ -14,7 +14,7 @@
 
 1. bump `package.json` version (minor для фич, patch для фиксов) + `.claude-plugin/stop-ai-slop/plugin.json` (гейт release-sync в self-test) + `$id` в `schema/stop-ai-slop.schema.json` (URL запинен на тег — release-sync его НЕ покрывает, менять вручную при любом релизе).
 2. `CHANGELOG.md`: `## Unreleased` → `## X.Y.Z`.
-3. Коммит, `git tag vX.Y.Z`, `git push origin main --tags`.
+3. Коммит, `git tag vX.Y.Z`, `git push origin main --tags`. Воркфлоу сам создаёт GitHub Release (ноты из секции CHANGELOG тега, skip если release существует) и зеркалирует пакет в GitHub Packages как `@whitebite/stop-ai-slop` (npm-реестр GitHub требует scoped-имя; skip если версия уже там); `workflow_dispatch` гоняет тот же пайплайн без тега. Релизы v0.2.1…v0.6.0 забэкфиллены вручную 2026-09-29.
 4. `.github/workflows/publish.yml` публикует сам через OIDC trusted publishing; идемпотентен (пропускает, если версия уже в реестре). Провал публикации с E404 = не настроен trusted publisher на npmjs.com (Settings пакета → Trusted publishing → repo `WhiteBite/stop-ai-slop`, workflow `publish.yml`); лечится re-run упавшего run после настройки.
 5. Реестр пропагирует несколько минут после success — не считать это провалом.
 
