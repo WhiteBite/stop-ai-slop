@@ -1,0 +1,18 @@
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareSourceCode",
+  "name": "stop-ai-slop",
+  "description": "Zero-dependency linter that blocks AI-generated comment slop. Enforces a one-line, why-only comment policy via pre-commit hook, IDE plugin and CI.",
+  "programmingLanguage": "JavaScript",
+  "runtimePlatform": "Node.js",
+  "license": "https://opensource.org/licenses/MIT",
+  "keywords": "linter, ai-slop, comment-policy, code-comments, code-quality, pre-commit, git-hooks, static-analysis, ai-code, opencode, claude-code, cursor, mcp, mcp-server, code-review",
+  "url": "https://github.com/WhiteBite/stop-ai-slop#readme",
+  "softwareVersion": "0.8.0",
+  "codeRepository": "https://github.com/WhiteBite/stop-ai-slop",
+  "author": "WhiteBite",
+  "sameAs": [
+    "https://github.com/WhiteBite/stop-ai-slop",
+    "https://www.npmjs.com/package/stop-ai-slop"
+  ]
+}

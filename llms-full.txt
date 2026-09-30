@@ -1,3 +1,14 @@
+<!-- rdk:generated:start -->
+# stop-ai-slop — full documentation
+
+> Zero-dependency linter that blocks AI-generated comment slop. Enforces a one-line, why-only comment policy via pre-commit hook, IDE plugin and CI.
+
+This is the concatenated documentation intended for LLM grounding. Regenerate with `rdk fix`.
+
+---
+
+# README
+
 # stop-ai-slop
 
 **English** | [Русский](README.ru.md)
@@ -605,3 +616,8 @@ stop-ai-slop is deliberately narrower: comment policy only. Swallowed exceptions
 ## License
 
 MIT — see [LICENSE](LICENSE).
+<!-- rdk:generated:end -->
+
+## Hand-written notes
+
+<!-- Everything below the end marker is preserved by `rdk fix`. Put hand-written context here; the block above is regenerated from .discoverability/project.yml. -->

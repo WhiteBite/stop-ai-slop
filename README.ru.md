@@ -51,6 +51,10 @@ npx stop-ai-slop --install        # вшивает pre-commit hook + npm scripts
 - **Пользователи Cursor / Windsurf / Cline / Aider** — `npx stop-ai-slop --install-rules` генерирует файлы инструкций из таблицы RULES; см. «Хук-интеграции с агентами».
 - **Gemini CLI / Qwen Code** — `--install-hooks` печатает готовые сниппеты настроек в `.gemini/settings.json` и `.qwen/settings.json`.
 
+## Кому это нужно
+
+Команды и одиночные разработчики, чей код частично или в основном пишут AI-агенты (OpenCode, Claude Code, Cursor, Codex, Copilot, Gemini CLI), и которым политика комментариев нужна механически — в момент записи, на коммите, в CI, — а не на дисциплине ревью.
+
 ## Зачем stop-ai-slop
 
 - **Нулевые зависимости.** Сканер — один файл `.mjs`, плагин OpenCode — один файл `.ts`. Не нужно ставить ни biome, ruff, oxlint, ни Python, ни ripgrep.

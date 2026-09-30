@@ -1,0 +1,80 @@
+# rdk config: https://github.com/WhiteBite/repo-aeo/blob/main/docs/configuration.md
+schema_version: 1
+
+project:
+  name: "stop-ai-slop"
+  one_liner: "Zero-dependency linter that blocks AI-generated comment slop. Enforces a one-line, why-only comment policy via pre-commit hook, IDE plugin and CI."
+  description: "Zero-dependency linter that blocks AI-generated comment slop. Enforces a one-line, why-only comment policy via pre-commit hook, IDE plugin and CI."
+  category: "tool"
+  copyright_holder: "WhiteBite"
+
+audiences:
+  - "teams whose code is written partly by AI coding agents"
+  - "solo developers with agent-heavy workflows"
+  - "repo maintainers enforcing a comment policy mechanically"
+
+use_cases:
+  - "block AI-slop comments at the moment the agent writes them (OpenCode plugin, Claude Code, Codex, Gemini, Qwen, Devin hooks)"
+  - "gate every commit that adds narrative or changelog comments (pre-commit hook)"
+  - "fail CI on comment slop in PR diffs (GitHub Action, GitLab CI template, SARIF, reviewdog rdjson)"
+  - "clean existing comment slop mechanically with --fix and a fingerprinted baseline"
+  - "teach agents the comment policy via generated rules files and the MCP server"
+
+keywords:
+  github_topics:
+    - "open-source"
+    - "developer-tools"
+    - "tool"
+    - "stop"
+    - "slop"
+    - "linter"
+    - "ai-slop"
+    - "comment-policy"
+    - "code-comments"
+    - "code-quality"
+    - "pre-commit"
+    - "git-hooks"
+  npm_keywords:
+    - "linter"
+    - "ai-slop"
+    - "comment-policy"
+    - "code-comments"
+    - "code-quality"
+    - "pre-commit"
+    - "git-hooks"
+    - "static-analysis"
+    - "ai-code"
+    - "opencode"
+    - "claude-code"
+    - "cursor"
+    - "mcp"
+    - "mcp-server"
+    - "code-review"
+
+links:
+  homepage: "https://github.com/WhiteBite/stop-ai-slop#readme"
+  docs:
+  demo:
+  issues: "https://github.com/WhiteBite/stop-ai-slop/issues"
+
+quickstart:
+  prerequisites:
+    - "Node.js >= 18"
+  install: "npm install stop-ai-slop"
+  run: "npx stop-ai-slop scan ."
+  test: "npm run test"
+
+artifacts:
+  has_npm_package: true
+  has_docs_site: false
+
+differentiators:
+  - "zero npm dependencies; the scanner is a single .mjs file"
+  - "write-time blocking in OpenCode (no competitor has it)"
+  - "natural-language markers in RU + EN + DE + FR + ES"
+  - "deterministic: no LLM, no network, sub-second"
+
+safety:
+  allow_autofix: false
+  require_ack_for_publish: true
+  ack:

@@ -40,7 +40,10 @@
     "skill/",
     "plugin/",
     "action.yml",
-    "schema/"
+    "schema/",
+    "llms.txt",
+    "llms-full.txt",
+    "AGENTS.md"
   ],
   "engines": {
     "node": ">=18"
