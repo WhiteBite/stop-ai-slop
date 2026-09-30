@@ -183,7 +183,7 @@ Remap severity применяется после детекции и до фил
 `schema/stop-ai-slop.schema.json` (draft-07, поставляется в npm-тарболе). Modeline в начале `.stop-ai-slop.yaml`:
 
 ```yaml
-# yaml-language-server: $schema=https://raw.githubusercontent.com/WhiteBite/stop-ai-slop/v0.10.0/schema/stop-ai-slop.schema.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/WhiteBite/stop-ai-slop/v0.10.1/schema/stop-ai-slop.schema.json
 ```
 
 (или путь node_modules `./node_modules/stop-ai-slop/schema/stop-ai-slop.schema.json`). Паритет с парсером обеспечивается гейтом self-test (`schema-parity-config` / `schema-parity-rules`).

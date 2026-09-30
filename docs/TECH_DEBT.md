@@ -1,11 +1,11 @@
 # Техдолг и передача смены
 
-Реестр остатка, ограничений и операционных заметок. Точка входа для следующей сессии: сначала этот файл, затем `AGENTS.md`. Состояние на релиз 0.10.0 (main).
+Реестр остатка, ограничений и операционных заметок. Точка входа для следующей сессии: сначала этот файл, затем `AGENTS.md`. Состояние на релиз 0.10.1 (main).
 
 ## Текущее состояние
 
 - npm `latest` = **0.9.0** (2026-09-30; 0.10.0 публикуется тегом `v0.10.0`). Зеркало `@whitebite/stop-ai-slop` в GitHub Packages; GitHub Releases создаёт воркфлоу сам.
-- Проверки перед любым коммитом: `node skill/scripts/scan.mjs --self-test` (exit 0, 272 PASS), `node skill/scripts/scan.mjs scan .` (exit 0), `gradle -p detekt-rules test` (BUILD SUCCESSFUL), pre-commit гейт срабатывает сам.
+- Проверки перед любым коммитом: `node skill/scripts/scan.mjs --self-test` (exit 0, 277 PASS), `node skill/scripts/scan.mjs scan .` (exit 0), `gradle -p detekt-rules test` (BUILD SUCCESSFUL), pre-commit гейт срабатывает сам.
 - Self-test в `skill/scripts/selftest.mjs`; контракт плагина — фасад `evaluateEdit`; сообщения — `skill/scripts/messages.mjs` (ru+en, выбор через `--lang`/env).
 - scan.mjs: ~2300 строк; selftest.mjs ~1700; messages.mjs ~280.
 - Бэклог re-verified 2026-09-28: все deferred-триггеры не сработали, health checks green.

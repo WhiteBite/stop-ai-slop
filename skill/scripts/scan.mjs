@@ -20,7 +20,11 @@ export function resolveLang(argv, env = process.env) {
   const explicit = env.STOP_AI_SLOP_LANG
   if (explicit === "ru" || explicit === "en") return { lang: explicit, error: false }
   const locale = env.LC_ALL ?? env.LANG
-  if (typeof locale === "string" && locale !== "") return { lang: locale.toLowerCase().startsWith("ru") ? "ru" : "en", error: false }
+  if (typeof locale === "string" && locale !== "") {
+    const norm = locale.toLowerCase()
+    if (norm === "c" || norm === "posix" || norm.startsWith("c.")) return { lang: "ru", error: false }
+    return { lang: norm.startsWith("ru") ? "ru" : "en", error: false }
+  }
   return { lang: "ru", error: false }
 }
 

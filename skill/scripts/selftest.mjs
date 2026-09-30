@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, 
 import { tmpdir } from "node:os"
 import { dirname, join, resolve } from "node:path"
 import { fileURLToPath, pathToFileURL } from "node:url"
-import { RULES, RULE_BY_ID, KNOWN_FLAGS, CONFIG_KEYS, profileFor, detectCommentSlop, addedFromToolArgs, appendAudit, loadConfig, scanFiles, collectFiles, loadGitattributesGenerated, readDisk, benchDelta } from "./scan.mjs"
+import { RULES, RULE_BY_ID, KNOWN_FLAGS, CONFIG_KEYS, resolveLang, profileFor, detectCommentSlop, addedFromToolArgs, appendAudit, loadConfig, scanFiles, collectFiles, loadGitattributesGenerated, readDisk, benchDelta } from "./scan.mjs"
 
 const CP = (...cps) => String.fromCodePoint(...cps)
 const BS = CP(0x5c)
@@ -17,10 +17,12 @@ export function cmdSelfTest() {
     }
     const selfPath = resolve(dirname(fileURLToPath(import.meta.url)), "scan.mjs")
     const runCli = (args, cwd, env) => {
+      const mergedEnv = { ...(env ?? process.env) }
+      if (mergedEnv.STOP_AI_SLOP_LANG === undefined) mergedEnv.STOP_AI_SLOP_LANG = "ru"
       try {
         return {
           status: 0,
-          out: execFileSync(process.execPath, [selfPath, ...args], { cwd, encoding: "utf8", stdio: "pipe", env }),
+          out: execFileSync(process.execPath, [selfPath, ...args], { cwd, encoding: "utf8", stdio: "pipe", env: mergedEnv }),
         }
       } catch (error) {
         return { status: error.status ?? 1, out: `${error.stdout ?? ""}${error.stderr ?? ""}` }
@@ -392,6 +394,11 @@ export function cmdSelfTest() {
     check("lang-env: STOP_AI_SLOP_LANG=en действует", enEnv.status === 0 && enEnv.out.includes("slop-gate: clean"), enEnv.out)
     const ruEnv = runCli(["scan", join(dir, "sabotage.ts")], dir, { ...process.env, STOP_AI_SLOP_LANG: "ru" })
     check("lang-env: STOP_AI_SLOP_LANG=ru оставляет русский", ruEnv.status === 1 && ruEnv.out.includes("находок"), ruEnv.out.slice(0, 200))
+    check("lang-auto: C.UTF-8 — нет предпочтения, русский", resolveLang([], { LC_ALL: "C.UTF-8" }).lang === "ru", resolveLang([], { LC_ALL: "C.UTF-8" }))
+    check("lang-auto: POSIX — нет предпочтения, русский", resolveLang([], { LANG: "POSIX" }).lang === "ru", resolveLang([], { LANG: "POSIX" }))
+    check("lang-auto: en_US.UTF-8 → en", resolveLang([], { LANG: "en_US.UTF-8" }).lang === "en", resolveLang([], { LANG: "en_US.UTF-8" }))
+    check("lang-auto: ru_RU.UTF-8 → ru", resolveLang([], { LANG: "ru_RU.UTF-8" }).lang === "ru", resolveLang([], { LANG: "ru_RU.UTF-8" }))
+    check("lang-auto: env не задан → ru", resolveLang([], {}).lang === "ru", resolveLang([], {}))
     check("inline sql: changelog-marker в -- комментарии [error]", byRel("inline.sql").some((f) => f.rule === "changelog-marker"), byRel("inline.sql"))
     check("inline lua: changelog-marker в -- комментарии [error]", byRel("inline.lua").some((f) => f.rule === "changelog-marker"), byRel("inline.lua"))
     check("inline tex: changelog-marker в % комментарии [error]", byRel("inline.tex").some((f) => f.rule === "changelog-marker"), byRel("inline.tex"))

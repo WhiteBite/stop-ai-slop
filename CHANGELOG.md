@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.10.1
+
+- фикс публикации 0.10.0: на CI-раннере `LANG=C.UTF-8` включал англоязычный авто-детект у дочерних процессов self-test — падал чек с RU-ассертом, `prepublishOnly` возвращал 1, npm publish не состоялся. Теперь: C/POSIX-локаль = «нет предпочтения» (русский по умолчанию), self-test пинит `STOP_AI_SLOP_LANG=ru` для дочерних CLI (герметичность от хост-окружения)
+- юнит-чеки resolveLang (C.UTF-8/POSIX/en_US/ru_RU/unset)
+
 ## 0.10.0
 
 - сообщения на английском: `--lang <ru|en>` + автодетект `STOP_AI_SLOP_LANG` > `LC_ALL`/`LANG` (не-ru → en, не задано → ru); каталог `skill/scripts/messages.mjs` (ru+en), EN-тексты всех 15 правил и сервисных строк; переведены findings/`--explain`/`--help`/ошибки/`--fix`/bench/аудит/pre-tool; вывод `--install*` и сгенерированные хуки остаются RU (задокументировано); неверное значение `--lang` — exit 2
