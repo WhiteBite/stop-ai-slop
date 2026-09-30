@@ -1,13 +1,13 @@
 # Техдолг и передача смены
 
-Реестр остатка, ограничений и операционных заметок. Точка входа для следующей сессии: сначала этот файл, затем `AGENTS.md`. Состояние на релиз 0.9.0 (main).
+Реестр остатка, ограничений и операционных заметок. Точка входа для следующей сессии: сначала этот файл, затем `AGENTS.md`. Состояние на релиз 0.10.0 (main).
 
 ## Текущее состояние
 
-- npm `latest` = **0.8.0** (2026-09-29; 0.9.0 публикуется тегом `v0.9.0`). Зеркало `@whitebite/stop-ai-slop` в GitHub Packages; GitHub Releases создаёт воркфлоу сам (ноты из секции CHANGELOG тега).
-- Проверки перед любым коммитом: `node skill/scripts/scan.mjs --self-test` (exit 0, 260 PASS), `node skill/scripts/scan.mjs scan .` (exit 0), `gradle -p detekt-rules test` (BUILD SUCCESSFUL), pre-commit гейт срабатывает сам.
-- С 0.9.0 self-test живёт в `skill/scripts/selftest.mjs` (экспорт `cmdSelfTest`); `scan.mjs --self-test` делегирует динамическим импортом. Контракт плагина — фасад `evaluateEdit(tool, args)` в scan.mjs (см. «Семантики»).
-- scan.mjs: ~2290 строк (детектор, CLI, baseline, MCP, install-кодоген); selftest.mjs: ~1670 строк.
+- npm `latest` = **0.9.0** (2026-09-30; 0.10.0 публикуется тегом `v0.10.0`). Зеркало `@whitebite/stop-ai-slop` в GitHub Packages; GitHub Releases создаёт воркфлоу сам.
+- Проверки перед любым коммитом: `node skill/scripts/scan.mjs --self-test` (exit 0, 272 PASS), `node skill/scripts/scan.mjs scan .` (exit 0), `gradle -p detekt-rules test` (BUILD SUCCESSFUL), pre-commit гейт срабатывает сам.
+- Self-test в `skill/scripts/selftest.mjs`; контракт плагина — фасад `evaluateEdit`; сообщения — `skill/scripts/messages.mjs` (ru+en, выбор через `--lang`/env).
+- scan.mjs: ~2300 строк; selftest.mjs ~1700; messages.mjs ~280.
 - Бэклог re-verified 2026-09-28: все deferred-триггеры не сработали, health checks green.
 
 ## Процедура релиза
@@ -84,6 +84,8 @@
 - collectFiles: каталог-аргумент вне git-root cwd обходит walk-ом напрямую (git-листинг покрывает только репо) — семантика фикса gate-bypass 0.9.0; конфиг-excludePaths на внешние каталоги не действуют (они вне репо).
 - cross-file-ref: инверсия 0.9.0 — требуется разделитель пути `/`\`\` ИЛИ расширение из CODE_REF_EXT; блоклист TLD удалён. Добавление новых языков = строка в CODE_REF_EXT.
 - long-comment: строка с `https?://\S{30,}` эксемптится целиком (длину задаёт ссылка).
+- Язык сообщений (scan.mjs LANG/resolveLang/T/rt, messages.mjs): RU-строки в каталоге байт-в-байт совпадают с историческими — self-test ассертит их; EN-каталог RULE_TEXT_EN обязан покрывать все id из RULES (нет parity-гейта — проверяется чеками lang-en; при добавлении правила добавлять и EN-текст). `--install*` и сгенерированные хуки — только RU (осознанно, 0.10.0). Автопорядок: STOP_AI_SLOP_LANG > LC_ALL/LANG (не-ru → en, unset → ru — Windows-совместимость).
+- Профили 0.10.0: `.sql` с `#` даёт FP-риск на Postgres `a # b` (XOR) — принято ради MySQL-комментариев; mdx — отдельный профиль mdxblock и он в PROSE_PROFILES (CJK/obvious в prose-режиме).
 - Unicode-правила работают по СЫРЫМ строкам до анти-evasion стрипа; сам `scan.mjs` собирает невидимые символы через `String.fromCodePoint`, чтобы не флагать собственный исходник — сохранять этот приём в фикстурах и regex-константах.
 
 ## Расхождения поверхностей (держать в голове)

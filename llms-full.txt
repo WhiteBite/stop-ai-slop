@@ -134,6 +134,10 @@ npx stop-ai-slop --diff origin/main --format json | reviewdog -f=rdjson -reporte
     sarif_file: results.sarif
 ```
 
+## Output language
+
+Messages are Russian by default; `--lang en` switches findings, `--explain`, `--help`, error messages, `--fix`, bench and audit output to English. Without the flag, the language is auto-detected: `STOP_AI_SLOP_LANG` > `LC_ALL`/`LANG` (anything not starting with `ru` selects English; unset — Russian). Rule ids and the `instead:` labels are English in both languages. The `--install`/`--install-hooks`/`--install-rules` output and the generated hook text remain Russian in this version.
+
 ## Autofix (`--fix`)
 
 `--fix` applies the deterministic, mechanical fixes across the whole scan scope in one pass — no agent, no LLM, no per-finding rewrite. Preview first, then apply:
@@ -190,7 +194,7 @@ Severity remap is applied after detection and before baseline filtering and exit
 `schema/stop-ai-slop.schema.json` (draft-07, shipped in the npm tarball). Modeline at top of `.stop-ai-slop.yaml`:
 
 ```yaml
-# yaml-language-server: $schema=https://raw.githubusercontent.com/WhiteBite/stop-ai-slop/v0.9.0/schema/stop-ai-slop.schema.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/WhiteBite/stop-ai-slop/v0.10.0/schema/stop-ai-slop.schema.json
 ```
 
 (or node_modules path `./node_modules/stop-ai-slop/schema/stop-ai-slop.schema.json`). Parity with the parser is enforced by a self-test gate (`schema-parity-config` / `schema-parity-rules`).
@@ -478,21 +482,22 @@ Comment syntax comes from a language profile, not a single shared list: `#` is a
 | powershell | `#` | `<# #>` | ps1, psm1 |
 | julia | `#` | `#= =#` | jl |
 | nim | `#` | `#[ ]#` | nim |
-| sql | `--` | `/* */` | sql, plsql, pks, pkb |
+| sql | `--`, `#` | `/* */` | sql, plsql, pks, pkb |
 | dash | `--` | — | vhd, vhdl, adb, ads |
 | lua / haskell | `--` | `--[[ ]]` / `{- -}` | lua, hs, elm, purs, idr, agda, dhall |
 | lisp | `;` | — | clj, el, scm, rkt |
 | percent | `%` | — | tex, bib, erl |
-| fortran / vb / batch / vim | `!` / `'` / `::`, `REM` / `"` | — | f90, vb, bat, vim |
+| fortran / vb / batch / vim | `!` / `'`, `REM` / `::`, `REM` / `"` | — | f90, vb, bat, vim |
 | rst | `..` | — | rst |
-| markup | `<!--` | `<!-- -->` | html, xml, svg, md, mdx, xsl |
+| markup | `<!--` | `<!-- -->` | html, xml, svg, md, xsl |
+| mdx | `<!--` | `<!-- -->`, `{/* */}` | mdx |
 | vue | `//`, `/*`, `<!--` | `/* */`, `{/* */}`, `<!-- -->` | vue, svelte, astro |
 | ocaml | `(*` | `(* *)` | ml, mli |
 | php | `//`, `#` | `/* */`, `/** */` | php |
 | pascal | `//`, `(*` | `(* *)`, `///` doc | pas, pp, fs (F#) |
 | coffee | `#` | `### ###` | coffee, litcoffee |
 | adoc | `//` | `//// ////` | adoc, asciidoc |
-| handlebars | `{{!` | `{{!-- --}}` | hbs |
+| handlebars | `{{!`, `<!--` | `{{!-- --}}`, `<!-- -->` | hbs |
 | gotmpl | `{{/*` | `{{/* */}}` | tpl, gotmpl, gohtml, tmpl |
 | ini / properties | `;`, `#` / `#`, `!` | — | ini, properties, .editorconfig |
 
@@ -573,7 +578,7 @@ Facts from the competitors' READMEs, GitHub metadata and npm download counts, ch
 
 | Tool | What it scans | Languages / natural languages | Blocks at write | Gate model | Custom rules | Runtime | Traction |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| **stop-ai-slop** | comments in code, 15 rules | 160 extensions, 24 profiles / RU, EN, DE, FR, ES | yes — OpenCode plugin, Claude Code, Codex, Gemini, Qwen, Devin hooks | policy: rule → exit 1; errors vs warnings | RULES table in one file; severity remap; `--explain` | Node >= 18, zero deps, one .mjs scanner | 449 dl/mo |
+| **stop-ai-slop** | comments in code, 15 rules | 160 extensions, 26 file names, 33 profiles / RU, EN, DE, FR, ES; messages RU or EN (`--lang`) | yes — OpenCode plugin, Claude Code, Codex, Gemini, Qwen, Devin hooks | policy: rule → exit 1; errors vs warnings | RULES table in one file; severity remap; `--explain` | Node >= 18, zero deps, one .mjs scanner | 449 dl/mo |
 | [windbag](https://github.com/scale-venture-partners/windbag) | change-narration comments, 6 rules (HISTORY_NARRATION, HEDGE_LANGUAGE, TICKET_ID, CROSS_FILE_REF, VERBOSE_COMMENT, OBVIOUS_COMMENT) | Python, JS/TS, Terraform, Rust, Go, Java, SQL (dbt/SQLMesh), YAML/HTML/MD / EN | Claude Code PostToolUse hook; pre-commit; no OpenCode | error rules fail the check, warn rules report | none documented | Rust binary shipped as a PyPI wheel | 25★ |
 | [aislop](https://github.com/scanaislop/aislop) | code slop: 50+ rules — narrative comments, swallowed exceptions, `as any`, dead code, hallucinated imports | 10 targets (TS, JS, Expo/RN, Python, Go, Rust, Ruby, PHP, C#, C/C++) / EN | hooks for 10 agents (Claude, Cursor, Gemini, Pi, Codex, Windsurf, Cline, Kilocode, Antigravity, Copilot); no OpenCode | score 0–100, failBelow; CI mode; SARIF; MCP server | per-rule severity; new rules only in their repo | npm + optional engines (biome, ruff, oxlint); PyPI; Homebrew | 655★, 47k dl/mo |
 | [slop-scan](https://github.com/modem-dev/slop-scan) | AI-associated code patterns; hotspots; repo comparison | JS/TS / EN | no | score + normalized metrics (per KLOC, per function) | config and plugins | npm | 319★, 35k dl/mo |

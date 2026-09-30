@@ -6,6 +6,37 @@ import { homedir, tmpdir } from "node:os"
 import { dirname, extname, isAbsolute, join, relative, resolve, sep } from "node:path"
 import { createInterface } from "node:readline"
 import { fileURLToPath, pathToFileURL } from "node:url"
+import { HELP_EN, HELP_RU, MESSAGES, RULE_TEXT_EN } from "./messages.mjs"
+
+let LANG = "ru"
+
+export function resolveLang(argv, env = process.env) {
+  const flagIdx = argv.indexOf("--lang")
+  if (flagIdx !== -1) {
+    const value = argv[flagIdx + 1]
+    if (value !== "ru" && value !== "en") return { lang: null, error: true }
+    return { lang: value, error: false }
+  }
+  const explicit = env.STOP_AI_SLOP_LANG
+  if (explicit === "ru" || explicit === "en") return { lang: explicit, error: false }
+  const locale = env.LC_ALL ?? env.LANG
+  if (typeof locale === "string" && locale !== "") return { lang: locale.toLowerCase().startsWith("ru") ? "ru" : "en", error: false }
+  return { lang: "ru", error: false }
+}
+
+export function setLang(lang) {
+  LANG = lang
+}
+
+export function currentLang() {
+  return LANG
+}
+
+const T = (key, ...args) => {
+  const entry = MESSAGES[LANG]?.[key] ?? MESSAGES.ru[key]
+  return typeof entry === "function" ? entry(...args) : entry
+}
+const rt = (ruleId, field) => (LANG === "en" ? RULE_TEXT_EN[ruleId]?.[field] : undefined) ?? RULE_BY_ID.get(ruleId)?.[field]
 
 export const RULES = [
   {
@@ -164,16 +195,17 @@ const PROFILES = {
   powershell: P(["#"], [["<#", "#>"]]),
   julia: P(["#"], [["#=", "=#"]]),
   nim: P(["#"], [["#[", "]#"]]),
-  sql: P(["--", "/*", "*"], [["/*", "*/"]], [], ["*/"]),
+  sql: P(["--", "#", "/*", "*"], [["/*", "*/"]], [], ["*/"]),
   lua: P(["--"], [["--[[", "]]"]]),
   haskell: P(["--"], [["{-", "-}"]]),
   lisp: P([";"]),
   percent: P(["%"]),
   fortran: P(["!"]),
-  vb: P(["'"]),
+  vb: P(["'"], [], [], [], [/^rem\b/i]),
   batch: P(["::"], [], [], [], [/^rem\b/i]),
   vim: P(['"']),
   markup: P(["<!--"], [["<!--", "-->"]]),
+  mdxblock: P(["<!--"], [["<!--", "-->"], ["{/*", "*/}"]]),
   ocaml: P(["(*"], [["(*", "*)"]], [], ["*)"]),
   pascal: P(["//", "(*"], [["(*", "*)"]], [TRIPLE_SLASH_DOC], ["*)"]),
   ini: P([";", "#"]),
@@ -184,10 +216,10 @@ const PROFILES = {
   hashblock: P(["#", "/*", "*"], [["/*", "*/"]], [], ["*/"]),
   coffee: P(["#"], [["###", "###"]]),
   adoc: P(["//"], [["////", "////"]]),
-  handlebars: P(["{{!"], [["{{!--", "--}}"]]),
+  handlebars: P(["{{!", "<!--"], [["{{!--", "--}}"], ["<!--", "-->"]]),
   gotmpl: P(["{{/*"], [["{{/*", "*/}}"]]),
 }
-const PROSE_PROFILES = new Set([PROFILES.markup, PROFILES.rst, PROFILES.adoc])
+const PROSE_PROFILES = new Set([PROFILES.markup, PROFILES.mdxblock, PROFILES.rst, PROFILES.adoc])
 const EXT_PROFILE = {
   ".ts": "cfamily", ".tsx": "cfamily", ".js": "cfamily", ".jsx": "cfamily", ".mjs": "cfamily", ".cjs": "cfamily",
   ".kt": "cfamily", ".kts": "cfamily", ".java": "cfamily", ".go": "cfamily", ".rs": "cfamily", ".cs": "cfamily",
@@ -212,7 +244,8 @@ const EXT_PROFILE = {
   ".tex": "percent", ".bib": "percent", ".sty": "percent", ".cls": "percent", ".erl": "percent", ".hrl": "percent",
   ".f": "fortran", ".f90": "fortran", ".f95": "fortran", ".f03": "fortran", ".for": "fortran", ".fpp": "fortran",
   ".vb": "vb", ".bat": "batch", ".cmd": "batch", ".vim": "vim",
-  ".html": "markup", ".htm": "markup", ".xml": "markup", ".svg": "markup", ".xhtml": "markup", ".md": "markup", ".mdx": "markup",
+  ".html": "markup", ".htm": "markup", ".xml": "markup", ".svg": "markup", ".xhtml": "markup", ".md": "markup",
+  ".mdx": "mdxblock",
   ".xsl": "markup", ".xslt": "markup",
   ".ml": "ocaml", ".mli": "ocaml", ".pas": "pascal", ".pp": "pascal", ".fs": "pascal", ".fsx": "pascal", ".fsi": "pascal",
   ".ini": "ini", ".inf": "ini", ".properties": "properties",
@@ -856,7 +889,7 @@ export function collectFiles(paths, root, excludePaths = []) {
   const outsideDirs = []
   for (const p of paths) {
     const abs = resolve(root, p)
-    if (!existsSync(abs)) throw new Error(`slop-gate: путь не существует: ${p}`)
+    if (!existsSync(abs)) throw new Error(T("pathMissing", p))
     if (!statSync(abs).isDirectory()) {
       if (profileFor(toRel(root, abs)) !== null && !isExcludedPath(toRel(root, abs), excludePaths)) out.push(abs)
       continue
@@ -1124,15 +1157,13 @@ function cmdFix(paths, { dryRun = false, strict = false } = {}) {
   }
   if (dryRun) {
     for (const d of previews) console.log(d)
-    console.log(
-      `slop-gate: --fix dry-run: запланировано ${fixedOps} правок в ${fixedFiles} файлах; не чинится автоматически: ${remaining.length}`,
-    )
+    console.log(T("fixDryRun", fixedOps, fixedFiles, remaining.length))
     return 0
   }
   const baseline = loadBaseline(root)
   const fresh = maskBaselined(baseline, remaining)
   printFindings(fresh, "text", strict)
-  console.log(`slop-gate: --fix применён: ${fixedOps} правок в ${fixedFiles} файлах`)
+  console.log(T("fixApplied", fixedOps, fixedFiles))
   return failsGate(fresh, strict) ? 1 : 0
 }
 
@@ -1358,14 +1389,13 @@ function toSarif(findings) {
 function findingsToText(findings, strict = false) {
   const lines = []
   for (const f of sortedFindings(findings)) {
-    const rule = RULE_BY_ID.get(f.rule)
-    lines.push(`${f.rel}:${f.lineNo} ${f.rule} [${f.severity}] ${rule.message}`)
-    lines.push(`  instead: ${rule.instead}`)
+    lines.push(`${f.rel}:${f.lineNo} ${f.rule} [${f.severity}] ${rt(f.rule, "message")}`)
+    lines.push(`  instead: ${rt(f.rule, "instead")}`)
   }
   const errors = findings.filter((f) => f.severity === "error").length
-  if (findings.length === 0) lines.push("slop-gate: чисто")
-  else if (strict && errors === 0) lines.push(`slop-gate: ${findings.length} находок, ошибок: 0 (warning блокируют из-за --strict)`)
-  else lines.push(`slop-gate: ${findings.length} находок, ошибок: ${errors}`)
+  if (findings.length === 0) lines.push(T("clean"))
+  else if (strict && errors === 0) lines.push(T("findingsStrict", findings.length))
+  else lines.push(T("findingsCount", findings.length, errors))
   return lines.join("\n")
 }
 
@@ -1412,21 +1442,21 @@ function cmdScan(paths, { writeBaseline = false, strict = false, prune = false, 
   const findings = applyRuleConfig(scanFiles(files, root, configOptions(config), genContext(root, config)), config)
   if (writeBaseline) {
     const n = writeBaselineFile(root, findings)
-    console.log(`slop-gate: baseline записан (${n} записей) -> stop-ai-slop.baseline.txt`)
+    console.log(T("baselineWritten", n))
     return 0
   }
   if (prune) {
     const baseline = loadBaseline(root)
     if (baseline.fp.size > 0) {
       const n = writeBaselineFile(root, findings.filter((f) => baseline.fp.has(fingerprint(f))))
-      console.log(`slop-gate: baseline прорежен (${baseline.fp.size - n} записей удалено)`)
+      console.log(T("baselinePruned", baseline.fp.size - n))
       return 0
     }
     const keys = new Set(findings.map(baselineKey))
     const kept = [...baseline.legacy].filter((k) => keys.has(k)).sort()
     const body = ["# slop-gate baseline: relpath:line", ...kept].join("\n") + "\n"
     writeFileSync(join(root, "stop-ai-slop.baseline.txt"), body)
-    console.log(`slop-gate: baseline прорежен (${baseline.legacy.size - kept.length} записей удалено)`)
+    console.log(T("baselinePruned", baseline.legacy.size - kept.length))
     return 0
   }
   const baseline = loadBaseline(root)
@@ -1549,11 +1579,11 @@ function cmdStaged(strict = false, format = "text") {
   try {
     diff = gitStagedDiff(root)
   } catch (error) {
-    console.error(`slop-gate: git error: ${error.message}`)
+    console.error(T("gitError", error.message))
     return 2
   }
   if (diff === null) {
-    console.log("slop-gate: не git-репозиторий — staged-проверка пропущена")
+    console.log(T("notGitStaged"))
     return 0
   }
   return runDiffGate(diff, root, strict, format, config, genContext(root, config))
@@ -1587,11 +1617,11 @@ function cmdDiff(ref, strict = false, format = "text") {
   try {
     diff = gitDiffRef(ref, root)
   } catch (error) {
-    console.error(`slop-gate: git error: ${error.message}`)
+    console.error(T("gitError", error.message))
     return 2
   }
   if (diff === null) {
-    console.log("slop-gate: не git-репозиторий — diff-проверка пропущена")
+    console.log(T("notGitDiff"))
     return 0
   }
   return runDiffGate(diff, root, strict, format, config, genContext(root, config))
@@ -1601,19 +1631,19 @@ function explainText(ruleId) {
   const rule = RULE_BY_ID.get(ruleId)
   if (rule === undefined) return null
   return [
-    `${rule.id} [${rule.severity}]`,
-    `Message: ${rule.message}`,
-    `Why: ${rule.why}`,
-    `Instead of: ${rule.instead}`,
-    `Write: ${rule.write}`,
-    `Ignore it when: ${rule.ignoreWhen}`,
+    `${rt(ruleId, "id") ?? rule.id} [${rule.severity}]`,
+    `Message: ${rt(ruleId, "message")}`,
+    `Why: ${rt(ruleId, "why")}`,
+    `Instead of: ${rt(ruleId, "instead")}`,
+    `Write: ${rt(ruleId, "write")}`,
+    `Ignore it when: ${rt(ruleId, "ignoreWhen")}`,
   ].join("\n")
 }
 
 function cmdExplain(ruleId) {
   const text = explainText(ruleId)
   if (text === null) {
-    console.error(`slop-gate: неизвестное правило "${ruleId}". Известные: ${RULES.map((r) => r.id).join(", ")}`)
+    console.error(T("unknownRule", ruleId, RULES.map((r) => r.id).join(", ")))
     return 2
   }
   console.log(text)
@@ -1824,6 +1854,7 @@ export const KNOWN_FLAGS = new Set([
   "--mcp",
   "--pre-tool",
   "--format",
+  "--lang",
   "--help",
 ])
 
@@ -1858,7 +1889,7 @@ export function appendAudit(entry, path = auditLogPath()) {
 function cmdAudit(limit) {
   const path = auditLogPath()
   if (!existsSync(path)) {
-    console.log("slop-gate: аудит-лог пуст")
+    console.log(T("auditEmpty"))
     return 0
   }
   const entries = readFileSync(path, "utf8")
@@ -1877,11 +1908,7 @@ function cmdAudit(limit) {
     const key = e.verdict ?? e.event ?? "?"
     counts[key] = (counts[key] ?? 0) + 1
   }
-  console.log(
-    `slop-gate: аудит ${path}: ${entries.length} записей (${Object.entries(counts)
-      .map(([k, v]) => `${k}: ${v}`)
-      .join(", ")})`,
-  )
+  console.log(T("auditSummary", path, entries.length, Object.entries(counts).map(([k, v]) => `${k}: ${v}`).join(", ")))
   for (const e of entries.slice(-limit)) {
     const rules = Array.isArray(e.rules) && e.rules.length > 0 ? ` [${e.rules.join(",")}]` : ""
     console.log(`${e.ts} ${e.verdict ?? e.event} ${e.tool ?? ""} ${e.filePath ?? ""}${rules}`)
@@ -1965,7 +1992,7 @@ function mcpCallTool(name, args) {
     const entries = [...baseline.legacy, ...[...baseline.fp].map((p) => `fp:${p}`)]
     return mcpToolResult(entries.length === 0 ? "baseline пуст" : entries.join("\n"))
   }
-  return mcpToolResult(`неизвестный инструмент ${name}`, true)
+  return mcpToolResult(T("mcpUnknownTool", name), true)
 }
 
 function cmdMcp() {
@@ -2048,7 +2075,7 @@ function preToolPatch(ti) {
       violations = violations.filter((v) => SECURITY_RULES.has(v.rule))
     }
     for (const v of violations) {
-      process.stderr.write(`slop-gate: ${v.rule} [${v.severity}] at ${filePath}:${v.lineNo}\n${v.lines.join("\n")}\ninstead: ${RULE_BY_ID.get(v.rule).instead}\n`)
+      process.stderr.write(`slop-gate: ${v.rule} [${v.severity}] at ${filePath}:${v.lineNo}\n${v.lines.join("\n")}\ninstead: ${rt(v.rule, "instead")}\n`)
     }
     if (violations.length > 0) blocked = true
   }
@@ -2060,7 +2087,7 @@ function cmdPreTool() {
   try {
     payload = JSON.parse(readFileSync(0, "utf8"))
   } catch {
-    process.stderr.write("slop-gate: --pre-tool: stdin не является JSON — проверка пропущена\n")
+      process.stderr.write(T("preToolNotJson") + "\n")
     return 0
   }
   let tool = String(payload?.tool_name ?? "").toLowerCase()
@@ -2112,7 +2139,7 @@ function cmdPreTool() {
   }
   if (violations.length === 0) return 0
   for (const v of violations) {
-    process.stderr.write(`slop-gate: ${v.rule} [${v.severity}] at ${extracted.filePath}:${v.lineNo}\n${v.lines.join("\n")}\ninstead: ${RULE_BY_ID.get(v.rule).instead}\n`)
+    process.stderr.write(`slop-gate: ${v.rule} [${v.severity}] at ${extracted.filePath}:${v.lineNo}\n${v.lines.join("\n")}\ninstead: ${rt(v.rule, "instead")}\n`)
   }
   return 2
 }
@@ -2148,7 +2175,7 @@ function benchEnsureRepo(repo, sha) {
       head = null
     }
     if (head !== sha) {
-      console.log(`slop-gate: bench: fetch ${repo}@${sha.slice(0, 12)}`)
+      console.log(T("benchFetch", repo, sha.slice(0, 12)))
       git(["fetch", "-q", "--depth", "1", "origin", sha])
       git(["checkout", "-q", "FETCH_HEAD"])
     }
@@ -2206,7 +2233,7 @@ function cmdBench(write) {
   const historyPath = join(gitToplevel(process.cwd()), "bench-history.json")
   if (write) {
     writeFileSync(historyPath, JSON.stringify(sorted, null, 2) + "\n")
-    console.log(`slop-gate: bench: эталон записан -> bench-history.json (${BENCH_COHORT.length} репозиториев)`)
+    console.log(T("benchWritten", BENCH_COHORT.length))
     return 0
   }
   let history = {}
@@ -2222,53 +2249,16 @@ function cmdBench(write) {
   }
   const delta = benchDelta(history, perRepo)
   if (delta.length === 0) {
-    console.log("slop-gate: bench: роста счётчиков нет")
+    console.log(T("benchNoGrowth"))
     return 0
   }
-  console.log("slop-gate: bench: рост счётчиков против истории (FP-регрессия):")
-  for (const d of delta) console.log(`  ${d.repo} ${d.rule}: было ${d.was}, стало ${d.now}`)
+  console.log(T("benchGrowthHeader"))
+  for (const d of delta) console.log(T("benchDeltaLine", d.repo, d.rule, d.was, d.now))
   return 1
 }
 
 function cmdUsage() {
-  console.log(
-    [
-      "slop-gate — гейт против slop-комментариев (бинар npm: stop-ai-slop)",
-      "",
-      "Скан и гейт:",
-      "  scan [paths...]     сканировать файлы (по умолчанию текущий каталог)",
-      "  --fix [paths...]    применить механические фиксы (удаление/сжатие slop-комментариев)",
-      "  --fix --dry-run     показать unified-diff планируемых правок, ничего не меняя",
-      "  --staged            добавленные строки из git diff --cached",
-      "  --diff <ref>        добавленные строки относительно ref",
-      "",
-      "Baseline (легаси):",
-      "  --baseline-write    записать текущие находки в baseline",
-      "  --baseline-prune    удалить из baseline записи без живых находок",
-      "",
-      "Bench (FP-регрессии):",
-      "  --bench             счётчики находок по правилам на пин-когорте OSS-репо + дельта против bench-history.json",
-      "  --bench-write       перезаписать bench-history.json текущими счётчиками когорты",
-      "",
-      "Установка:",
-      "  --install           npm scripts + pre-commit hook в текущем репо",
-      "  --install-hooks     хук-конфиги агентов (Codex, VS Code Copilot, Devin) + сниппеты Gemini/Qwen",
-      "  --install-rules     rules-файлы агентов (Cursor, Windsurf, Aider, Cline, Devin, Copilot) из таблицы RULES",
-      "",
-      "Агенты:",
-      "  --mcp               MCP-сервер (JSON-RPC 2.0 по stdio)",
-      "  --pre-tool          PreToolUse-хук Claude Code: блокирует Write/Edit до записи",
-      "  --stdin-path        PostToolUse-хук: сканирует путь к файлу из JSON в stdin",
-      "",
-      "Диагностика:",
-      "  --explain <rule-id> обоснование правила",
-      "  --audit [N]         последние N записей аудит-лога решений гейта",
-      "  --self-test         саботаж-тест детектора",
-      "",
-      "Флаги: --strict (warning тоже блокируют), --format <text|json|sarif> (формат вывода), --help",
-      "Коды выхода: 0 — чисто; 1 — гейт сработал; 2 — ошибка использования или git",
-    ].join("\n"),
-  )
+  console.log((LANG === "en" ? HELP_EN : HELP_RU).join("\n"))
   return 0
 }
 
@@ -2312,11 +2302,19 @@ const MODES = [
 
 function main(argv) {
   if (argv.includes("--self-test")) return import("./selftest.mjs").then((m) => m.cmdSelfTest())
+  const lang = resolveLang(argv)
+  if (lang.error) {
+    console.error(T("langNeedsValue"))
+    return 2
+  }
+  setLang(lang.lang)
+  const langIdx = argv.indexOf("--lang")
+  if (langIdx !== -1) argv = [...argv.slice(0, langIdx), ...argv.slice(langIdx + 2)]
   const explainIdx = argv.indexOf("--explain")
   if (explainIdx !== -1) {
     const ruleId = argv[explainIdx + 1]
     if (ruleId === undefined || ruleId.startsWith("--")) {
-      console.error("slop-gate: --explain требует id правила")
+      console.error(T("explainNeedsId"))
       return 2
     }
     return cmdExplain(ruleId)
@@ -2329,9 +2327,9 @@ function main(argv) {
   for (const [flag, run] of MODES) {
     if (argv.includes(flag)) return run(argv, { strict, format })
   }
-  const unknown = argv.filter((a) => a.startsWith("--") && !KNOWN_FLAGS.has(a))
+  const unknown = argv.filter((a) => a.startsWith("--") && !KNOWN_FLAGS.has(a) && a !== "--lang")
   if (unknown.length > 0) {
-    console.error(`slop-gate: неизвестный флаг ${unknown[0]} (справка: --help)`)
+    console.error(T("unknownFlag", unknown[0]))
     return 2
   }
   return cmdScan(positionalPaths(argv), { writeBaseline: argv.includes("--baseline-write"), strict, format })

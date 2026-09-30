@@ -67,6 +67,10 @@ export function cmdSelfTest() {
     writeFileSync(join(dir, "doc.fs"), "/// <summary>Validates the payload.</summary>\n/// <remarks>Throws on contract breach.</remarks>\nlet f x = x\n")
     writeFileSync(join(dir, "xref-host.ts"), "// connect through example.xyz:443\nconst x = 1\n")
     writeFileSync(join(dir, "todo-lower.ts"), "// todo fix this later\nconst x = 1\n")
+    writeFileSync(join(dir, "rem.vb"), "REM removeSource rewrites rows\nREM with fresh uuids zones vanish\nDim x = 1\n")
+    writeFileSync(join(dir, "mysql.sql"), "# removeSource rewrites rows\n# with fresh uuids zones vanish\nSELECT 1;\n")
+    writeFileSync(join(dir, "c.hbs"), "<!-- removeSource rewrites rows\nwith fresh uuids zones vanish\n-->\n{{x}}\n")
+    writeFileSync(join(dir, "n.mdx"), "{/* removeSource rewrites rows\nwith fresh uuids zones vanish */}\ntext\n")
     writeFileSync(join(dir, "obvious-block.ts"), "/* normalize the input */\nnormalizeInput(input)\n")
     writeFileSync(join(dir, "inline.ts"), "const x = 1 // было так, стало иначе\n")
     writeFileSync(join(dir, "block.ts"), "/* removeSource rewrites every row\nwith fresh uuids all vanish at once\nand incremental has no centroids left */\nconst x = 1\n")
@@ -275,6 +279,10 @@ export function cmdSelfTest() {
     check("fs: /// doc-строки эксемптятся", byRel("doc.fs").length === 0, byRel("doc.fs"))
     check("xref-host: host:port с любым TLD не флагается", !byRel("xref-host.ts").some((f) => f.rule === "vend/cross-file-ref"), byRel("xref-host.ts"))
     check("todo-lower: todo в нижнем регистре ловится", byRel("todo-lower.ts").some((f) => f.rule === "vend/generic-todo"), byRel("todo-lower.ts"))
+    check("vb: REM-комментарии ловятся [error]", byRel("rem.vb").some((f) => f.rule === "multi-line-comment" && f.severity === "error"), byRel("rem.vb"))
+    check("sql: MySQL # комментарии ловятся [error]", byRel("mysql.sql").some((f) => f.rule === "multi-line-comment" && f.severity === "error"), byRel("mysql.sql"))
+    check("hbs: <!-- --> комментарии ловятся [error]", byRel("c.hbs").some((f) => f.rule === "multi-line-comment" && f.severity === "error"), byRel("c.hbs"))
+    check("mdx: {/* */} комментарии ловятся [error]", byRel("n.mdx").some((f) => f.rule === "multi-line-comment" && f.severity === "error"), byRel("n.mdx"))
     check("inline: changelog-marker в trailing-комменте [error]", byRel("inline.ts").some((f) => f.rule === "changelog-marker"), byRel("inline.ts"))
     check("wasnow: EN-пара was…, now… [error]", byRel("wasnow.ts").some((f) => f.rule === "changelog-marker"), byRel("wasnow.ts"))
     check("wasnow-ok: «was raised because now()» без запятой не матчится", byRel("wasnow-ok.ts").length === 0, byRel("wasnow-ok.ts"))
@@ -360,6 +368,30 @@ export function cmdSelfTest() {
       outsideDirScan.status === 1 && outsideDirScan.out.includes("multi-line-comment"),
       `exit ${outsideDirScan.status}: ${outsideDirScan.out.slice(0, 200)}`,
     )
+    const enClean = runCli(["--lang", "en", "scan", join(dir, "clean.ts")], dir)
+    check("lang-en: чистый вывод EN [exit 0]", enClean.status === 0 && enClean.out.includes("slop-gate: clean"), enClean.out)
+    const enSab = runCli(["--lang", "en", "scan", join(dir, "sabotage.ts")], dir)
+    check(
+      "lang-en: находки и instead на английском [exit 1]",
+      enSab.status === 1 && enSab.out.includes("finding(s)") && enSab.out.includes("instead:") && !enSab.out.includes("находок"),
+      enSab.out.slice(0, 300),
+    )
+    const enHelp = runCli(["--lang", "en", "--help"], dir)
+    check("lang-en: --help на английском", enHelp.status === 0 && enHelp.out.includes("Scan and gate:"), enHelp.out.slice(0, 200))
+    const enFlag = runCli(["--lang", "en", "--frobnicate"], dir)
+    check("lang-en: неизвестный флаг EN [exit 2]", enFlag.status === 2 && enFlag.out.includes("unknown flag"), enFlag.out)
+    const badLang = runCli(["--lang", "fr"], dir)
+    check("lang: неверное значение [exit 2]", badLang.status === 2, badLang.out)
+    const enExplain = runCli(["--lang", "en", "--explain", "vend/generic-todo"], dir)
+    check(
+      "lang-en: --explain на английском",
+      enExplain.status === 0 && enExplain.out.includes("A TODO without a ticket") && !enExplain.out.includes("вечный долг"),
+      enExplain.out.slice(0, 200),
+    )
+    const enEnv = runCli(["scan", join(dir, "clean.ts")], dir, { ...process.env, STOP_AI_SLOP_LANG: "en" })
+    check("lang-env: STOP_AI_SLOP_LANG=en действует", enEnv.status === 0 && enEnv.out.includes("slop-gate: clean"), enEnv.out)
+    const ruEnv = runCli(["scan", join(dir, "sabotage.ts")], dir, { ...process.env, STOP_AI_SLOP_LANG: "ru" })
+    check("lang-env: STOP_AI_SLOP_LANG=ru оставляет русский", ruEnv.status === 1 && ruEnv.out.includes("находок"), ruEnv.out.slice(0, 200))
     check("inline sql: changelog-marker в -- комментарии [error]", byRel("inline.sql").some((f) => f.rule === "changelog-marker"), byRel("inline.sql"))
     check("inline lua: changelog-marker в -- комментарии [error]", byRel("inline.lua").some((f) => f.rule === "changelog-marker"), byRel("inline.lua"))
     check("inline tex: changelog-marker в % комментарии [error]", byRel("inline.tex").some((f) => f.rule === "changelog-marker"), byRel("inline.tex"))

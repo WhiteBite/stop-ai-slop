@@ -1,6 +1,6 @@
 {
   "name": "stop-ai-slop",
-  "version": "0.9.0",
+  "version": "0.10.0",
   "description": "Zero-dependency linter that blocks AI-generated comment slop. Enforces a one-line, why-only comment policy via pre-commit hook, IDE plugin and CI.",
   "license": "MIT",
   "author": {
@@ -56,6 +56,11 @@
     "test": "node skill/scripts/scan.mjs --self-test",
     "self-test": "node skill/scripts/scan.mjs --self-test",
     "stop-ai-slop": "node ./skill/scripts/scan.mjs --staged --strict",
-    "stop-ai-slop:all": "node ./skill/scripts/scan.mjs scan"
+    "stop-ai-slop:all": "node ./skill/scripts/scan.mjs scan",
+    "rdk:audit": "rdk audit",
+    "rdk:fix": "rdk fix"
+  },
+  "devDependencies": {
+    "@whitebite/rdk-cli": "^0.2.0"
   }
 }

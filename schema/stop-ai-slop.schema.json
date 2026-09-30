@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://raw.githubusercontent.com/WhiteBite/stop-ai-slop/v0.9.0/schema/stop-ai-slop.schema.json",
+  "$id": "https://raw.githubusercontent.com/WhiteBite/stop-ai-slop/v0.10.0/schema/stop-ai-slop.schema.json",
   "title": "stop-ai-slop configuration",
   "description": "Конфигурация stop-ai-slop: файл .stop-ai-slop.yaml в корне репозитория.",
   "type": "object",

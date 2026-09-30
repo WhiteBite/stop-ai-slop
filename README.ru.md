@@ -123,6 +123,10 @@ npx stop-ai-slop --diff origin/main --format json | reviewdog -f=rdjson -reporte
     sarif_file: results.sarif
 ```
 
+## Язык вывода
+
+По умолчанию сообщения русские; `--lang en` переключает на английский находки, `--explain`, `--help`, ошибки, `--fix`, bench и аудит. Без флага язык определяется автоматически: `STOP_AI_SLOP_LANG` > `LC_ALL`/`LANG` (всё, что не начинается с `ru`, выбирает английский; не задано — русский). Id правил и лейбл `instead:` английские в обоих языках. Вывод `--install`/`--install-hooks`/`--install-rules` и текст сгенерированных хуков в этой версии остаётся русским.
+
 ## Автофикс (`--fix`)
 
 `--fix` применяет детерминированные механические правки одним проходом по всей области сканирования — без агента, без LLM, без переписывания каждой находки. Сначала превью, затем применение:
@@ -179,7 +183,7 @@ Remap severity применяется после детекции и до фил
 `schema/stop-ai-slop.schema.json` (draft-07, поставляется в npm-тарболе). Modeline в начале `.stop-ai-slop.yaml`:
 
 ```yaml
-# yaml-language-server: $schema=https://raw.githubusercontent.com/WhiteBite/stop-ai-slop/v0.9.0/schema/stop-ai-slop.schema.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/WhiteBite/stop-ai-slop/v0.10.0/schema/stop-ai-slop.schema.json
 ```
 
 (или путь node_modules `./node_modules/stop-ai-slop/schema/stop-ai-slop.schema.json`). Паритет с парсером обеспечивается гейтом self-test (`schema-parity-config` / `schema-parity-rules`).
@@ -467,21 +471,22 @@ node skill/scripts/scan.mjs --audit 50     # последние 50
 | powershell | `#` | `<# #>` | ps1, psm1 |
 | julia | `#` | `#= =#` | jl |
 | nim | `#` | `#[ ]#` | nim |
-| sql | `--` | `/* */` | sql, plsql, pks, pkb |
+| sql | `--`, `#` | `/* */` | sql, plsql, pks, pkb |
 | dash | `--` | — | vhd, vhdl, adb, ads |
 | lua / haskell | `--` | `--[[ ]]` / `{- -}` | lua, hs, elm, purs, idr, agda, dhall |
 | lisp | `;` | — | clj, el, scm, rkt |
 | percent | `%` | — | tex, bib, erl |
-| fortran / vb / batch / vim | `!` / `'` / `::`, `REM` / `"` | — | f90, vb, bat, vim |
+| fortran / vb / batch / vim | `!` / `'`, `REM` / `::`, `REM` / `"` | — | f90, vb, bat, vim |
 | rst | `..` | — | rst |
-| markup | `<!--` | `<!-- -->` | html, xml, svg, md, mdx, xsl |
+| markup | `<!--` | `<!-- -->` | html, xml, svg, md, xsl |
+| mdx | `<!--` | `<!-- -->`, `{/* */}` | mdx |
 | vue | `//`, `/*`, `<!--` | `/* */`, `{/* */}`, `<!-- -->` | vue, svelte, astro |
 | ocaml | `(*` | `(* *)` | ml, mli |
 | php | `//`, `#` | `/* */`, `/** */` | php |
 | pascal | `//`, `(*` | `(* *)`, `///` doc | pas, pp, fs (F#) |
 | coffee | `#` | `### ###` | coffee, litcoffee |
 | adoc | `//` | `//// ////` | adoc, asciidoc |
-| handlebars | `{{!` | `{{!-- --}}` | hbs |
+| handlebars | `{{!`, `<!--` | `{{!-- --}}`, `<!-- -->` | hbs |
 | gotmpl | `{{/*` | `{{/* */}}` | tpl, gotmpl, gohtml, tmpl |
 | ini / properties | `;`, `#` / `#`, `!` | — | ini, properties, .editorconfig |
 
@@ -560,7 +565,7 @@ node skill/scripts/scan.mjs --bench-write   # перезаписать bench-his
 
 | Инструмент | Что сканирует | Языки / естественные языки | Блокирует в момент правки | Модель гейта | Свои правила | Рантайм | Трекшн |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| **stop-ai-slop** | комментарии в коде, 15 правил | 160 расширений, 24 профиля / RU, EN, DE, FR, ES | да — плагин OpenCode, хуки Claude Code, Codex, Gemini, Qwen, Devin | политика: правило → exit 1; error/warning | таблица RULES в одном файле; remap severity; `--explain` | Node >= 18, ноль зависимостей, один .mjs-сканер | 449 загр/мес |
+| **stop-ai-slop** | комментарии в коде, 15 правил | 160 расширений, 26 имён, 33 профиля / RU, EN, DE, FR, ES; сообщения RU или EN (`--lang`) | да — плагин OpenCode, хуки Claude Code, Codex, Gemini, Qwen, Devin | политика: правило → exit 1; error/warning | таблица RULES в одном файле; remap severity; `--explain` | Node >= 18, ноль зависимостей, один .mjs-сканер | 449 загр/мес |
 | [windbag](https://github.com/scale-venture-partners/windbag) | комментарии-пересказы изменений, 6 правил (HISTORY_NARRATION, HEDGE_LANGUAGE, TICKET_ID, CROSS_FILE_REF, VERBOSE_COMMENT, OBVIOUS_COMMENT) | Python, JS/TS, Terraform, Rust, Go, Java, SQL (dbt/SQLMesh), YAML/HTML/MD / EN | PostToolUse-хук Claude Code; pre-commit; OpenCode нет | error-правила валят чек, warn — отчёт | не документированы | Rust-бинарь в виде PyPI wheel | 25★ |
 | [aislop](https://github.com/scanaislop/aislop) | код-слоп: 50+ правил — нарративные комментарии, проглоченные исключения, `as any`, мёртвый код, галлюцинированные импорты | 10 таргетов (TS, JS, Expo/RN, Python, Go, Rust, Ruby, PHP, C#, C/C++) / EN | хуки для 10 агентов (Claude, Cursor, Gemini, Pi, Codex, Windsurf, Cline, Kilocode, Antigravity, Copilot); OpenCode нет | скор 0–100, failBelow; CI-режим; SARIF; MCP-сервер | severity на правило; новые правила — только в их репо | npm + опциональные движки (biome, ruff, oxlint); PyPI; Homebrew | 655★, 47k загр/мес |
 | [slop-scan](https://github.com/modem-dev/slop-scan) | AI-паттерны в коде; хотспоты; сравнение репозиториев | JS/TS / EN | нет | скор + нормализованные метрики (на KLOC, на функцию) | конфиг и плагины | npm | 319★, 35k загр/мес |

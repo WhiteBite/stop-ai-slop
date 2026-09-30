@@ -37,3 +37,9 @@ New language = one row in the profile table inside `skill/scripts/scan.mjs`. Tha
 ## Suppression directives
 
 Use `// stop-ai-slop-ignore-next-line [rule-id]`, `// stop-ai-slop-ignore-line [rule-id]`, or `// stop-ai-slop-ignore-file` (after `--` give a reason). Self-suppression in the same diff as the suppressed code is flagged by `vend/self-suppression`.
+
+## Discoverability (RDK)
+
+- `npm run rdk:audit` — Discoverability Score 0-100 and findings; read-only.
+- `npm run rdk:fix` — preview safe autofixes; `npm run rdk:fix -- --apply` writes them.
+- The rdk-audit workflow fails pull requests below `vars.RDK_MIN_SCORE`.
