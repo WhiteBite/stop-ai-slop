@@ -61,6 +61,6 @@
     "rdk:fix": "rdk fix"
   },
   "devDependencies": {
-    "@whitebite/rdk-cli": "^0.2.0"
+    "repo-aeo": "^0.2.0"
   }
 }
