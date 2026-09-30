@@ -55,7 +55,7 @@ npx stop-ai-slop --install        # вшивает pre-commit hook + npm scripts
 
 - **Нулевые зависимости.** Сканер — один файл `.mjs`, плагин OpenCode — один файл `.ts`. Не нужно ставить ни biome, ruff, oxlint, ни Python, ни ripgrep.
 - **Блокирует в момент правки, а не после.** Плагин OpenCode отклоняет `write`/`edit`/`multiedit`; PreToolUse-хук Claude Code запрещает `Write`/`Edit` до их выполнения. Большинство аналогов сканируют только постфактум или просят модель саму прогнать grep.
-- **Мультиязычная детекция естественного языка.** Changelog-маркеры, нумерованные шаги и открывашки «This function…» матчатся на RU + EN + DE + FR + ES. Конкуренты — только английский.
+- **Мультиязычная детекция естественного языка.** Changelog-маркеры, нумерованные шаги и открывашки «This function…» матчатся на RU + EN + DE + FR + ES. Детерминированные конкуренты — только английский; LLM-основанные читают любой язык, но требуют API-ключ.
 - **Один источник правды.** Все правила живут в одной таблице `RULES`; `--explain <rule-id>` печатает обоснование каждого правила (Why / Instead of / Write / Ignore it when).
 - **Машиночитаемый вывод.** `text` (по умолчанию), Reviewdog `rdjson` и SARIF 2.1.0 для GitHub code scanning.
 - **Дружелюбен к легаси.** Baseline амнистирует существующие находки, и гейт срабатывает только на новый слоп.
@@ -545,19 +545,52 @@ node skill/scripts/scan.mjs --bench-write   # перезаписать bench-his
 
 ## Сравнение с аналогами
 
-Факты по README конкурентов (aislop, ai-slop-linter, vibecheck-slop-stopper, slop-scan, windbag), сентябрь 2026 (перепроверено 2026-09-28).
+Факты из README конкурентов, метаданных GitHub и счётчиков загрузок npm, проверено 2026-09-29. Трекшн = звёзды GitHub и загрузки npm за месяц на дату проверки.
 
-| | stop-ai-slop | aislop | ai-slop-linter | vibecheck | slop-scan | windbag |
-| --- | --- | --- | --- | --- | --- | --- |
-| Что сканирует | комментарии в коде, 13 правил | код-слоп: 50+ правил, 10 языков | проза: коммиты, PR, docs, 21 правило | 78 grep-правил всех категорий | JS/TS: error-handling, моки | комментарии-пересказы изменений, 5 правил (HISTORY_NARRATION, HEDGE_LANGUAGE, TICKET_ID, VERBOSE_COMMENT, OBVIOUS_COMMENT), 10 языков |
-| Блокирует в момент правки | да: OpenCode-плагин отклоняет edit/write | хуки claude/cursor/gemini/pi, OpenCode нет | нет | нет: skill просит LLM самому прогнать grep | нет | да в Claude Code (PostToolUse-хук блокирует), в OpenCode нет |
-| Русский язык | changelog-маркеры ru+en, плюс пакеты маркеров de/fr/es | правила EN | правила EN; их же бенч: em-dash на корректной русской прозе — 24 срабатывания на 1000 слов | EN | EN | только EN |
-| Зависимости | 0: сканер — один .mjs; плагин OpenCode — .ts | npm-пакет + внешние движки (biome, ruff, oxlint) | 0 (npm-пакет, нулевые runtime-зависимости) | Python + ripgrep | npm-пакет | Rust-бинарь в виде PyPI wheel |
-| Модель гейта | политика: правило → exit 1 | скор 0–100 и порог failBelow | взвешенный скор на 1000 слов | уровни severity | скор и delta-сравнение | нарушения по строкам, блокирует хук |
-| Своя политика | таблица RULES в одном файле, `--explain` по правилу | severity на правило, новые правила — только в их репо | ignore/only по файлам | rules.toml | config и плагины | не документирована |
-| Источник фактов | README конкурентов: scanaislop/aislop, Bubblegunn/ai-slop-linter, qinnovates/vibecheck-slop-stopper, modem-dev/slop-scan, scale-venture-partners/windbag (сентябрь 2026, перепроверено 2026-09-28) | — | — | — | — | — |
+### Специализированные slop-линтеры
 
-Где мы уже и не претендуем: только политика комментариев. Проглоченные исключения, `as any`, мёртвый код — территория aislop и grain; EN-проза и сообщения коммитов — ai-slop-linter. stop-ai-slop дополняет их в точках, куда они не достают: момент правки в OpenCode и русские changelog-маркеры.
+| Инструмент | Что сканирует | Языки / естественные языки | Блокирует в момент правки | Модель гейта | Свои правила | Рантайм | Трекшн |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| **stop-ai-slop** | комментарии в коде, 13 правил | 160 расширений, 24 профиля / RU, EN, DE, FR, ES | да — плагин OpenCode, хуки Claude Code, Codex, Gemini, Qwen, Devin | политика: правило → exit 1; error/warning | таблица RULES в одном файле; remap severity; `--explain` | Node >= 18, ноль зависимостей, один .mjs | 449 загр/мес |
+| [windbag](https://github.com/scale-venture-partners/windbag) | комментарии-пересказы изменений, 6 правил (HISTORY_NARRATION, HEDGE_LANGUAGE, TICKET_ID, CROSS_FILE_REF, VERBOSE_COMMENT, OBVIOUS_COMMENT) | Python, JS/TS, Terraform, Rust, Go, Java, SQL (dbt/SQLMesh), YAML/HTML/MD / EN | PostToolUse-хук Claude Code; pre-commit; OpenCode нет | error-правила валят чек, warn — отчёт | не документированы | Rust-бинарь в виде PyPI wheel | 25★ |
+| [aislop](https://github.com/scanaislop/aislop) | код-слоп: 50+ правил — нарративные комментарии, проглоченные исключения, `as any`, мёртвый код, галлюцинированные импорты | 10 таргетов (TS, JS, Expo/RN, Python, Go, Rust, Ruby, PHP, C#, C/C++) / EN | хуки для 10 агентов (Claude, Cursor, Gemini, Pi, Codex, Windsurf, Cline, Kilocode, Antigravity, Copilot); OpenCode нет | скор 0–100, failBelow; CI-режим; SARIF; MCP-сервер | severity на правило; новые правила — только в их репо | npm + опциональные движки (biome, ruff, oxlint); PyPI; Homebrew | 655★, 47k загр/мес |
+| [slop-scan](https://github.com/modem-dev/slop-scan) | AI-паттерны в коде; хотспоты; сравнение репозиториев | JS/TS / EN | нет | скор + нормализованные метрики (на KLOC, на функцию) | конфиг и плагины | npm | 319★, 35k загр/мес |
+| [anti-slop](https://github.com/dmmulroy/anti-slop) | low-evidence-паттерны в коде, набор правил Oxlint под вендоринг | TS/JS / EN | нет | правило → error (Oxlint) | вендорится by design — правьте свою копию | плагин Oxlint; npm-пакета нет | 5.0k★ |
+| [AI-SLOP-Detector](https://github.com/flamehaven01/AI-SLOP-Detector) | «fake-done»-код: 27 проверок — пустые заглушки, неразрешимые импорты, мёртвые пайплайны, раздутые буллеты в доках | Python в первую очередь; JS/TS и Go экстра / EN | нет | скор риска 0–100 на файл; soft/hard/quarantine CI-гейты; MCP | пресеты доменов; локальная калибровка | Python (PyPI), офлайн, детерминированный; расширение VS Code | 96★ |
+| [gptlint](https://github.com/gptlint/gptlint) | нарушения best practices, оценивает LLM; правила пишутся в markdown | JS/TS (MVP) / любой язык, который читает LLM | нет | вердикт LLM; CLI и конфиг в стиле eslint | свои правила — first-class (markdown) | npm + API-ключ LLM или локальная модель; кеширование | 297★, 138 загр/мес |
+| [dotnet-slopwatch](https://github.com/Aaronontheweb/dotnet-slopwatch) | reward hacking LLM: отключённые тесты, подавленные ворнинги, проглоченные исключения, маскирующие задержки | .NET / EN | хук Claude Code; CI | правило → блок | — | .NET-тул (NuGet) | 110★ |
+| [grain](https://github.com/mmartoccia/grain) | AI-паттерны в коде как очередь агентного ремонта (JSON-нарушения, worklog между сессиями) | Python / EN | нет | правило → error; флаг fixable у нарушения | — | Python | 34★, молчит с 2026-04 |
+| [sloppylint](https://github.com/rsionnach/sloppylint) | over-engineering, галлюцинации, мёртвый код | Python / EN | нет | отчёт о находках | — | Python | 90★, молчит с 2025-12 |
+| [ai-slop-linter](https://github.com/Bubblegunn/ai-slop-linter) | проза: сообщения коммитов, описания PR, доки; 21 маркер | любой текст / EN-маркеры; их же бенч: em-dash на корректной русской прозе — 24 срабатывания на 1000 слов | нет — commit-msg-хук и правило commitlint гейтят сообщение в момент коммита | взвешенный скор на 1000 слов; SARIF | ignore/only по файлам | npm, ноль runtime-зависимостей | 1.6k загр/мес |
+| [vibecheck-slop-stopper](https://github.com/qinnovates/vibecheck-slop-stopper) | 78 grep-правил всех категорий слопа | 9 стеков / EN | нет — GitHub Action, CLI; скилл Claude Code просит LLM прогнать паттерны через его Grep-тул | уровни severity | rules.toml | Python + ripgrep (сам скилл: без зависимостей) | 0★, молчит с 2026-04 |
+
+### Меньшие и более новые инструменты
+
+Проверены той же датой, по одной строке: [dannote/sloplint](https://github.com/dannote/sloplint) (AST-based, мультиязычный; молчит с 2026-02), [bibekmhj/sloplint](https://github.com/bibekmhj/sloplint) (первый JVM AI-slop-линтер), [rbaumier/comply](https://github.com/rbaumier/comply), [thrash-d/slop-linter](https://github.com/thrash-d/slop-linter) (правила Vale + хук Claude Code для прозы и комментариев в коде), [almcc/slop-linter](https://github.com/almcc/slop-linter) (LLM-классификатор Jev), [Aaryan-9/ai-slop-remover](https://github.com/Aaryan-9/ai-slop-remover) (комментарийный шум среди детекторов), [agiwhitelist/auteur](https://github.com/agiwhitelist/auteur) (1035★ — скилл-«режиссёр» сайтов, чей ship-гейт включает anti-slop-линтер; домен — дизайн), [mattpocock/slopwatch](https://github.com/mattpocock/slopwatch) (51★, без документации), [LanNguyenSi/agent-dx](https://github.com/LanNguyenSi/agent-dx) (тулкит-монорепо, чей slop-detector линтит PR).
+
+### Смежные подходы
+
+SaaS-ревью-боты: [CodeRabbit](https://coderabbit.ai) имеет именованную «Slop Detection» — триаж AI-спама на уровне PR: early access, не блокирует мердж, амнистирует своих участников, от $24/разраб/мес. У Greptile, Graphite Diamond и Qodo фичи слопа нет — политика комментариев может ехать только в их кастомных LLM-правилах. Codacy и SonarQube оборачивают коммьюнити-линтеры: закомментированный код (S125) и TODO-теги (S1135), без детекции нарративов. Классические линтеры (ESLint `no-warning-comments` и родня, Biome, Checkstyle, ktlint, detekt, godot/revive) следят за стилем комментариев — позиция, регистр, пунктуация, словарь TODO — и никто не ловит changelog-нарративы или нумерацию шагов; ближайшие — eslint-plugin-write-good-comments (качество прозы внутри комментариев) и [Vale](https://vale.sh) (tree-sitter-извлечение комментариев в 28 языках со style-пакетами — без структурных slop-правил). Коммьюнити-скиллы агентов (dashed/claude-marketplace comment-slop, kubosho/anti-slop-comment, manutej/craft) кодируют ту же таксономию как advisory LLM-инструкции — механического гейта нигде нет.
+
+### Где stop-ai-slop хуже
+
+- **Только комментарии.** Кодовый слоп — проглоченные исключения, `as any`, мёртвый код, галлюцинированные импорты, reward-hacked-тесты — вне охвата: его закрывают aislop (50+ правил, 10 таргетов), dmmulroy/anti-slop, AI-SLOP-Detector, grain и dotnet-slopwatch.
+- **Не сканирует прозу.** Сообщения коммитов, описания PR и доки — территория ai-slop-linter (его правило commitlint и commit-msg-хук гейтят их в момент коммита).
+- **Построчное извлечение, не грамматики.** windbag читает комментарии через настоящие грамматики: `#` внутри кавычного YAML-скаляра остаётся данными, `.sql` парсится как Jinja-шаблоны (dbt/SQLMesh), fenced-блоки в Markdown пропускаются. Наша эвристика quote-parity может не увидеть inline-комментарий внутри template literal — задокументированное ограничение.
+- **Правила нашей же ниши, которых у нас нет** (у windbag есть все три): комментарий, пересказывающий строку под ним (OBVIOUS_COMMENT; G112 у vibecheck — та же идея), указатели на другой файл вида `handler.py:147` (CROSS_FILE_REF), длина комментария относительно кода под ним (VERBOSE_COMMENT) — наш `long-comment` — абсолютный лимит в 120 символов.
+- **Нет семантического матчинга.** gptlint (LLM) и almcc/slop-linter (модель Jev) оценивают смысл и ловят перефразированный слоп; наши маркеры — словари на RU+EN+DE+FR+ES, фразовых словарей ZH/JA нет.
+- **Нет IDE-расширения.** AI-SLOP-Detector поставляет расширение VS Code с инлайн-находками и скором в статус-баре; наш IDE-сюжет — problem matcher в tasks.json плюс шаблон File Watcher для IDEA.
+- **Проникновение и дистрибуция.** aislop: 655 звёзд, 47k загрузок/мес, npm + PyPI + Homebrew, скор-бейджи, ремонтные сессии `aislop agent`, рулящие Codex/Claude/OpenCode. slop-scan: 35k загрузок/мес. stop-ai-slop: 449 загрузок/мес, npm + зеркало GitHub Packages, формулы Homebrew нет.
+
+### Что есть только у stop-ai-slop
+
+- write-time-гейт в OpenCode — ни один конкурент не блокирует запись внутри OpenCode: хук-лист aislop покрывает десять агентов без OpenCode, windbag блокирует только в Claude Code;
+- ноль зависимостей и один файл сканера — aislop гоняет внешние линтер-движки, windbag поставляет Rust-бинарь, vibecheck требует Python + ripgrep;
+- маркеры русского, немецкого, французского и испанского языков;
+- правила невидимых символов с учётом escape-форм: zero-width и BiDi-контролы, CJK, приклеенный к латинице в коде, — сигнал отравленного codegen;
+- fingerprint- baseline (id правила + текст комментария), переживающий сдвиги строк и всё равно флагающий заново вставленный легаси-слоп.
+
+stop-ai-slop сознательно уже: только политика комментариев. Проглоченные исключения, `as any`, мёртвый код — территория aislop, dmmulroy/anti-slop, grain и dotnet-slopwatch; EN-проза и сообщения коммитов — ai-slop-linter. Мы дополняем их ровно там, куда они не достают: в момент правки в OpenCode и в русских changelog-маркерах.
 
 ## Лицензия
 

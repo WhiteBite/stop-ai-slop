@@ -15,7 +15,7 @@ AI coding agents over-comment: multi-line narrative blocks, `// was X, now Y` ch
 
 - **Zero dependencies.** The scanner is a single `.mjs` file; the OpenCode plugin is a single `.ts` file. No biome, ruff, oxlint, Python or ripgrep to install.
 - **Blocks at the moment of the edit, not after.** The OpenCode plugin rejects `write`/`edit`/`multiedit`; the Claude Code PreToolUse hook denies `Write`/`Edit` before they happen. Most alternatives only scan after the fact, or ask the model to run grep itself.
-- **Multi-language natural-language detection.** Changelog markers, numbered steps and "This function…" openers are matched in RU + EN + DE + FR + ES. Competitors are English-only.
+- **Multi-language natural-language detection.** Changelog markers, numbered steps and "This function…" openers are matched in RU + EN + DE + FR + ES. Deterministic competitors are English-only; the LLM-based ones read any language but need an API key.
 - **One source of truth.** Every rule lives in a single `RULES` table; `--explain <rule-id>` prints each rule's rationale (Why / Instead of / Write / Ignore it when).
 - **Machine-readable output.** `text` (default), Reviewdog `rdjson`, and SARIF 2.1.0 for GitHub code scanning.
 - **Legacy-friendly.** A baseline grandfathers existing findings so the gate only fires on new slop.
@@ -549,19 +549,52 @@ Refreshing the cohort: edit `BENCH_COHORT` (repo + pinned SHA), re-run `--bench-
 
 ## Comparison with alternatives
 
-Facts from the competitors' READMEs (aislop, ai-slop-linter, vibecheck-slop-stopper, slop-scan, windbag), September 2026 (re-verified 2026-09-28).
+Facts from the competitors' READMEs, GitHub metadata and npm download counts, checked 2026-09-29. Traction = GitHub stars and npm downloads per month on the check date.
 
-| | stop-ai-slop | aislop | ai-slop-linter | vibecheck | slop-scan | windbag |
-| --- | --- | --- | --- | --- | --- | --- |
-| What it scans | comments in code, 13 rules | code slop: 50+ rules, 10 languages | prose: commits, PRs, docs, 21 rules | 78 grep rules across all categories | JS/TS: error-handling, mocks | change-narration comments, 5 rules (HISTORY_NARRATION, HEDGE_LANGUAGE, TICKET_ID, VERBOSE_COMMENT, OBVIOUS_COMMENT), 10 languages |
-| Blocks at the moment of the edit | yes: the OpenCode plugin rejects edit/write | claude/cursor/gemini/pi hooks, no OpenCode | no | no: the skill asks the LLM to run grep itself | no | yes for Claude Code (PostToolUse hook blocks), no OpenCode |
-| Russian language | changelog markers ru+en, plus de/fr/es marker packs | EN rules | EN rules; their own benchmark: em-dash on correct Russian prose — 24 hits per 1000 words | EN | EN | EN only |
-| Dependencies | 0: the scanner is one .mjs; the OpenCode plugin is a .ts | npm package + external engines (biome, ruff, oxlint) | 0 (npm package, zero runtime deps) | Python + ripgrep | npm package | Rust binary shipped as a PyPI wheel |
-| Gate model | policy: rule → exit 1 | score 0–100 with a failBelow threshold | weighted score per 1000 words | severity levels | score and delta comparison | per-line violations, hook blocks |
-| Custom policy | RULES table in one file, `--explain` per rule | per-rule severity, new rules only in their repo | ignore/only per file | rules.toml | config and plugins | none documented |
-| Source of facts | competitor READMEs: scanaislop/aislop, Bubblegunn/ai-slop-linter, qinnovates/vibecheck-slop-stopper, modem-dev/slop-scan, scale-venture-partners/windbag (September 2026, re-verified 2026-09-28) | — | — | — | — | — |
+### Dedicated slop linters
 
-Where we are narrower and do not claim: comment policy only. Swallowed exceptions, `as any`, dead code — the territory of aislop and grain; EN prose and commit messages — ai-slop-linter. stop-ai-slop complements them exactly where they do not reach: the moment of the edit in OpenCode, and Russian changelog markers.
+| Tool | What it scans | Languages / natural languages | Blocks at write | Gate model | Custom rules | Runtime | Traction |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| **stop-ai-slop** | comments in code, 13 rules | 160 extensions, 24 profiles / RU, EN, DE, FR, ES | yes — OpenCode plugin, Claude Code, Codex, Gemini, Qwen, Devin hooks | policy: rule → exit 1; errors vs warnings | RULES table in one file; severity remap; `--explain` | Node >= 18, zero deps, one .mjs | 449 dl/mo |
+| [windbag](https://github.com/scale-venture-partners/windbag) | change-narration comments, 6 rules (HISTORY_NARRATION, HEDGE_LANGUAGE, TICKET_ID, CROSS_FILE_REF, VERBOSE_COMMENT, OBVIOUS_COMMENT) | Python, JS/TS, Terraform, Rust, Go, Java, SQL (dbt/SQLMesh), YAML/HTML/MD / EN | Claude Code PostToolUse hook; pre-commit; no OpenCode | error rules fail the check, warn rules report | none documented | Rust binary shipped as a PyPI wheel | 25★ |
+| [aislop](https://github.com/scanaislop/aislop) | code slop: 50+ rules — narrative comments, swallowed exceptions, `as any`, dead code, hallucinated imports | 10 targets (TS, JS, Expo/RN, Python, Go, Rust, Ruby, PHP, C#, C/C++) / EN | hooks for 10 agents (Claude, Cursor, Gemini, Pi, Codex, Windsurf, Cline, Kilocode, Antigravity, Copilot); no OpenCode | score 0–100, failBelow; CI mode; SARIF; MCP server | per-rule severity; new rules only in their repo | npm + optional engines (biome, ruff, oxlint); PyPI; Homebrew | 655★, 47k dl/mo |
+| [slop-scan](https://github.com/modem-dev/slop-scan) | AI-associated code patterns; hotspots; repo comparison | JS/TS / EN | no | score + normalized metrics (per KLOC, per function) | config and plugins | npm | 319★, 35k dl/mo |
+| [anti-slop](https://github.com/dmmulroy/anti-slop) | low-evidence code patterns, an Oxlint ruleset meant to be vendored | TS/JS / EN | no | rule → error (Oxlint) | vendored by design — edit your copy | Oxlint plugin; no npm package | 5.0k★ |
+| [AI-SLOP-Detector](https://github.com/flamehaven01/AI-SLOP-Detector) | "fake-done" code: 27 checks — empty stubs, unresolvable imports, dead pipelines, buzzword-padded docs | Python first; JS/TS and Go extras / EN | no | 0–100 risk score per file; soft/hard/quarantine CI gates; MCP | domain presets; local calibration | Python (PyPI), offline, deterministic; VS Code extension | 96★ |
+| [gptlint](https://github.com/gptlint/gptlint) | best-practice violations judged by an LLM; rules authored in markdown | JS/TS (MVP) / any language the LLM reads | no | LLM verdict; eslint-style CLI and config | custom rules are first-class (markdown) | npm + LLM API keys or a local model; caching | 297★, 138 dl/mo |
+| [dotnet-slopwatch](https://github.com/Aaronontheweb/dotnet-slopwatch) | LLM reward hacking: disabled tests, suppressed warnings, swallowed exceptions, masking delays | .NET / EN | Claude Code hook; CI | rule → block | — | .NET tool (NuGet) | 110★ |
+| [grain](https://github.com/mmartoccia/grain) | AI code patterns as an agentic repair queue (JSON violations, multi-session worklog) | Python / EN | no | rule → error; fixable flag per violation | — | Python | 34★, idle since 2026-04 |
+| [sloppylint](https://github.com/rsionnach/sloppylint) | over-engineering, hallucinations, dead code | Python / EN | no | findings report | — | Python | 90★, idle since 2025-12 |
+| [ai-slop-linter](https://github.com/Bubblegunn/ai-slop-linter) | prose: commit messages, PR descriptions, docs; 21 tells | any text / EN tells; their own benchmark: the em dash hits correct Russian prose 24 times per 1000 words | no — commit-msg hook and commitlint rule gate the message at commit time | weighted score per 1000 words; SARIF | ignore/only per file | npm, zero runtime deps | 1.6k dl/mo |
+| [vibecheck-slop-stopper](https://github.com/qinnovates/vibecheck-slop-stopper) | 78 grep rules across all slop categories | 9 stacks / EN | no — GitHub Action, CLI; the Claude Code skill asks the LLM to run the patterns via its Grep tool | severity levels | rules.toml | Python + ripgrep (the skill itself: no deps) | 0★, idle since 2026-04 |
+
+### Smaller and newer tools
+
+Checked the same date, one line each: [dannote/sloplint](https://github.com/dannote/sloplint) (AST-based, multilingual; idle since 2026-02), [bibekmhj/sloplint](https://github.com/bibekmhj/sloplint) (the first JVM AI-slop linter), [rbaumier/comply](https://github.com/rbaumier/comply), [thrash-d/slop-linter](https://github.com/thrash-d/slop-linter) (Vale rules + a Claude Code hook for prose and code comments), [almcc/slop-linter](https://github.com/almcc/slop-linter) (a Jev LLM classifier), [Aaryan-9/ai-slop-remover](https://github.com/Aaryan-9/ai-slop-remover) (comment noise among its detectors), [agiwhitelist/auteur](https://github.com/agiwhitelist/auteur) (1035★ — a website-directing skill whose ship-gate embeds an anti-slop linter; design domain), [mattpocock/slopwatch](https://github.com/mattpocock/slopwatch) (51★, undocumented), [LanNguyenSi/agent-dx](https://github.com/LanNguyenSi/agent-dx) (a monorepo toolkit whose slop-detector lints PRs).
+
+### Adjacent approaches
+
+SaaS review bots: [CodeRabbit](https://coderabbit.ai) ships a named "Slop Detection" — PR-level AI-spam triage: early-access, non-blocking, exempts your own members, from $24/dev/mo. Greptile, Graphite Diamond and Qodo ship no slop feature — a comment policy can only ride their custom LLM rules. Codacy and SonarQube wrap community linters: commented-out code (S125) and TODO tags (S1135), no narrative detection. Classic linters (ESLint `no-warning-comments` and friends, Biome, Checkstyle, ktlint, detekt, godot/revive) enforce comment style — position, case, punctuation, TODO vocabulary — and none detect changelog narration or step numbering; the closest are eslint-plugin-write-good-comments (prose quality inside comments) and [Vale](https://vale.sh) (tree-sitter comment extraction in 28 languages with style packages — no structural slop rules). Community agent skills (dashed/claude-marketplace comment-slop, kubosho/anti-slop-comment, manutej/craft) encode the same taxonomy as advisory LLM instructions — no deterministic gate.
+
+### Where stop-ai-slop is worse
+
+- **Only comments.** Code-level slop — swallowed exceptions, `as any`, dead code, hallucinated imports, reward-hacked tests — is out of scope: aislop (50+ rules, 10 language targets), dmmulroy/anti-slop, AI-SLOP-Detector, grain and dotnet-slopwatch cover it.
+- **No prose scanning.** Commit messages, PR descriptions and docs are ai-slop-linter's territory (its commitlint rule and commit-msg hook gate those at commit time).
+- **Line-based extraction, not grammars.** windbag reads comments through real grammars: a `#` inside a quoted YAML scalar stays data, `.sql` is parsed as Jinja templates (dbt/SQLMesh), fenced Markdown blocks are skipped. Our quote-parity heuristic can miss an inline comment inside a template literal — a documented limitation.
+- **Comment-niche rules windbag has and we do not:** a comment restating the line below it (OBVIOUS_COMMENT; vibecheck's G112 is the same idea), cross-file pointers like `handler.py:147` (CROSS_FILE_REF), and comment length measured against the code it documents (VERBOSE_COMMENT) — our `long-comment` is an absolute 120-character limit.
+- **No semantic matching.** gptlint (LLM) and almcc/slop-linter (Jev model) judge meaning and catch paraphrased slop; our markers are dictionaries in RU+EN+DE+FR+ES — no ZH/JA phrase detection.
+- **No IDE extension.** AI-SLOP-Detector ships a VS Code extension with inline findings and a status-bar score; our IDE story is a tasks.json problem matcher plus an IDEA File Watcher template.
+- **Adoption and distribution.** aislop: 655 stars, 47k downloads/month, npm + PyPI + Homebrew, score badges, `aislop agent` repair sessions driving Codex/Claude/OpenCode worktrees. slop-scan: 35k downloads/month. stop-ai-slop: 449 downloads/month, npm + a GitHub Packages mirror, no Homebrew formula.
+
+### What only stop-ai-slop has
+
+- the OpenCode write-time gate — no competitor blocks a write inside OpenCode: aislop's hook list covers ten agents without OpenCode, windbag blocks only in Claude Code;
+- a zero-dependency single-file scanner — aislop drives external linter engines, windbag ships a Rust binary, vibecheck needs Python + ripgrep;
+- Russian, German, French and Spanish natural-language markers;
+- invisible-character rules with escape-form awareness: zero-width and BiDi controls, CJK glued to Latin in code — a poisoned-codegen supply-chain signal;
+- a fingerprinted baseline (rule id + comment text) that survives line shifts and still flags re-pasted legacy slop.
+
+stop-ai-slop is deliberately narrower: comment policy only. Swallowed exceptions, `as any`, dead code — the territory of aislop, dmmulroy/anti-slop, grain and dotnet-slopwatch; EN prose and commit messages — ai-slop-linter. It complements them exactly where they do not reach: the moment of the edit in OpenCode, and the Russian changelog markers.
 
 ## License
 

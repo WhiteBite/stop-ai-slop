@@ -34,7 +34,7 @@ stop-ai-slop is for teams using AI coding agents (OpenCode, Claude Code, Cursor,
 
 ## Comparison and rationale
 
-- [Comparison with alternatives](https://github.com/WhiteBite/stop-ai-slop/blob/main/README.md#comparison-with-alternatives): feature table vs aislop, ai-slop-linter, vibecheck-slop-stopper, slop-scan, windbag — dependencies, write-time blocking, language coverage, gate model
+- [Comparison with alternatives](https://github.com/WhiteBite/stop-ai-slop/blob/main/README.md#comparison-with-alternatives): 12 dedicated slop linters vs stop-ai-slop (aislop, windbag, slop-scan, dmmulroy/anti-slop, AI-SLOP-Detector, gptlint, dotnet-slopwatch, grain, sloppylint, ai-slop-linter, vibecheck), smaller tools, SaaS review bots, classic linters and agent skills — write-time blocking, languages, gate model, dependencies, traction, plus an honest where-we-are-worse list
 - [What it enforces, and why](https://github.com/WhiteBite/stop-ai-slop/blob/main/README.md#what-it-enforces-and-why): the one-line, why-only comment policy and error vs warning semantics
 - [Contributing guide](https://github.com/WhiteBite/stop-ai-slop/blob/main/CONTRIBUTING.md): rule contribution flow — edit the RULES table, add a self-test fixture, keep the gate green
 - [Changelog](https://github.com/WhiteBite/stop-ai-slop/blob/main/CHANGELOG.md): release history
