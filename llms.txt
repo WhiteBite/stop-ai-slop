@@ -12,7 +12,7 @@ stop-ai-slop is for teams using AI coding agents (OpenCode, Claude Code, Cursor,
 
 ## Usage
 
-- [Quick start](https://github.com/WhiteBite/stop-ai-slop/blob/main/README.md#quick-start): all CLI modes — `scan`, `--staged`, `--diff <ref>`, `--strict`, `--install`, `--install-hooks`, `--install-rules`, `--baseline-write`, `--baseline-prune`, `--explain`, `--audit`, `--self-test`; suppression directives; exit codes
+- [Quick start](https://github.com/WhiteBite/stop-ai-slop/blob/main/README.md#quick-start): all CLI modes — `scan`, `--staged`, `--diff <ref>`, `--fix` (with `--dry-run`), `--strict`, `--install`, `--install-hooks`, `--install-rules`, `--baseline-write`, `--baseline-prune`, `--bench`, `--bench-write`, `--explain`, `--audit`, `--self-test`, `--mcp`, `--pre-tool`, `--stdin-path`; suppression directives; exit codes
 - [Rules reference](https://github.com/WhiteBite/stop-ai-slop/blob/main/README.md#rules): 15 rules with severity — multi-line-comment, changelog-marker, long-comment, step-numbered, section-divider, markdown-in-comment, this-function-opener, file-summary-header, generic-todo, cross-file-ref, obvious-comment, self-suppression, cjk-noise, zero-width-chars, bidi-controls
 - [Output formats](https://github.com/WhiteBite/stop-ai-slop/blob/main/README.md#output-formats): text (default), Reviewdog rdjson (`--format json`), SARIF 2.1.0 (`--format sarif`) for GitHub code scanning
 - [Configuration](https://github.com/WhiteBite/stop-ai-slop/blob/main/README.md#configuration): `.stop-ai-slop.yaml` — maxCommentLength, excludePaths, per-rule severity overrides including off

@@ -1,12 +1,13 @@
 # Техдолг и передача смены
 
-Реестр остатка, ограничений и операционных заметок. Точка входа для следующей сессии: сначала этот файл, затем `AGENTS.md`. Состояние на релиз 0.8.0 (main; коммит сравнения аналогов — `54489b9`).
+Реестр остатка, ограничений и операционных заметок. Точка входа для следующей сессии: сначала этот файл, затем `AGENTS.md`. Состояние на релиз 0.9.0 (main).
 
 ## Текущее состояние
 
-- npm `latest` = **0.7.0** (опубликован 2026-09-29, тег `v0.7.0`, OIDC provenance). Зеркало `@whitebite/stop-ai-slop` 0.7.0 в GitHub Packages; GitHub Releases v0.2.0…v0.7.0 создаёт воркфлоу сам (ноты из секции CHANGELOG тега).
-- Проверки перед любым коммитом: `node skill/scripts/scan.mjs --self-test` (exit 0, 253 PASS), `node skill/scripts/scan.mjs scan .` (exit 0), `gradle -p detekt-rules test` (BUILD SUCCESSFUL), pre-commit гейт срабатывает сам.
-- Self-test живёт внутри `scan.mjs` (`cmdSelfTest`), чеки через `check(name, ok, detail)`; RED-фазы новых фич прогоняются тем же бинарником.
+- npm `latest` = **0.8.0** (2026-09-29; 0.9.0 публикуется тегом `v0.9.0`). Зеркало `@whitebite/stop-ai-slop` в GitHub Packages; GitHub Releases создаёт воркфлоу сам (ноты из секции CHANGELOG тега).
+- Проверки перед любым коммитом: `node skill/scripts/scan.mjs --self-test` (exit 0, 260 PASS), `node skill/scripts/scan.mjs scan .` (exit 0), `gradle -p detekt-rules test` (BUILD SUCCESSFUL), pre-commit гейт срабатывает сам.
+- С 0.9.0 self-test живёт в `skill/scripts/selftest.mjs` (экспорт `cmdSelfTest`); `scan.mjs --self-test` делегирует динамическим импортом. Контракт плагина — фасад `evaluateEdit(tool, args)` в scan.mjs (см. «Семантики»).
+- scan.mjs: ~2290 строк (детектор, CLI, baseline, MCP, install-кодоген); selftest.mjs: ~1670 строк.
 - Бэклог re-verified 2026-09-28: все deferred-триггеры не сработали, health checks green.
 
 ## Процедура релиза
@@ -39,6 +40,8 @@
 | Пункт | Триггер | Эскиз решения |
 | --- | --- | --- |
 | Перепроверка фактов comparison-секции | перед каждым минорным релизом ИЛИ раз в квартал | главное за чем следить: OpenCode в hook-листе aislop (убьёт главный дифференциатор-заявление), счёт правил windbag, новые dedicated-инструменты >100★; обновлять обе таблицы и «где мы хуже» синхронно с README.md/README.ru.md; дата проверки в интро-строке секции |
+| Языковые пакеты changelog-маркеров IT/PT/PL/NL/UK | реальный спрос юзеров | словари по образцу CHANGELOG_WEAK; каждый язык — сабаж-фикстуры + bench-ревью (в когорте нет этих языков — FP/FN невидимы) |
+| VERBOSE_COMMENT (длина относительно кода, не абсолютный лимит) | рецидив жалоб на long-comment FP/FN | мерить коммент-ран против не-блочных строк до конца инструкции; семантика windbag |
 | Инкрементальный кеш сканирования | жалоба на скорость ИЛИ замер `scan .` > 3-5 с на монорепо (HDD/сетевой диск) | ключ mtime+size+hash(RULES+конфиг), инвалидация по версии сканера и изменению `.stop-ai-slop.yaml`; сейчас скан линейный по тексту, обычно < 1 с |
 | Маркеры прозы ZH/JA | реальный спрос юзеров | иероглифы без границ слов: нужны фразовые словари, высокий FP-риск; текущий лимит языков RU+EN+DE+FR+ES зафиксирован в README/SKILL |
 | Синхронизация detekt-порта с основным детектором | решение владельца: порт минимален намеренно ИЛИ синхронизируем | `detekt-rules/src/main/kotlin/whitebite/slop/StopAiSlopChangelogMarker.kt` отстаёт: нет weak-pair семантики (`CHANGELOG_WEAK`, scan.mjs:270), нет de/fr/es маркеров, нет Unicode-правил и generated-эксемпта. Тесты порта зелёные на своей семантике; расхождение — осознанное, не баг |
@@ -69,19 +72,25 @@
 - MCP `tools/list` несёт `resultType: "complete"` (schema 2026-07-28); строго-консервативные клиенты могут ворчать на лишнее поле — принято осознанно, самопроверка live-сессией пройдена.
 - `--pre-tool` apply_patch-ветвь (`extractPatchDeltas`): V4A-патч разбирается построчно (заголовки `*** Add/Update File`, `*** Move to`, `*** Delete File`, `+`-строки), не grammar-парсером. Экзотический/битый патч без распознанных `+`-строк даёт пустой added → exit 0 (fail-open, как весь `--pre-tool`). Приемлемо: гейт-помощник, не security-граница.
 - `--pre-tool` shape-gating для неизвестных имён инструментов: read-only guard — substring-совпадение по lowercased имени (`read|view|grep|search|glob|list|ls|bash|shell|exec|run|fetch|web|think|todo|plan`). Инструмент с write-формой payload, но read-only-словом в имени, не гейтится. Осознанно: имена нестабильны (VS Code Copilot, Devin), ложное блокирование чтения хуже пропуска.
+- Стек tool-директив (`// @ts-expect-error` над `// eslint-disable-next-line`) считается multi-line-раном — осознанный FP: exemptions под конкретные директивы открывают лазейку «два exempt-комментария = не ран». Встречается редко; легаси — через baseline.
 
 ## Семантики, которые легко сломать невнимательной правкой
 
 - Baseline v2 (`loadBaseline` scan.mjs:967, `fingerprint` :987, `maskBaselined` :999): fp = sha256(rule + "\n" + trimmed-строки находки).slice(0,16); файл = заголовок v2 + пары `rel:line` / `fp:<hash>`. Маскинг **с потреблением**: каждая baselined-вхождение гасит одну находку с тем же fp — вставленный повторно идентичный slop флагается. v1-файлы (только `rel:line`) маскируют по-старому до следующего `--baseline-write`. Не «улучшать» до чистого set-membership: сломается чек «baseline: новый слоп поверх легаси блокирует» (доказано эмпирически при вводе v2).
 - Generated-детекция (`isGeneratedFile` scan.mjs:280, `SECURITY_RULES` :278): slop-правила на сгенерированных файлах эксемптся, security-правила (zero-width/bidi/cjk) — НЕТ (отравленный codegen = supply-chain сигнал). Эксепмт пост-детекционный фильтр во всех режимах, включая `--fix`; write-time гейт (`addedFromToolArgs`) игнорирует generated целиком, если не `scanGenerated: true`. Голый `DO NOT EDIT` без слова generat/codegen не эксемптит.
 - Weak-pair семантика changelog-marker (scan.mjs:270): одиночный слабый маркер = проза, флагует пара слабых в одном comment-run ИЛИ один сильный. Не возвращаться к монолитному regex — были ложняки на обычной прозе.
-- obvious-comment (scan.mjs OBVIOUS_WHY/OBVIOUS_STOPWORDS): иммунитет «почему»-маркеров (intentionally, deliberately, т.к., должен…) и CJK-гард выточены по FP с bench-когорты (PowerShell `.editorconfig` «indent_size intentionally not specified»); запятая в комментарии требует 2 совпадений слов с кодом, без запятой — 1. Не сокращать списки — регресс ловится только сэмплами, не счётчиками.
+- obvious-comment (scan.mjs OBVIOUS_WHY/OBVIOUS_STOPWORDS): иммунитет «почему»-маркеров (intentionally, deliberately, only, UTC, единицы, т.к., должен…) и CJK-гард выточены по FP с bench-когорты (PowerShell `.editorconfig` «indent_size intentionally not specified»); запятая в комментарии требует 2 совпадений слов с кодом, без запятой — 1. Не сокращать списки — регресс ловится только сэмплами, не счётчиками.
+- evaluateEdit (scan.mjs) — единственный контракт write-time гейта для плагина: mutating-набор edit/write/multiedit, extraction через addedFromToolArgs, error-фильтр, POLICY-сообщение. Плагин только логирует (appendAudit) и бросает. Менять сигнатуру — только с сохранением `plugin-v2-shape` зелёным.
+- collectFiles: каталог-аргумент вне git-root cwd обходит walk-ом напрямую (git-листинг покрывает только репо) — семантика фикса gate-bypass 0.9.0; конфиг-excludePaths на внешние каталоги не действуют (они вне репо).
+- cross-file-ref: инверсия 0.9.0 — требуется разделитель пути `/`\`\` ИЛИ расширение из CODE_REF_EXT; блоклист TLD удалён. Добавление новых языков = строка в CODE_REF_EXT.
+- long-comment: строка с `https?://\S{30,}` эксемптится целиком (длину задаёт ссылка).
 - Unicode-правила работают по СЫРЫМ строкам до анти-evasion стрипа; сам `scan.mjs` собирает невидимые символы через `String.fromCodePoint`, чтобы не флагать собственный исходник — сохранять этот приём в фикстурах и regex-константах.
 
 ## Расхождения поверхностей (держать в голове)
 
 - `README.md` (EN, основной) и `README.ru.md` (RU) — параллельные документы: каждая правка секций дублируется в оба (два раза уже делали: generated, bench). `llms.txt` ссылается на секции README — проверять якоря при переименованиях.
-- `skill/scripts/scan.d.mts` — ручные type-декларации экспортов scan.mjs: менять синхронно с сигнатурами (`addedFromToolArgs` opts, `isGeneratedFile`).
+- `skill/scripts/scan.d.mts` — ручные type-декларации экспортов scan.mjs: менять синхронно с сигнатурами (`addedFromToolArgs` opts, `isGeneratedFile`, `evaluateEdit`).
+- `skill/scripts/selftest.mjs` — self-test (с 0.9.0); `runCli` спавнит scan.mjs по `selfPath` (рассчитывается относительно selftest.mjs); RED-фазы новых фич гоняются там же.
 - `.gitignore` vs локальный exclude: агент-каталоги `.omo/`, `.opencode/`, `.playwright-mcp/` лежат в `.git/info/exclude` (локально, по прецеденту `.codegraph`). В новых клонах их нет — если агенты станут нормой для контрибьюторов, перенести в публикуемый `.gitignore`.
 - `plugin/comment-gate.ts` импортирует `addedFromToolArgs/detectCommentSlop/profileFor/RULES` из scan.mjs с 2-аргументной сигнатурой — любые изменения этих экспортов держать back-compatible.
 - Версия `.claude-plugin/stop-ai-slop/plugin.json` исторически разъезжалась с `package.json` (0.3.1 при 0.4.0; CHANGELOG 0.4.0 ошибочно заявлял синхронизацию) — теперь гейт: self-test чек `release-sync` (`scan.mjs` cmdSelfTest) сверяет версии, skip при отсутствии файлов; релиз-процедура bump'ит оба файла.

@@ -1,42 +1,24 @@
 import type { Plugin } from "@opencode-ai/plugin"
-import { addedFromToolArgs, appendAudit, detectCommentSlop, profileFor, RULES } from "../skill/scripts/scan.mjs"
+import { appendAudit, evaluateEdit } from "../skill/scripts/scan.mjs"
 
-export { detectCommentSlop }
+export { detectCommentSlop } from "../skill/scripts/scan.mjs"
 export type { Violation } from "../skill/scripts/scan.mjs"
 
-const MUTATING_TOOLS = new Set(["edit", "write", "multiedit"])
-const RULE_BY_ID = new Map(RULES.map((r) => [r.id, r]))
-const POLICY =
-  "комментарий — максимум одна строка и только неочевидное внешнее ограничение/инвариант/воркэраунд; пересказ диффа (было/стало/почему тест существует) живёт в коммите и имени теста. Убери комментарий или сожми до одной строки WHY."
-
 function guard(tool: string, args: Record<string, unknown>) {
-  if (!MUTATING_TOOLS.has(tool)) return
-  const extracted = addedFromToolArgs(tool, args)
-  if (extracted === null) return
-  const violations = detectCommentSlop(extracted.added, profileFor(extracted.filePath) ?? undefined, true).filter(
-    (v) => v.severity === "error",
-  )
-  if (violations.length === 0) {
-    appendAudit({ verdict: "passed", tool, filePath: extracted.filePath, added: extracted.added.length })
+  const result = evaluateEdit(tool, args)
+  if (!result.evaluated) return
+  if (!result.blocked) {
+    appendAudit({ verdict: "passed", tool, filePath: result.filePath, added: result.addedCount })
     return
   }
   appendAudit({
     verdict: "blocked",
     tool,
-    filePath: extracted.filePath,
-    rules: violations.map((v) => v.rule),
-    added: extracted.added.length,
+    filePath: result.filePath,
+    rules: result.violations.map((v) => v.rule),
+    added: result.addedCount,
   })
-  throw new Error(
-    violations
-      .map(
-        (v) =>
-          `comment-gate: ${v.rule} [${v.severity}] at ${extracted.filePath}:${v.lineNo}\n${v.lines.join("\n")}\ninstead: ${
-            RULE_BY_ID.get(v.rule)?.instead ?? ""
-          }\nPolicy: ${POLICY}`,
-      )
-      .join("\n\n"),
-  )
+  throw new Error(result.message)
 }
 
 export const CommentGate: Plugin = async () => {

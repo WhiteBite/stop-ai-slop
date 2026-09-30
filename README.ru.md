@@ -9,9 +9,34 @@
 
 > **stop-ai-slop — линтер и гейт комментариев с нулевыми зависимостями, который блокирует AI-слоп в комментариях до попадания в кодовую базу.** Один сканер (`skill/scripts/scan.mjs`, таблица `RULES`) — единый источник правды для политики «комментарий — одна строка и только why». Гейт применяется в момент записи (плагин OpenCode, PreToolUse-хук Claude Code), на коммите (pre-commit hook, ставится через `--install`) и в CI (GitHub Action, шаблон GitLab CI), а также работает как MCP-сервер. Node >= 18, нулевые npm-зависимости, лицензия MIT, работает на Windows, Linux и macOS.
 
+AI-агенты перекомментируют: многострочные нарративы, `// было X, стало Y`, «Step 1 / Step 2», баннеры-разделители, markdown внутри комментариев, `TODO` без тикета, комментарии-пересказы строки под ними, гниющие указатели `file.py:123`, невидимые zero-width и BiDi-символы. stop-ai-slop ловит всё это детерминированно — без LLM, без скоринга, без сети — и блокирует правку или коммит.
+
+## Установка в две команды
+
+```
+npm i -D stop-ai-slop
+npx stop-ai-slop --install        # пишет pre-commit hook + npm scripts в текущее репо
+```
+
+`--install` — единственная команда, которая меняет ваше репо: дописывает блок с маркером в `.git/hooks/pre-commit` (идемпотентно, чужой хук не затирает) и добавляет npm-скрипты `stop-ai-slop` / `stop-ai-slop:all`. Хук вшивает абсолютный путь к сканеру на момент установки — после переноса или ре-клона сканера запустите `--install` снова.
+
+## Кому это нужно
+
+Команды и одиночные разработчики, чей код частично или в основном пишут AI-агенты (OpenCode, Claude Code, Cursor, Codex, Copilot, Gemini CLI), и которым политика комментариев нужна механически — в момент записи, на коммите, в CI, — а не на дисциплине ревью.
+
+## Зачем stop-ai-slop
+
+- **Нулевые зависимости.** Рантайм — один файл-сканер `.mjs` (self-test живёт отдельным модулем `selftest.mjs`, чтобы поставляемый гейт оставался тощим), плагин OpenCode — один файл `.ts`. Не нужно ставить ни biome, ruff, oxlint, ни Python, ни ripgrep.
+- **Блокирует в момент правки, а не после.** Плагин OpenCode отклоняет `write`/`edit`/`multiedit`; PreToolUse-хук Claude Code запрещает `Write`/`Edit` до их выполнения. Большинство аналогов сканируют только постфактум или просят модель саму прогнать grep.
+- **Мультиязычная детекция естественного языка.** Changelog-маркеры, нумерованные шаги и открывашки «This function…» матчатся на RU + EN + DE + FR + ES. Детерминированные конкуренты — только английский; LLM-основанные читают любой язык, но требуют API-ключ.
+- **Один источник правды.** Все правила живут в одной таблице `RULES`; `--explain <rule-id>` печатает обоснование каждого правила (Why / Instead of / Write / Ignore it when).
+- **Машиночитаемый вывод.** `text` (по умолчанию), Reviewdog `rdjson` и SARIF 2.1.0 для GitHub code scanning.
+- **Дружелюбен к легаси.** Baseline амнистирует существующие находки, и гейт срабатывает только на новый слоп.
+- **Широкая поверхность применения.** OpenCode, Claude Code, Cursor, Codex, GitHub Actions, GitLab CI, MCP, VS Code, IntelliJ IDEA.
+
 ## Что входит и что ставится автоматически
 
-Один сканер (`skill/scripts/scan.mjs`, таблица `RULES`) представлен двенадцатью точками приложения. Они независимы: включайте нужные, они не конфликтуют и применяют одни и те же правила.
+Один сканер (`skill/scripts/scan.mjs`, таблица `RULES`) представлен одиннадцатью точками приложения. Они независимы: включайте нужные, они не конфликтуют и применяют одни и те же правила.
 
 | Точка | Что делает | Как попадает к вам |
 | --- | --- | --- |
@@ -26,15 +51,6 @@
 | `--install-hooks` | пишет конфиги хуков агентов (`.codex/hooks.json`, `.github/hooks/stop-ai-slop.json`, `.devin/hooks.v1.json`) + печатает сниппеты настроек для Gemini CLI / Qwen Code; shape-gating для неизвестных имён инструментов | вручную: `npx stop-ai-slop --install-hooks` |
 | `--install-rules` | генерирует файлы инструкций агентов из таблицы RULES (`.cursor/rules/stop-ai-slop.mdc`, `.windsurfrules`, `CONVENTIONS.md`, `.clinerules`, `.devin/rules/stop-ai-slop.md`, отмеченный блок в `.github/copilot-instructions.md`) | вручную: `npx stop-ai-slop --install-rules` |
 | Конфиг JSON Schema (`schema/stop-ai-slop.schema.json`) | draft-07 схема для `.stop-ai-slop.yaml` с автоподстановкой в IDE и проверкой паритета | поставляется в npm-тарболе; modeline в начале конфига |
-
-### Установка в две команды
-
-```
-npm i -D stop-ai-slop
-npx stop-ai-slop --install        # вшивает pre-commit hook + npm scripts в текущее репо
-```
-
-`--install` — единственная команда, которая меняет ваше репо: дописывает блок с маркером в `.git/hooks/pre-commit` (идемпотентно, не затирает существующий hook) и добавляет npm scripts `stop-ai-slop` / `stop-ai-slop:all`. Hook содержит абсолютный путь к сканеру на момент установки — после переноса или повторного клонирования сканера запустите `--install` заново.
 
 ### Ничего не происходит тихо
 
@@ -51,20 +67,6 @@ npx stop-ai-slop --install        # вшивает pre-commit hook + npm scripts
 - **Пользователи Cursor / Windsurf / Cline / Aider** — `npx stop-ai-slop --install-rules` генерирует файлы инструкций из таблицы RULES; см. «Хук-интеграции с агентами».
 - **Gemini CLI / Qwen Code** — `--install-hooks` печатает готовые сниппеты настроек в `.gemini/settings.json` и `.qwen/settings.json`.
 
-## Кому это нужно
-
-Команды и одиночные разработчики, чей код частично или в основном пишут AI-агенты (OpenCode, Claude Code, Cursor, Codex, Copilot, Gemini CLI), и которым политика комментариев нужна механически — в момент записи, на коммите, в CI, — а не на дисциплине ревью.
-
-## Зачем stop-ai-slop
-
-- **Нулевые зависимости.** Сканер — один файл `.mjs`, плагин OpenCode — один файл `.ts`. Не нужно ставить ни biome, ruff, oxlint, ни Python, ни ripgrep.
-- **Блокирует в момент правки, а не после.** Плагин OpenCode отклоняет `write`/`edit`/`multiedit`; PreToolUse-хук Claude Code запрещает `Write`/`Edit` до их выполнения. Большинство аналогов сканируют только постфактум или просят модель саму прогнать grep.
-- **Мультиязычная детекция естественного языка.** Changelog-маркеры, нумерованные шаги и открывашки «This function…» матчатся на RU + EN + DE + FR + ES. Детерминированные конкуренты — только английский; LLM-основанные читают любой язык, но требуют API-ключ.
-- **Один источник правды.** Все правила живут в одной таблице `RULES`; `--explain <rule-id>` печатает обоснование каждого правила (Why / Instead of / Write / Ignore it when).
-- **Машиночитаемый вывод.** `text` (по умолчанию), Reviewdog `rdjson` и SARIF 2.1.0 для GitHub code scanning.
-- **Дружелюбен к легаси.** Baseline амнистирует существующие находки, и гейт срабатывает только на новый слоп.
-- **Широкая поверхность применения.** OpenCode, Claude Code, Cursor, Codex, GitHub Actions, GitLab CI, MCP, VS Code, IntelliJ IDEA.
-
 ## Что и зачем
 
 Политика: комментарий — максимум одна строка и только неочевидное внешнее ограничение, инвариант или воркэраунд. Пересказ диффа живёт в сообщении коммита, why теста — в имени теста. Таблица правил и детектор живут в `skill/scripts/scan.mjs` (const `RULES`) — править правила надо там, всё остальное только применяет их.
@@ -76,7 +78,7 @@ Error-правила блокируют (exit 1, write-time gate бросает 
 1. **OpenCode write-time плагин** — `plugin/comment-gate.ts` перехватывает `write`/`edit`/`multiedit` и отклоняет правку с error-находками в момент записи. Монтируется в `~/.config/opencode/plugins/` стабом-реэкспортом. Default-экспорт `{ id: "stop-ai-slop", server: CommentGate, setup }` обслуживает оба API: OpenCode 1.18.29+ вызывает `server()` (v1-хук `tool.execute.before`), OpenCode 2.x вызывает `setup()` (регистрирует `ctx.tool.hook("execute.before")`, единственный хук V2, которому разрешено падать); legacy-экспорт `CommentGate` сохраняет работоспособность старых стабов на более старых 1.x; OpenCode показывает локальные плагины по имени файла стаба — назовите стаб `stop-ai-slop.ts` вместо `comment-gate.ts`, если хотите такую метку.
 2. **Pre-commit через `--install`** — одна команда вшивает `node .../scan.mjs --staged` в `.git/hooks/pre-commit` (идемпотентно, дописывает блок с маркером, не затирая существующий hook) и добавляет npm scripts `stop-ai-slop` / `stop-ai-slop:all` в package.json. Hook и npm scripts содержат абсолютный путь к сканеру на момент установки — после переноса или повторного клонирования сканера запустите `--install` заново.
 3. **Agent skill** — `skill/SKILL.md` (name: `stop-ai-slop`): политика, таблица правил, режимы запуска. Монтируется в OpenCode и Claude Code.
-4. **Baseline для легаси** — 1) `--install`, 2) `--baseline-write` (записывает текущие находки), 3) закоммитить baseline, 4) дальше гейт видит только новое; правки выше baselined-строк сдвигают номера и воскрешают легаси — лечится `--baseline-prune`, который удаляет из baseline записи без живых находок; повторный `--baseline-write` амнистирует и новый слоп — не делать.
+4. **Baseline для легаси** — 1) `--install`, 2) `--baseline-write` (записывает текущие находки), 3) закоммитить baseline, 4) дальше гейт видит только новое. Baseline v2 хранит каждую находку парой строк — `relpath:line` плюс `fp:<hash>`, fingerprint — SHA-256-хэш (первые 16 hex-символов) от id правила и обрезанного текста комментария — и матчится по fingerprint, а не по позиции: правки выше baselined-строки больше не воскрешают легаси, а изменённый текст всплывает как новый слоп. Тот же текст, вставленный заново, маскируется только до числа baselined-вхождений — свежая копия легаси-слопа всё равно считается новой. Старые v1-baseline (только `relpath:line`) маскируют по позиции до следующего `--baseline-write`. `--baseline-prune` удаляет записи без живых находок (в v2 пара умирает вместе); повторный `--baseline-write` амнистирует и новый слоп — не делать.
 
 ## Быстрый старт
 
@@ -139,7 +141,7 @@ node skill/scripts/scan.mjs --fix             # записать правки, �
 | `multi-line-comment`, `vend/file-summary-header` | удалить весь comment-run |
 | `vend/section-divider` | удалить строку-разделитель (или снять её с inline-комментария) |
 | `changelog-marker`, `vend/cross-file-ref`, `vend/obvious-comment` | удалить полнострочный комментарий; снять trailing-комментарий со строки кода |
-| `vend/step-numbered` | снять префикс «Step N:», остальной текст оставить |
+| `vend/step-numbered` | снять префикс «Step N:», остальной текст оставить (полнострочные и trailing inline-комментарии) |
 | `vend/zero-width-chars`, `vend/bidi-controls` | вырезать реальные невидимые/BiDi-символы |
 
 **Не чинится автоматически** — нужна голова или агент, чтобы написать замену, поэтому `--fix` их оставляет и выводит в отчёт: `long-comment` (сжать смысл), `vend/this-function-opener` (переформулировать как инвариант), `vend/generic-todo` (добавить тикет), `vend/markdown-in-comment` (семантика), `vend/cjk-noise` (переписать идентификатор).
@@ -155,10 +157,10 @@ node skill/scripts/scan.mjs --fix             # записать правки, �
 | Ключ | Семантика |
 | --- | --- |
 | `maxCommentLength` | порог длины строки комментария для `long-comment` (по умолчанию 120) |
-| `excludePaths` | список относительных путей-префиксов: путь исключается, если равен записи или начинается с `запись/`; работает в полном сканировании и в diff-режимах |
-| `rules` | override severity по id правила: `error`, `warning` или `off` (правило отключено) |
-| `generatedPaths` | список относительных путей-префиксов, считаемых сгенерированными (та же префиксная семантика, что у `excludePaths`) |
+| `excludePaths` | список относительных путей-префиксов: путь исключается, если равен записи или начинается с `entry/`; работает в полном скане и в diff-режимах |
+| `generatedPaths` | список относительных путей-префиксов, считаемых сгенерированными (та же префиксная семантика, что у `excludePaths`); см. [Сгенерированный код](#сгенерированный-код) |
 | `scanGenerated` | `true` отключает эксемпт сгенерированных файлов — они линтуются как обычные |
+| `rules` | override severity по id правила: `error`, `warning` или `off` (правило отключено) |
 
 ```yaml
 maxCommentLength: 100
@@ -177,7 +179,7 @@ Remap severity применяется после детекции и до фил
 `schema/stop-ai-slop.schema.json` (draft-07, поставляется в npm-тарболе). Modeline в начале `.stop-ai-slop.yaml`:
 
 ```yaml
-# yaml-language-server: $schema=https://raw.githubusercontent.com/WhiteBite/stop-ai-slop/v0.8.0/schema/stop-ai-slop.schema.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/WhiteBite/stop-ai-slop/v0.9.0/schema/stop-ai-slop.schema.json
 ```
 
 (или путь node_modules `./node_modules/stop-ai-slop/schema/stop-ai-slop.schema.json`). Паритет с парсером обеспечивается гейтом self-test (`schema-parity-config` / `schema-parity-rules`).
@@ -198,7 +200,7 @@ npx stop-ai-slop --mcp
 | --- | --- | --- |
 | `slop_scan` | `{ path?: string }` | Полное сканирование директории или файла; возвращает текстовые находки |
 | `slop_explain` | `{ ruleId: string }` | Возвращает обоснование правила (Why / Instead of / Write / Ignore it when) |
-| `slop_baseline` | `{}` | Выводит записи baseline (формат `relpath:line`) |
+| `slop_baseline` | `{}` | Выводит записи baseline (`relpath:line` и `fp:<hash>`) |
 
 Настройка клиента:
 
@@ -460,7 +462,7 @@ node skill/scripts/scan.mjs --audit 50     # последние 50
 | c-family | `//` | `/* */`, `/** */`, `{/* */}` | ts, js, kt, java, go, rs, cs, c, cpp, swift, dart, scala, mts, cts, sol, v, sv, qml, styl, res |
 | css | `//`, `/*` | `/* */` | css, scss, less |
 | py | `#` | `"""` / `'''` | py, pyi, vy |
-| hash | `#` | — | rb, php, sh, yaml, toml, ex, raku, awk, go.mod, go.sum, Dockerfile, Makefile, .gitignore |
+| hash | `#` | — | rb, sh, yaml, toml, ex, raku, awk, go.mod, go.sum, Dockerfile, Makefile, .gitignore |
 | hashblock | `#`, `/*` | `/* */` | nix, hcl, tf, tfvars |
 | powershell | `#` | `<# #>` | ps1, psm1 |
 | julia | `#` | `#= =#` | jl |
@@ -475,7 +477,8 @@ node skill/scripts/scan.mjs --audit 50     # последние 50
 | markup | `<!--` | `<!-- -->` | html, xml, svg, md, mdx, xsl |
 | vue | `//`, `/*`, `<!--` | `/* */`, `{/* */}`, `<!-- -->` | vue, svelte, astro |
 | ocaml | `(*` | `(* *)` | ml, mli |
-| pascal | `//`, `(*` | `(* *)` | pas, pp, fs (F#) |
+| php | `//`, `#` | `/* */`, `/** */` | php |
+| pascal | `//`, `(*` | `(* *)`, `///` doc | pas, pp, fs (F#) |
 | coffee | `#` | `### ###` | coffee, litcoffee |
 | adoc | `//` | `//// ////` | adoc, asciidoc |
 | handlebars | `{{!` | `{{!-- --}}` | hbs |
@@ -497,8 +500,8 @@ node skill/scripts/scan.mjs --audit 50     # последние 50
 | `vend/this-function-opener` | warning | комментарий начинается с «This function/class/method/component», «Эта функция/Этот класс», «Diese Funktion», «Cette fonction» или «Esta función» |
 | `vend/file-summary-header` | warning | шапка-резюме из 2+ строк комментария в начале файла |
 | `vend/generic-todo` | warning | TODO без ссылки на тикет |
-| `vend/cross-file-ref` | warning | указатель на другой файл/строку в комментарии (`handler.py:147`); URL с якорем `#L12` и пары host:port не флагаются |
-| `vend/obvious-comment` | warning | однострочный комментарий пересказывает строку кода под ним (`// increment the counter` над `counter += 1`); только кодовые профили, комментарий с «почему» (`т.к.`, `чтобы`, `must`, `intentionally`…) не флагается |
+| `vend/cross-file-ref` | warning | указатель на другой файл/строку в комментарии (`handler.py:147`, `src/util.py:30`); требует разделитель пути или известное кодовое расширение, поэтому URL с якорем `#L12` и пары host:port не флагаются |
+| `vend/obvious-comment` | warning | однострочный комментарий пересказывает строку кода под ним (`// increment the counter` над `counter += 1`); только кодовые профили, комментарий с «почему» (`т.к.`, `чтобы`, `must`, `only`, `intentionally`, единицы измерения…) не флагается |
 | `vend/self-suppression` | warning | директива подавления без списка правил пришла вместе с подавляемым кодом |
 | `vend/cjk-noise` | warning | CJK-иероглифы склеены с латиницей или цифрами в code-части строки (артефакт генерации) |
 | `vend/zero-width-chars` | error | невидимый символ нулевой ширины (U+200B, U+200C, U+200D, U+2060, U+FEFF или escape-форма) |
@@ -516,7 +519,7 @@ node skill/scripts/scan.mjs --explain <rule-id>
 
 id правил и служебные лейблы — EN; сообщения и обоснования — RU. Префикс `vend/` = правила, вендоренные из внешних каталогов паттернов.
 
-Детектор видит inline-комментарии после кода (`const x = 1 // было`), блоковые комментарии без маркера на средних строках, doc-блоки любой длины (контрактные JSDoc/docstring), файлы в UTF-16 с BOM; zero-width символы (U+200B–U+200F, U+FEFF) срезаются при матчинге маркеров и одновременно флагаются как находки по сырым строкам вместе с BiDi-контролами (U+202A–U+202E, U+2066–U+2069) — включая escape-формы в исходнике; ZWJ внутри эмодзи-последовательностей и BOM в позиции 0 не флагаются. CJK-смежность с латиницей или цифрами проверяется только в code-части строки: китайские комментарии и i18n-строки без смежности с латиницей легитимны. В prose-форматах (`.md`/`.mdx`/`.html`/`.xml`/`.rst`/`.adoc`) CJK-смежность не проверяется вовсе: смешанная JP/CN-проза с латинскими брендами там норма. Не сканируются: языки без профиля (см. таблицу выше; `.m` неоднозначно), бинарные и офисные форматы; `--staged` и `--diff` не видят неотслеживаемые файлы. Warning не блокируют гейт, если не указан `--strict`. Имена файлов с не-ASCII поддерживаются в diff-режимах. Пропускаются каталоги артефактов (`venv`, `build`, `.next`, `target`, `out`, `.gradle`, `Pods`, `__pycache__`, `.idea`, `.codegraph`, `site-packages`, `.dart_tool`). Лицензионные шапки исключены из правила multi-line. Inline-комментарии определяются по маркерам профиля (`//`, `#`, `--`, `%`, `;`, `!`) за исключением py/fs floor division (`//`).
+Детектор видит inline-комментарии после кода (`const x = 1 // было`), блоковые комментарии без маркера на средних строках, doc-блоки любой длины (контрактные JSDoc/docstring), файлы в UTF-16 с BOM; zero-width символы (U+200B–U+200F, U+FEFF) срезаются при матчинге маркеров и одновременно флагаются как находки по сырым строкам вместе с BiDi-контролами (U+202A–U+202E, U+2066–U+2069) — включая escape-формы в исходнике; ZWJ внутри эмодзи-последовательностей и BOM в позиции 0 не флагаются. CJK-смежность с латиницей или цифрами проверяется только в code-части строки: китайские комментарии и i18n-строки без смежности с латиницей легитимны. В prose-форматах (`.md`/`.mdx`/`.html`/`.xml`/`.rst`/`.adoc`) CJK-смежность не проверяется вовсе: смешанная JP/CN-проза с латинскими брендами там норма. Не сканируются: языки без профиля (см. таблицу выше; `.m` неоднозначно), бинарные и офисные форматы; `--staged` и `--diff` не видят неотслеживаемые файлы. Warning не блокируют гейт, если не указан `--strict`. Имена файлов с не-ASCII поддерживаются в diff-режимах. Пропускаются каталоги артефактов (`venv`, `build`, `.next`, `target`, `out`, `.gradle`, `Pods`, `__pycache__`, `.idea`, `.codegraph`, `site-packages`, `.dart_tool`). Лицензионные шапки исключены из правила multi-line, а строка-шебанг никогда не склеивается со следующим за ней комментарием. Inline-комментарии определяются по маркерам профиля (`//`, `#`, `--`, `%`, `;`, `!`) за исключением py/fs floor division (`//`). Каталог-аргумент вне текущего репозитория обходится напрямую (git-листинг покрывает только само репо).
 
 **Что обходит полный скан.** Внутри git-репозитория `scan` перечисляет файлы через `git ls-files --cached --others --exclude-standard`, поэтому всё gitignored невидимо: `__pycache__`, `.venv`, вывод сборки, вендорные деревья, загруженные тулчейны, упакованные рантаймы, минифицированные бандлы, скомпилированный `.dart.js`. Вне репо — прежний обход каталогов. YAML block scalars (`key: |`, `- >`) — строковый контент, а не комментарий: их строки никогда не флагуются.
 
@@ -557,7 +560,7 @@ node skill/scripts/scan.mjs --bench-write   # перезаписать bench-his
 
 | Инструмент | Что сканирует | Языки / естественные языки | Блокирует в момент правки | Модель гейта | Свои правила | Рантайм | Трекшн |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| **stop-ai-slop** | комментарии в коде, 15 правил | 160 расширений, 24 профиля / RU, EN, DE, FR, ES | да — плагин OpenCode, хуки Claude Code, Codex, Gemini, Qwen, Devin | политика: правило → exit 1; error/warning | таблица RULES в одном файле; remap severity; `--explain` | Node >= 18, ноль зависимостей, один .mjs | 449 загр/мес |
+| **stop-ai-slop** | комментарии в коде, 15 правил | 160 расширений, 24 профиля / RU, EN, DE, FR, ES | да — плагин OpenCode, хуки Claude Code, Codex, Gemini, Qwen, Devin | политика: правило → exit 1; error/warning | таблица RULES в одном файле; remap severity; `--explain` | Node >= 18, ноль зависимостей, один .mjs-сканер | 449 загр/мес |
 | [windbag](https://github.com/scale-venture-partners/windbag) | комментарии-пересказы изменений, 6 правил (HISTORY_NARRATION, HEDGE_LANGUAGE, TICKET_ID, CROSS_FILE_REF, VERBOSE_COMMENT, OBVIOUS_COMMENT) | Python, JS/TS, Terraform, Rust, Go, Java, SQL (dbt/SQLMesh), YAML/HTML/MD / EN | PostToolUse-хук Claude Code; pre-commit; OpenCode нет | error-правила валят чек, warn — отчёт | не документированы | Rust-бинарь в виде PyPI wheel | 25★ |
 | [aislop](https://github.com/scanaislop/aislop) | код-слоп: 50+ правил — нарративные комментарии, проглоченные исключения, `as any`, мёртвый код, галлюцинированные импорты | 10 таргетов (TS, JS, Expo/RN, Python, Go, Rust, Ruby, PHP, C#, C/C++) / EN | хуки для 10 агентов (Claude, Cursor, Gemini, Pi, Codex, Windsurf, Cline, Kilocode, Antigravity, Copilot); OpenCode нет | скор 0–100, failBelow; CI-режим; SARIF; MCP-сервер | severity на правило; новые правила — только в их репо | npm + опциональные движки (biome, ruff, oxlint); PyPI; Homebrew | 655★, 47k загр/мес |
 | [slop-scan](https://github.com/modem-dev/slop-scan) | AI-паттерны в коде; хотспоты; сравнение репозиториев | JS/TS / EN | нет | скор + нормализованные метрики (на KLOC, на функцию) | конфиг и плагины | npm | 319★, 35k загр/мес |

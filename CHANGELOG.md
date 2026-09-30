@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.9.0
+
+- фикс гейта: каталог вне git-репо cwd обходится walk-ом — раньше `scan <dir>` вне репо молча возвращал «чисто» (затрагивало CLI, `--fix` и MCP `slop_scan`); RED-чек `scan-outside-repo`
+- профили: PHP `//` и `/* */`/`/** */` сканируются (отдельный профиль php); F# `///` doc-строки эксемптятся (TRIPLE_SLASH_DOC в pascal)
+- детектор: shebang не склеивается со следующим комментарием (multi-line/header FP); long-comment не флагает строку, где длину задаёт длинная `http(s)`-ссылка; cross-file-ref требует разделитель пути или известное кодовое расширение — host:port с любым TLD больше не флагается; TODO матчится в любом регистре; obvious-comment — иммунитет why-маркеров `only`/UTC/единиц измерения
+- `--fix`: vend/step-numbered чинит и trailing inline-комментарии
+- архитектура: self-test выделен в `skill/scripts/selftest.mjs` (scan.mjs 3942 → 2287 строк; `--self-test` делегирует динамическим импортом, контракт не изменился); плагин ходит через фасад `evaluateEdit()` — единый контракт write-time гейта вместо пяти глубинных импортов; `CONFIG_KEYS` экспортирован, source-regex parity-гейт заменён сравнением с константой; main() — таблица MODES; `--help` сгруппирован по назначению и упоминает npm-бинар
+- scan.d.mts синхронизирован: detectCommentSlop (5 параметров), evaluateEdit/GateResult, loadConfig, scanFiles, collectFiles, loadGitattributesGenerated, benchDelta, RULE_BY_ID, KNOWN_FLAGS, readDisk
+- bench: эталон переписан (+4 lowercase-todo — истинные срабатывания, −35 уточнений why/URL/shebang)
+- доки: блок установки поднят к шапке (EN+RU); RU приведён к паритету с EN (интро-абзац, baseline v2-семантика, «одиннадцать точек», порядок конфиг-таблицы, `fp:` в описании slop_baseline)
+- self-test: 260 PASS
+
 ## 0.8.0
 
 - два правила из gap-анализа windbag: `vend/cross-file-ref` (указатель `handler.py:147` в комментарии; URL с `#L12` и host:port не флагаются) и `vend/obvious-comment` (однострочный комментарий пересказывает строку кода под ним; «почему»-маркеры — т.к., чтобы, must, intentionally, deliberately — иммунитет; CJK-текст и проза-профили пропускаются); оба warning, оба чинятся `--fix` удалением
