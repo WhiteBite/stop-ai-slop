@@ -90,6 +90,24 @@ export const RULES = [
     ignoreWhen: "локальный черновик до первого коммита",
   },
   {
+    id: "vend/cross-file-ref",
+    severity: "warning",
+    message: "указатель на другой файл/строку в комментарии (handler.py:147)",
+    why: "Указатель на строку чужого файла гниёт при первой же правке там: номер перестаёт совпадать, и ни один инструмент этого не заметит. URL и host:port не флагаются.",
+    instead: "импортировать символ и сослаться на него — резолвится компилятором; либо назвать причину, а не место",
+    write: "// формат фиксирован вендором, см. спеку из тикета",
+    ignoreWhen: "URL с якорем #L12, host:port",
+  },
+  {
+    id: "vend/obvious-comment",
+    severity: "warning",
+    message: "комментарий пересказывает строку кода под ним",
+    why: "Пересказ строки под ним не добавляет информации: код сам себя описывает, а пересказ рассинхронизируется при первом же рефакторинге. Комментарий с «почему» (т.к., чтобы, иначе, must, должен…) не флагается.",
+    instead: "удалить; неочевидное ограничение — отдельной строкой с «почему»",
+    write: "// сбрасываем здесь, т.к. ниже освобождаем слот",
+    ignoreWhen: "комментарий содержит обоснование; только кодовые профили, не проза",
+  },
+  {
     id: "vend/self-suppression",
     severity: "warning",
     message: "директива подавления без списка правил пришла вместе с подавляемым кодом",
@@ -336,11 +354,42 @@ const THIS_OPENER =
 const TODO_WORD = /\bTODO\b/
 const TICKET_REF = /[A-Z]+-\d+/
 const ISSUE_LINK = /https?:\/\/\S+|#\d+/
+const CROSS_FILE_REF = /(?<![\w@:./\\-])(?:[\w.-]+[\/\\])*(?:[\w-]+\.(?!com\b|net\b|org\b|io\b|ru\b|dev\b|app\b|me\b|sh\b)[A-Za-z]{1,5}):\d+/
+const OBVIOUS_STOPWORDS = new Set(
+  (
+    "a an the this that these those is are was were be been being of to in on for with and or not no it its if then else from by as at we you they do does did has have had will would can could may might there their them he she his her him но и или не в на для с от до по как что же бы ли уже ещё при над под без через между его её их мы вы он она они оно этот эта это эти тот там тут"
+  ).split(" "),
+)
+const OBVIOUS_WHY =
+  /because|since|otherwise|unless|until|so that|in case|workaround|invariant|constraint|intentionally|deliberately|required|\bmust\b|\bshould\b|\bcannot\b|\bavoid\b|т\.?\s*к\.|так как|потому что|чтобы|иначе|если|пока|должн|нужно|надо|обязательн|нельзя|воркэраунд|инвариант|ограничен|осторожн|намеренн|специальн|требует/i
+const OBVIOUS_WORD_SPLIT = /[^a-zа-яё0-9]+/
+const camelSplit = (line) => line.replace(/([a-z0-9])(?=[A-Z])/g, "$1 ")
+const commentContentWords = (text) =>
+  text
+    .toLowerCase()
+    .split(OBVIOUS_WORD_SPLIT)
+    .filter((w) => w !== "" && /[a-zа-яё]/.test(w) && !OBVIOUS_STOPWORDS.has(w))
+const codeTokenSet = (line) =>
+  new Set(
+    camelSplit(line)
+      .toLowerCase()
+      .split(OBVIOUS_WORD_SPLIT)
+      .filter((w) => w !== ""),
+  )
+const isObviousComment = (text, codeLine) => {
+  if (OBVIOUS_WHY.test(text) || CJK_ANY.test(text)) return false
+  const words = commentContentWords(text)
+  if (words.length === 0 || words.length > 6) return false
+  const tokens = codeTokenSet(codeLine)
+  const hits = words.filter((w) => tokens.has(w)).length
+  return hits >= (text.includes(",") ? 2 : 1)
+}
 
 const CP = (...cps) => String.fromCodePoint(...cps)
 const BS = CP(0x5c)
 const STRIP_INVISIBLE = new RegExp("[" + CP(0x200b) + "-" + CP(0x200f) + CP(0xfeff) + "]", "g")
 const CJK = "[\\u2E80-\\u2EFF\\u3400-\\u4DBF\\u4E00-\\u9FFF\\uF900-\\uFAFF\\u3040-\\u30FF\\uAC00-\\uD7AF]"
+const CJK_ANY = new RegExp(CJK)
 const LATIN = "[A-Za-z0-9_]"
 const CJK_ADJACENT = new RegExp(CJK + LATIN + "|" + LATIN + CJK)
 const ZERO_WIDTH = new RegExp("[" + CP(0x200b, 0x200c, 0x2060) + "]|" + BS + BS + "u200[bBcC]|" + BS + BS + "u2060")
@@ -551,6 +600,7 @@ export function detectCommentSlop(addedLines, profile = PROFILES.legacy, diffMod
     }
     if (THIS_OPENER.test(stripped)) push(finding("vend/this-function-opener", i + 1, [raw]))
     if (TODO_WORD.test(t) && !TICKET_REF.test(t) && !ISSUE_LINK.test(t)) push(finding("vend/generic-todo", i + 1, [raw]))
+    if (!doc && CROSS_FILE_REF.test(stripped)) push(finding("vend/cross-file-ref", i + 1, [raw]))
     return weakMarkerHits(raw)
   }
   let runStart = -1
@@ -576,6 +626,8 @@ export function detectCommentSlop(addedLines, profile = PROFILES.legacy, diffMod
     push(finding("vend/file-summary-header", 1, lines.slice(0, headerEnd)))
   }
   const classifyEach = makeClassify()
+  const classifyLook = makeClassify()
+  const lookCls = lines.map((l) => classifyLook(l))
   let weakRun = 0
   let weakRunLine = -1
   const flushWeakRun = () => {
@@ -603,6 +655,22 @@ export function detectCommentSlop(addedLines, profile = PROFILES.legacy, diffMod
       if (weak > 0) {
         weakRun += weak
         if (weakRunLine === -1) weakRunLine = i + 1
+      }
+      if (cls.comment && !cls.doc && !proseCjk && !TODO_WORD.test(line)) {
+        let j = i + 1
+        while (j < lines.length && (lines[j] ?? "").trim() === "") j++
+        const prevCls = i > 0 ? lookCls[i - 1] : null
+        const nextCls = j < lines.length ? lookCls[j] : null
+        if (
+          nextCls !== null &&
+          !nextCls.comment &&
+          !nextCls.doc &&
+          nextCls.literal !== true &&
+          (prevCls === null || (!prevCls.comment && !prevCls.doc)) &&
+          isObviousComment(stripCommentMarker(line.trim()), lines[j] ?? "")
+        ) {
+          push(finding("vend/obvious-comment", i + 1, [line]))
+        }
       }
     } else {
       flushWeakRun()
@@ -788,6 +856,8 @@ const FIXABLE_RULES = new Set([
   "vend/section-divider",
   "vend/file-summary-header",
   "vend/step-numbered",
+  "vend/cross-file-ref",
+  "vend/obvious-comment",
   "vend/zero-width-chars",
   "vend/bidi-controls",
 ])
@@ -834,7 +904,7 @@ function planFixes(lines, findings, profile) {
         const ln = f.lineNo + k
         if (!SUPPRESS_ANY.test(lines[ln - 1] ?? "")) removed.add(ln)
       }
-    } else if (f.rule === "changelog-marker" || f.rule === "vend/section-divider") {
+    } else if (f.rule === "changelog-marker" || f.rule === "vend/section-divider" || f.rule === "vend/cross-file-ref" || f.rule === "vend/obvious-comment") {
       const trimmed = raw.trim()
       if (BLOCK_OPENER.test(trimmed)) continue
       const inline = isCommentLine(trimmed, profile) ? null : inlineMarkerAt(raw, profile)
@@ -1697,6 +1767,16 @@ function cmdSelfTest() {
     writeFileSync(join(dir, "md-pipe.ts"), "// |flag| принимает значение\nconst x = 1\n")
     writeFileSync(join(dir, "opener.ts"), "// This function normalizes the payload\nconst x = 1\n")
     writeFileSync(join(dir, "todo.ts"), "// TODO fix this later\nconst x = 1\n")
+    writeFileSync(join(dir, "xref.ts"), "// see handler.py:147 for the details\nconst x = 1\n")
+    writeFileSync(join(dir, "xref-path.ts"), "// логика в src/util.py:30\nconst x = 1\n")
+    writeFileSync(join(dir, "xref-ok.ts"), "// anchor https://github.com/foo/bar/blob/main/a.ts#L12\nconst x = 1\n")
+    writeFileSync(join(dir, "xref-port.ts"), "// connect through example.com:8080\nconst x = 1\n")
+    writeFileSync(join(dir, "obvious.ts"), "// increment the counter\ncounter += 1\n")
+    writeFileSync(join(dir, "obvious-call.ts"), "// validate the token\nvalidateToken(token)\n")
+    writeFileSync(join(dir, "obvious-why.ts"), "// сбрасываем здесь, т.к. ниже освобождаем слот\nfreeSlot()\n")
+    writeFileSync(join(dir, "obvious-comma.ts"), "// retry 3 times, upstream is flaky\nfor (let i = 0; i < 3; i++) retry()\n")
+    writeFileSync(join(dir, "obvious-intent.ts"), "# indent_size intentionally not specified in this section\nindent_style = space\n")
+    writeFileSync(join(dir, "obvious-block.ts"), "/* normalize the input */\nnormalizeInput(input)\n")
     writeFileSync(join(dir, "inline.ts"), "const x = 1 // было так, стало иначе\n")
     writeFileSync(join(dir, "block.ts"), "/* removeSource rewrites every row\nwith fresh uuids all vanish at once\nand incremental has no centroids left */\nconst x = 1\n")
     writeFileSync(join(dir, "docstring.py"), 'def f():\n    """This function normalizes the payload\n    and validates input\n    """\n    return 1\n')
@@ -1876,6 +1956,24 @@ function cmdSelfTest() {
     check("md-pipe: «|flag|» в прозе не флагается, находок нет", byRel("md-pipe.ts").length === 0, byRel("md-pipe.ts"))
     check("opener: vend/this-function-opener [warning]", byRel("opener.ts").some((f) => f.rule === "vend/this-function-opener"), byRel("opener.ts"))
     check("todo: vend/generic-todo [warning]", byRel("todo.ts").some((f) => f.rule === "vend/generic-todo"), byRel("todo.ts"))
+    check(
+      "xref: vend/cross-file-ref [warning]",
+      byRel("xref.ts").some((f) => f.rule === "vend/cross-file-ref" && f.severity === "warning"),
+      byRel("xref.ts"),
+    )
+    check("xref-path: указатель с каталогом [warning]", byRel("xref-path.ts").some((f) => f.rule === "vend/cross-file-ref"), byRel("xref-path.ts"))
+    check("xref-ok: URL-якорь #L12 не флагается", !byRel("xref-ok.ts").some((f) => f.rule === "vend/cross-file-ref"), byRel("xref-ok.ts"))
+    check("xref-port: host:port не флагается", !byRel("xref-port.ts").some((f) => f.rule === "vend/cross-file-ref"), byRel("xref-port.ts"))
+    check(
+      "obvious: vend/obvious-comment [warning]",
+      byRel("obvious.ts").some((f) => f.rule === "vend/obvious-comment" && f.severity === "warning"),
+      byRel("obvious.ts"),
+    )
+    check("obvious-call: camelCase-токены матчатся [warning]", byRel("obvious-call.ts").some((f) => f.rule === "vend/obvious-comment"), byRel("obvious-call.ts"))
+    check("obvious-block: однострочный /* */ пересказ [warning]", byRel("obvious-block.ts").some((f) => f.rule === "vend/obvious-comment"), byRel("obvious-block.ts"))
+    check("obvious-why: «почему»-комментарий не флагается", !byRel("obvious-why.ts").some((f) => f.rule === "vend/obvious-comment"), byRel("obvious-why.ts"))
+    check("obvious-comma: запятая требует 2 совпадений", !byRel("obvious-comma.ts").some((f) => f.rule === "vend/obvious-comment"), byRel("obvious-comma.ts"))
+    check("obvious-intent: «intentionally» не флагается", !byRel("obvious-intent.ts").some((f) => f.rule === "vend/obvious-comment"), byRel("obvious-intent.ts"))
     check("inline: changelog-marker в trailing-комменте [error]", byRel("inline.ts").some((f) => f.rule === "changelog-marker"), byRel("inline.ts"))
     check("wasnow: EN-пара was…, now… [error]", byRel("wasnow.ts").some((f) => f.rule === "changelog-marker"), byRel("wasnow.ts"))
     check("wasnow-ok: «was raised because now()» без запятой не матчится", byRel("wasnow-ok.ts").length === 0, byRel("wasnow-ok.ts"))

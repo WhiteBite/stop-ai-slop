@@ -9,7 +9,7 @@
 
 > **stop-ai-slop is a zero-dependency comment linter and gate that blocks AI-generated comment slop before it lands in your codebase.** One scanner (`skill/scripts/scan.mjs`, the `RULES` table) is the single source of truth for a one-line, why-only comment policy. It is enforced at write-time (OpenCode plugin, Claude Code PreToolUse hook), at commit-time (pre-commit hook installed with `--install`), and in CI (GitHub Action, GitLab CI template) — and it also runs as an MCP server. Node >= 18, zero npm dependencies, MIT licensed, works on Windows, Linux and macOS.
 
-AI coding agents over-comment: multi-line narrative blocks, `// was X, now Y` changelog notes, `Step 1 / Step 2` filler, banner dividers, markdown inside comments, `TODO` without a ticket, even invisible zero-width and BiDi characters. stop-ai-slop catches all of it deterministically — no LLM, no scoring threshold, no network — and blocks the offending edit or commit.
+AI coding agents over-comment: multi-line narrative blocks, `// was X, now Y` changelog notes, `Step 1 / Step 2` filler, banner dividers, markdown inside comments, `TODO` without a ticket, comments that restate the code line beneath them, rotting `file.py:123` pointers, even invisible zero-width and BiDi characters. stop-ai-slop catches all of it deterministically — no LLM, no scoring threshold, no network — and blocks the offending edit or commit.
 
 ## Why stop-ai-slop
 
@@ -136,7 +136,7 @@ node skill/scripts/scan.mjs --fix             # write the changes, then rescan a
 | --- | --- |
 | `multi-line-comment`, `vend/file-summary-header` | delete the whole comment run |
 | `vend/section-divider` | delete the divider line (or strip it from an inline comment) |
-| `changelog-marker` | delete a full-line comment; strip the trailing comment off a code line |
+| `changelog-marker`, `vend/cross-file-ref`, `vend/obvious-comment` | delete a full-line comment; strip the trailing comment off a code line |
 | `vend/step-numbered` | strip the numbered-step prefix, keep the rest of the text |
 | `vend/zero-width-chars`, `vend/bidi-controls` | remove the real invisible/BiDi characters |
 
@@ -175,7 +175,7 @@ Severity remap is applied after detection and before baseline filtering and exit
 `schema/stop-ai-slop.schema.json` (draft-07, shipped in the npm tarball). Modeline at top of `.stop-ai-slop.yaml`:
 
 ```yaml
-# yaml-language-server: $schema=https://raw.githubusercontent.com/WhiteBite/stop-ai-slop/v0.6.0/schema/stop-ai-slop.schema.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/WhiteBite/stop-ai-slop/v0.8.0/schema/stop-ai-slop.schema.json
 ```
 
 (or node_modules path `./node_modules/stop-ai-slop/schema/stop-ai-slop.schema.json`). Parity with the parser is enforced by a self-test gate (`schema-parity-config` / `schema-parity-rules`).
@@ -495,6 +495,8 @@ Comment syntax comes from a language profile, not a single shared list: `#` is a
 | `vend/this-function-opener` | warning | a comment starts with "This function/class/method/component", "Эта функция/Этот класс", "Diese Funktion", "Cette fonction" or "Esta función" |
 | `vend/file-summary-header` | warning | a 2+ line summary-header comment at the top of a file |
 | `vend/generic-todo` | warning | a TODO without a ticket link |
+| `vend/cross-file-ref` | warning | a pointer to another file/line in a comment (`handler.py:147`); URLs with `#L12` anchors and host:port pairs are not flagged |
+| `vend/obvious-comment` | warning | a single-line comment that restates the code line beneath it (`// increment the counter` above `counter += 1`); code profiles only, a comment with a why (`т.к.`, `чтобы`, `must`, `intentionally`…) is not flagged |
 | `vend/self-suppression` | warning | a suppression directive arrives in the same diff as the code it suppresses |
 | `vend/cjk-noise` | warning | CJK characters glued to Latin letters or digits in the code part of a line (a generation artifact) |
 | `vend/zero-width-chars` | error | an invisible zero-width character (U+200B, U+200C, U+200D, U+2060, U+FEFF or an escape form) |
@@ -502,7 +504,7 @@ Comment syntax comes from a language profile, not a single shared list: `#` is a
 
 Error rules do not apply to doc-blocks (JSDoc `/** … */`, Python docstrings, and `///` doc-comment lines — dartdoc, rustdoc, C# XML doc): contract documentation for classes and functions may be any length. Inside doc-blocks, changelog markers (error) and signature restatement "This function…" (warning) are still caught.
 
-Text rules (`step-numbered`, `markdown-in-comment`, `this-function-opener`) are matched on the text after the comment marker is stripped, so they work in every profile — `# Шаг 3` in yaml and `-- Step 3` in sql are caught identically. `step-numbered`, `this-function-opener` and `changelog-marker` understand RU + EN + DE + FR + ES ("Шаг N", "Schritt N", "Étape N", "Diese Funktion", "au lieu de", "ya no", etc.); other natural languages are not covered. Structural rules (multi-line, divider, header, todo) do not depend on the wording language. `step-numbered` and `markdown-in-comment` do not fire inside doc-blocks.
+Text rules (`step-numbered`, `markdown-in-comment`, `this-function-opener`, `cross-file-ref`) are matched on the text after the comment marker is stripped, so they work in every profile — `# Шаг 3` in yaml and `-- Step 3` in sql are caught identically. `step-numbered`, `this-function-opener` and `changelog-marker` understand RU + EN + DE + FR + ES ("Шаг N", "Schritt N", "Étape N", "Diese Funktion", "au lieu de", "ya no", etc.); other natural languages are not covered. Structural rules (multi-line, divider, header, todo) do not depend on the wording language. `step-numbered` and `markdown-in-comment` do not fire inside doc-blocks.
 
 Full rationale per rule (Why / Instead of / Write / Ignore it when, from the same `RULES` table):
 
@@ -555,7 +557,7 @@ Facts from the competitors' READMEs, GitHub metadata and npm download counts, ch
 
 | Tool | What it scans | Languages / natural languages | Blocks at write | Gate model | Custom rules | Runtime | Traction |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| **stop-ai-slop** | comments in code, 13 rules | 160 extensions, 24 profiles / RU, EN, DE, FR, ES | yes — OpenCode plugin, Claude Code, Codex, Gemini, Qwen, Devin hooks | policy: rule → exit 1; errors vs warnings | RULES table in one file; severity remap; `--explain` | Node >= 18, zero deps, one .mjs | 449 dl/mo |
+| **stop-ai-slop** | comments in code, 15 rules | 160 extensions, 24 profiles / RU, EN, DE, FR, ES | yes — OpenCode plugin, Claude Code, Codex, Gemini, Qwen, Devin hooks | policy: rule → exit 1; errors vs warnings | RULES table in one file; severity remap; `--explain` | Node >= 18, zero deps, one .mjs | 449 dl/mo |
 | [windbag](https://github.com/scale-venture-partners/windbag) | change-narration comments, 6 rules (HISTORY_NARRATION, HEDGE_LANGUAGE, TICKET_ID, CROSS_FILE_REF, VERBOSE_COMMENT, OBVIOUS_COMMENT) | Python, JS/TS, Terraform, Rust, Go, Java, SQL (dbt/SQLMesh), YAML/HTML/MD / EN | Claude Code PostToolUse hook; pre-commit; no OpenCode | error rules fail the check, warn rules report | none documented | Rust binary shipped as a PyPI wheel | 25★ |
 | [aislop](https://github.com/scanaislop/aislop) | code slop: 50+ rules — narrative comments, swallowed exceptions, `as any`, dead code, hallucinated imports | 10 targets (TS, JS, Expo/RN, Python, Go, Rust, Ruby, PHP, C#, C/C++) / EN | hooks for 10 agents (Claude, Cursor, Gemini, Pi, Codex, Windsurf, Cline, Kilocode, Antigravity, Copilot); no OpenCode | score 0–100, failBelow; CI mode; SARIF; MCP server | per-rule severity; new rules only in their repo | npm + optional engines (biome, ruff, oxlint); PyPI; Homebrew | 655★, 47k dl/mo |
 | [slop-scan](https://github.com/modem-dev/slop-scan) | AI-associated code patterns; hotspots; repo comparison | JS/TS / EN | no | score + normalized metrics (per KLOC, per function) | config and plugins | npm | 319★, 35k dl/mo |
@@ -581,7 +583,7 @@ SaaS review bots: [CodeRabbit](https://coderabbit.ai) ships a named "Slop Detect
 - **Only comments.** Code-level slop — swallowed exceptions, `as any`, dead code, hallucinated imports, reward-hacked tests — is out of scope: aislop (50+ rules, 10 language targets), dmmulroy/anti-slop, AI-SLOP-Detector, grain and dotnet-slopwatch cover it.
 - **No prose scanning.** Commit messages, PR descriptions and docs are ai-slop-linter's territory (its commitlint rule and commit-msg hook gate those at commit time).
 - **Line-based extraction, not grammars.** windbag reads comments through real grammars: a `#` inside a quoted YAML scalar stays data, `.sql` is parsed as Jinja templates (dbt/SQLMesh), fenced Markdown blocks are skipped. Our quote-parity heuristic can miss an inline comment inside a template literal — a documented limitation.
-- **Comment-niche rules windbag has and we do not:** a comment restating the line below it (OBVIOUS_COMMENT; vibecheck's G112 is the same idea), cross-file pointers like `handler.py:147` (CROSS_FILE_REF), and comment length measured against the code it documents (VERBOSE_COMMENT) — our `long-comment` is an absolute 120-character limit.
+- **Comment length is an absolute limit.** Our `long-comment` is 120 characters; windbag's VERBOSE_COMMENT measures the comment against the code it documents. (After the 2026-09-29 comparison we adopted two of windbag's rules as `vend/cross-file-ref` and `vend/obvious-comment`; the relative-length rule remains theirs.)
 - **No semantic matching.** gptlint (LLM) and almcc/slop-linter (Jev model) judge meaning and catch paraphrased slop; our markers are dictionaries in RU+EN+DE+FR+ES — no ZH/JA phrase detection.
 - **No IDE extension.** AI-SLOP-Detector ships a VS Code extension with inline findings and a status-bar score; our IDE story is a tasks.json problem matcher plus an IDEA File Watcher template.
 - **Adoption and distribution.** aislop: 655 stars, 47k downloads/month, npm + PyPI + Homebrew, score badges, `aislop agent` repair sessions driving Codex/Claude/OpenCode worktrees. slop-scan: 35k downloads/month. stop-ai-slop: 449 downloads/month, npm + a GitHub Packages mirror, no Homebrew formula.

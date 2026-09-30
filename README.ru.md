@@ -134,7 +134,7 @@ node skill/scripts/scan.mjs --fix             # записать правки, �
 | --- | --- |
 | `multi-line-comment`, `vend/file-summary-header` | удалить весь comment-run |
 | `vend/section-divider` | удалить строку-разделитель (или снять её с inline-комментария) |
-| `changelog-marker` | удалить полнострочный комментарий; снять trailing-комментарий со строки кода |
+| `changelog-marker`, `vend/cross-file-ref`, `vend/obvious-comment` | удалить полнострочный комментарий; снять trailing-комментарий со строки кода |
 | `vend/step-numbered` | снять префикс «Step N:», остальной текст оставить |
 | `vend/zero-width-chars`, `vend/bidi-controls` | вырезать реальные невидимые/BiDi-символы |
 
@@ -173,7 +173,7 @@ Remap severity применяется после детекции и до фил
 `schema/stop-ai-slop.schema.json` (draft-07, поставляется в npm-тарболе). Modeline в начале `.stop-ai-slop.yaml`:
 
 ```yaml
-# yaml-language-server: $schema=https://raw.githubusercontent.com/WhiteBite/stop-ai-slop/v0.6.0/schema/stop-ai-slop.schema.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/WhiteBite/stop-ai-slop/v0.8.0/schema/stop-ai-slop.schema.json
 ```
 
 (или путь node_modules `./node_modules/stop-ai-slop/schema/stop-ai-slop.schema.json`). Паритет с парсером обеспечивается гейтом self-test (`schema-parity-config` / `schema-parity-rules`).
@@ -493,6 +493,8 @@ node skill/scripts/scan.mjs --audit 50     # последние 50
 | `vend/this-function-opener` | warning | комментарий начинается с «This function/class/method/component», «Эта функция/Этот класс», «Diese Funktion», «Cette fonction» или «Esta función» |
 | `vend/file-summary-header` | warning | шапка-резюме из 2+ строк комментария в начале файла |
 | `vend/generic-todo` | warning | TODO без ссылки на тикет |
+| `vend/cross-file-ref` | warning | указатель на другой файл/строку в комментарии (`handler.py:147`); URL с якорем `#L12` и пары host:port не флагаются |
+| `vend/obvious-comment` | warning | однострочный комментарий пересказывает строку кода под ним (`// increment the counter` над `counter += 1`); только кодовые профили, комментарий с «почему» (`т.к.`, `чтобы`, `must`, `intentionally`…) не флагается |
 | `vend/self-suppression` | warning | директива подавления без списка правил пришла вместе с подавляемым кодом |
 | `vend/cjk-noise` | warning | CJK-иероглифы склеены с латиницей или цифрами в code-части строки (артефакт генерации) |
 | `vend/zero-width-chars` | error | невидимый символ нулевой ширины (U+200B, U+200C, U+200D, U+2060, U+FEFF или escape-форма) |
@@ -500,7 +502,7 @@ node skill/scripts/scan.mjs --audit 50     # последние 50
 
 Error-правила не применяются к doc-блокам (JSDoc `/** … */`, Python-docstring и `///` doc-строки — dartdoc, rustdoc, C# XML doc): контрактная документация классов и функций допустима любой длины. Внутри doc-блоков по-прежнему ловятся changelog-маркеры (error) и пересказ сигнатуры «This function…» (warning).
 
-Текстовые правила (`step-numbered`, `markdown-in-comment`, `this-function-opener`) матчатся по тексту после срезания маркера комментария, поэтому работают во всех профилях — `# Шаг 3` в yaml и `-- Step 3` в sql ловятся одинаково. `step-numbered`, `this-function-opener` и `changelog-marker` понимают RU+EN+DE+FR+ES («Шаг N», «Schritt N», «Étape N», «Diese Funktion», «au lieu de», «ya no» и т.п.); прочие естественные языки не покрыты. Структурные правила (multi-line, divider, header, todo) от языка формулировок не зависят. `step-numbered` и `markdown-in-comment` внутри doc-блоков не срабатывают.
+Текстовые правила (`step-numbered`, `markdown-in-comment`, `this-function-opener`, `cross-file-ref`) матчатся по тексту после срезания маркера комментария, поэтому работают во всех профилях — `# Шаг 3` в yaml и `-- Step 3` в sql ловятся одинаково. `step-numbered`, `this-function-opener` и `changelog-marker` понимают RU+EN+DE+FR+ES («Шаг N», «Schritt N», «Étape N», «Diese Funktion», «au lieu de», «ya no» и т.п.); прочие естественные языки не покрыты. Структурные правила (multi-line, divider, header, todo) от языка формулировок не зависят. `step-numbered` и `markdown-in-comment` внутри doc-блоков не срабатывают.
 
 Полное обоснование по правилу (Why / Instead of / Write / Ignore it when из той же таблицы `RULES`):
 
@@ -551,7 +553,7 @@ node skill/scripts/scan.mjs --bench-write   # перезаписать bench-his
 
 | Инструмент | Что сканирует | Языки / естественные языки | Блокирует в момент правки | Модель гейта | Свои правила | Рантайм | Трекшн |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| **stop-ai-slop** | комментарии в коде, 13 правил | 160 расширений, 24 профиля / RU, EN, DE, FR, ES | да — плагин OpenCode, хуки Claude Code, Codex, Gemini, Qwen, Devin | политика: правило → exit 1; error/warning | таблица RULES в одном файле; remap severity; `--explain` | Node >= 18, ноль зависимостей, один .mjs | 449 загр/мес |
+| **stop-ai-slop** | комментарии в коде, 15 правил | 160 расширений, 24 профиля / RU, EN, DE, FR, ES | да — плагин OpenCode, хуки Claude Code, Codex, Gemini, Qwen, Devin | политика: правило → exit 1; error/warning | таблица RULES в одном файле; remap severity; `--explain` | Node >= 18, ноль зависимостей, один .mjs | 449 загр/мес |
 | [windbag](https://github.com/scale-venture-partners/windbag) | комментарии-пересказы изменений, 6 правил (HISTORY_NARRATION, HEDGE_LANGUAGE, TICKET_ID, CROSS_FILE_REF, VERBOSE_COMMENT, OBVIOUS_COMMENT) | Python, JS/TS, Terraform, Rust, Go, Java, SQL (dbt/SQLMesh), YAML/HTML/MD / EN | PostToolUse-хук Claude Code; pre-commit; OpenCode нет | error-правила валят чек, warn — отчёт | не документированы | Rust-бинарь в виде PyPI wheel | 25★ |
 | [aislop](https://github.com/scanaislop/aislop) | код-слоп: 50+ правил — нарративные комментарии, проглоченные исключения, `as any`, мёртвый код, галлюцинированные импорты | 10 таргетов (TS, JS, Expo/RN, Python, Go, Rust, Ruby, PHP, C#, C/C++) / EN | хуки для 10 агентов (Claude, Cursor, Gemini, Pi, Codex, Windsurf, Cline, Kilocode, Antigravity, Copilot); OpenCode нет | скор 0–100, failBelow; CI-режим; SARIF; MCP-сервер | severity на правило; новые правила — только в их репо | npm + опциональные движки (biome, ruff, oxlint); PyPI; Homebrew | 655★, 47k загр/мес |
 | [slop-scan](https://github.com/modem-dev/slop-scan) | AI-паттерны в коде; хотспоты; сравнение репозиториев | JS/TS / EN | нет | скор + нормализованные метрики (на KLOC, на функцию) | конфиг и плагины | npm | 319★, 35k загр/мес |
@@ -577,7 +579,7 @@ SaaS-ревью-боты: [CodeRabbit](https://coderabbit.ai) имеет име�
 - **Только комментарии.** Кодовый слоп — проглоченные исключения, `as any`, мёртвый код, галлюцинированные импорты, reward-hacked-тесты — вне охвата: его закрывают aislop (50+ правил, 10 таргетов), dmmulroy/anti-slop, AI-SLOP-Detector, grain и dotnet-slopwatch.
 - **Не сканирует прозу.** Сообщения коммитов, описания PR и доки — территория ai-slop-linter (его правило commitlint и commit-msg-хук гейтят их в момент коммита).
 - **Построчное извлечение, не грамматики.** windbag читает комментарии через настоящие грамматики: `#` внутри кавычного YAML-скаляра остаётся данными, `.sql` парсится как Jinja-шаблоны (dbt/SQLMesh), fenced-блоки в Markdown пропускаются. Наша эвристика quote-parity может не увидеть inline-комментарий внутри template literal — задокументированное ограничение.
-- **Правила нашей же ниши, которых у нас нет** (у windbag есть все три): комментарий, пересказывающий строку под ним (OBVIOUS_COMMENT; G112 у vibecheck — та же идея), указатели на другой файл вида `handler.py:147` (CROSS_FILE_REF), длина комментария относительно кода под ним (VERBOSE_COMMENT) — наш `long-comment` — абсолютный лимит в 120 символов.
+- **Длина комментария — абсолютный лимит.** Наш `long-comment` — 120 символов; VERBOSE_COMMENT у windbag меряет комментарий относительно кода под ним. (После сравнения 2026-09-29 мы переняли два правила windbag как `vend/cross-file-ref` и `vend/obvious-comment`; правило относительной длины остаётся их козырем.)
 - **Нет семантического матчинга.** gptlint (LLM) и almcc/slop-linter (модель Jev) оценивают смысл и ловят перефразированный слоп; наши маркеры — словари на RU+EN+DE+FR+ES, фразовых словарей ZH/JA нет.
 - **Нет IDE-расширения.** AI-SLOP-Detector поставляет расширение VS Code с инлайн-находками и скором в статус-баре; наш IDE-сюжет — problem matcher в tasks.json плюс шаблон File Watcher для IDEA.
 - **Проникновение и дистрибуция.** aislop: 655 звёзд, 47k загрузок/мес, npm + PyPI + Homebrew, скор-бейджи, ремонтные сессии `aislop agent`, рулящие Codex/Claude/OpenCode. slop-scan: 35k загрузок/мес. stop-ai-slop: 449 загрузок/мес, npm + зеркало GitHub Packages, формулы Homebrew нет.

@@ -1,11 +1,11 @@
 # Техдолг и передача смены
 
-Реестр остатка, ограничений и операционных заметок. Точка входа для следующей сессии: сначала этот файл, затем `AGENTS.md`. Состояние на коммит `76e1d65` (main, origin в синке).
+Реестр остатка, ограничений и операционных заметок. Точка входа для следующей сессии: сначала этот файл, затем `AGENTS.md`. Состояние на релиз 0.8.0 (main; коммит сравнения аналогов — `54489b9`).
 
 ## Текущее состояние
 
 - npm `latest` = **0.7.0** (опубликован 2026-09-29, тег `v0.7.0`, OIDC provenance). Зеркало `@whitebite/stop-ai-slop` 0.7.0 в GitHub Packages; GitHub Releases v0.2.0…v0.7.0 создаёт воркфлоу сам (ноты из секции CHANGELOG тега).
-- Проверки перед любым коммитом: `node skill/scripts/scan.mjs --self-test` (exit 0, 243 PASS), `node skill/scripts/scan.mjs scan .` (exit 0), `gradle -p detekt-rules test` (BUILD SUCCESSFUL), pre-commit гейт срабатывает сам.
+- Проверки перед любым коммитом: `node skill/scripts/scan.mjs --self-test` (exit 0, 253 PASS), `node skill/scripts/scan.mjs scan .` (exit 0), `gradle -p detekt-rules test` (BUILD SUCCESSFUL), pre-commit гейт срабатывает сам.
 - Self-test живёт внутри `scan.mjs` (`cmdSelfTest`), чеки через `check(name, ok, detail)`; RED-фазы новых фич прогоняются тем же бинарником.
 - Бэклог re-verified 2026-09-28: все deferred-триггеры не сработали, health checks green.
 
@@ -38,6 +38,7 @@
 
 | Пункт | Триггер | Эскиз решения |
 | --- | --- | --- |
+| Перепроверка фактов comparison-секции | перед каждым минорным релизом ИЛИ раз в квартал | главное за чем следить: OpenCode в hook-листе aislop (убьёт главный дифференциатор-заявление), счёт правил windbag, новые dedicated-инструменты >100★; обновлять обе таблицы и «где мы хуже» синхронно с README.md/README.ru.md; дата проверки в интро-строке секции |
 | Инкрементальный кеш сканирования | жалоба на скорость ИЛИ замер `scan .` > 3-5 с на монорепо (HDD/сетевой диск) | ключ mtime+size+hash(RULES+конфиг), инвалидация по версии сканера и изменению `.stop-ai-slop.yaml`; сейчас скан линейный по тексту, обычно < 1 с |
 | Маркеры прозы ZH/JA | реальный спрос юзеров | иероглифы без границ слов: нужны фразовые словари, высокий FP-риск; текущий лимит языков RU+EN+DE+FR+ES зафиксирован в README/SKILL |
 | Синхронизация detekt-порта с основным детектором | решение владельца: порт минимален намеренно ИЛИ синхронизируем | `detekt-rules/src/main/kotlin/whitebite/slop/StopAiSlopChangelogMarker.kt` отстаёт: нет weak-pair семантики (`CHANGELOG_WEAK`, scan.mjs:270), нет de/fr/es маркеров, нет Unicode-правил и generated-эксемпта. Тесты порта зелёные на своей семантике; расхождение — осознанное, не баг |
@@ -74,6 +75,7 @@
 - Baseline v2 (`loadBaseline` scan.mjs:967, `fingerprint` :987, `maskBaselined` :999): fp = sha256(rule + "\n" + trimmed-строки находки).slice(0,16); файл = заголовок v2 + пары `rel:line` / `fp:<hash>`. Маскинг **с потреблением**: каждая baselined-вхождение гасит одну находку с тем же fp — вставленный повторно идентичный slop флагается. v1-файлы (только `rel:line`) маскируют по-старому до следующего `--baseline-write`. Не «улучшать» до чистого set-membership: сломается чек «baseline: новый слоп поверх легаси блокирует» (доказано эмпирически при вводе v2).
 - Generated-детекция (`isGeneratedFile` scan.mjs:280, `SECURITY_RULES` :278): slop-правила на сгенерированных файлах эксемптся, security-правила (zero-width/bidi/cjk) — НЕТ (отравленный codegen = supply-chain сигнал). Эксепмт пост-детекционный фильтр во всех режимах, включая `--fix`; write-time гейт (`addedFromToolArgs`) игнорирует generated целиком, если не `scanGenerated: true`. Голый `DO NOT EDIT` без слова generat/codegen не эксемптит.
 - Weak-pair семантика changelog-marker (scan.mjs:270): одиночный слабый маркер = проза, флагует пара слабых в одном comment-run ИЛИ один сильный. Не возвращаться к монолитному regex — были ложняки на обычной прозе.
+- obvious-comment (scan.mjs OBVIOUS_WHY/OBVIOUS_STOPWORDS): иммунитет «почему»-маркеров (intentionally, deliberately, т.к., должен…) и CJK-гард выточены по FP с bench-когорты (PowerShell `.editorconfig` «indent_size intentionally not specified»); запятая в комментарии требует 2 совпадений слов с кодом, без запятой — 1. Не сокращать списки — регресс ловится только сэмплами, не счётчиками.
 - Unicode-правила работают по СЫРЫМ строкам до анти-evasion стрипа; сам `scan.mjs` собирает невидимые символы через `String.fromCodePoint`, чтобы не флагать собственный исходник — сохранять этот приём в фикстурах и regex-константах.
 
 ## Расхождения поверхностей (держать в голове)

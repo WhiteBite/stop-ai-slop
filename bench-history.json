@@ -7,6 +7,7 @@
     "vend/file-summary-header": 11,
     "vend/generic-todo": 237,
     "vend/markdown-in-comment": 174,
+    "vend/obvious-comment": 5601,
     "vend/section-divider": 244,
     "vend/step-numbered": 137,
     "vend/this-function-opener": 564
@@ -16,6 +17,7 @@
     "vend/cjk-noise": 1,
     "vend/file-summary-header": 1,
     "vend/markdown-in-comment": 3,
+    "vend/obvious-comment": 104,
     "vend/step-numbered": 3,
     "vend/this-function-opener": 3
   },
@@ -26,6 +28,7 @@
     "vend/file-summary-header": 2,
     "vend/generic-todo": 7,
     "vend/markdown-in-comment": 10,
+    "vend/obvious-comment": 233,
     "vend/step-numbered": 1,
     "vend/this-function-opener": 4
   },
@@ -35,6 +38,7 @@
     "multi-line-comment": 203,
     "vend/file-summary-header": 5,
     "vend/markdown-in-comment": 4,
+    "vend/obvious-comment": 72,
     "vend/this-function-opener": 4
   },
   "rack/rack": {
@@ -42,6 +46,7 @@
     "multi-line-comment": 257,
     "vend/file-summary-header": 4,
     "vend/generic-todo": 1,
+    "vend/obvious-comment": 74,
     "vend/step-numbered": 1,
     "vend/this-function-opener": 5
   },
@@ -52,6 +57,7 @@
     "vend/file-summary-header": 174,
     "vend/generic-todo": 23,
     "vend/markdown-in-comment": 410,
+    "vend/obvious-comment": 3694,
     "vend/section-divider": 598,
     "vend/step-numbered": 319,
     "vend/this-function-opener": 326
@@ -63,6 +69,7 @@
     "vend/file-summary-header": 83,
     "vend/generic-todo": 50,
     "vend/markdown-in-comment": 121,
+    "vend/obvious-comment": 735,
     "vend/section-divider": 2,
     "vend/step-numbered": 12,
     "vend/this-function-opener": 649
@@ -72,6 +79,7 @@
     "multi-line-comment": 534,
     "vend/file-summary-header": 10,
     "vend/generic-todo": 11,
+    "vend/obvious-comment": 444,
     "vend/step-numbered": 42,
     "vend/this-function-opener": 1,
     "vend/zero-width-chars": 1
