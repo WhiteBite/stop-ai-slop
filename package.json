@@ -56,6 +56,8 @@
     "test": "node skill/scripts/scan.mjs --self-test",
     "self-test": "node skill/scripts/scan.mjs --self-test",
     "gen:schema": "node skill/scripts/gen-schema.mjs --write",
+    "gen:docs": "node skill/scripts/gen-docs.mjs --write",
+    "gen:catalog": "node skill/scripts/gen-catalog.mjs --write",
     "stop-ai-slop": "node ./skill/scripts/scan.mjs --staged --strict",
     "stop-ai-slop:all": "node ./skill/scripts/scan.mjs scan",
     "rdk:audit": "rdk audit",

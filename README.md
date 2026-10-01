@@ -494,23 +494,25 @@ Comment syntax comes from a language profile, not a single shared list: `#` is a
 
 ## Rules
 
+<!-- stop-ai-slop:rules:start -->
 | Rule | Severity | What it catches |
 | --- | --- | --- |
-| `multi-line-comment` | error | a comment spans 2+ consecutive lines (doc-blocks and `///` doc-comment runs exempt) |
-| `changelog-marker` | error | a comment restates the diff: a pair of weak markers (было/стало, вместо/теперь, previously/instead of, …) inside one comment run, or a strong marker (`this fixes`, `must take over`, `was X, now Y`, `broke, so`) on its own; a lone weak marker is ordinary prose and is not flagged |
-| `long-comment` | error | a comment line longer than 120 characters (doc-blocks and lines dominated by a long `http(s)` link are exempt) |
-| `vend/step-numbered` | warning | a numbered step in a comment (Step N / Шаг N / Schritt N / Étape N / Paso N / N., any language marker) |
+| `multi-line-comment` | error | a comment spans 2+ consecutive lines (doc-blocks and /// doc-comment runs exempt) |
+| `changelog-marker` | error | the comment retells the diff (a pair of changelog markers or a strong marker, ru/en/de/fr/es) |
+| `long-comment` | error | a comment line longer than 120 characters |
+| `vend/step-numbered` | warning | a numbered step in a comment (Step N / Шаг N / N., any language marker) |
 | `vend/section-divider` | warning | a divider line made of -=#* characters |
-| `vend/markdown-in-comment` | warning | markdown syntax inside a comment (**, -, \|); a table row needs at least three pipes (`\| a \| b \|`), a lone `\|flag\|` in prose is not flagged |
-| `vend/this-function-opener` | warning | a comment starts with "This function/class/method/component", "Эта функция/Этот класс", "Diese Funktion", "Cette fonction" or "Esta función" |
+| `vend/markdown-in-comment` | warning | markdown syntax inside a comment (**, -, \|) |
+| `vend/this-function-opener` | warning | a comment starts with "This function/…", «Эта функция/…», «Diese Funktion…», «Cette fonction…» or «Esta función…» |
 | `vend/file-summary-header` | warning | a 2+ line summary-header comment at the top of a file |
-| `vend/generic-todo` | warning | a TODO without a ticket link (any case: `todo`, `Todo`, `TODO`) |
-| `vend/cross-file-ref` | warning | a pointer to another file/line in a comment (`handler.py:147`, `src/util.py:30`); requires a path separator or a known code extension, so URLs with `#L12` anchors and host:port pairs are not flagged |
-| `vend/obvious-comment` | warning | a single-line comment that restates the code line beneath it (`// increment the counter` above `counter += 1`); code profiles only, a comment with a why (`т.к.`, `чтобы`, `must`, `only`, `intentionally`, units…) is not flagged |
-| `vend/self-suppression` | warning | a suppression directive arrives in the same diff as the code it suppresses |
+| `vend/generic-todo` | warning | a TODO without a ticket link (any case: todo, Todo, TODO) |
+| `vend/cross-file-ref` | warning | a pointer to another file/line in a comment (handler.py:147) |
+| `vend/obvious-comment` | warning | a single-line comment restates the code line beneath it |
+| `vend/self-suppression` | warning | a suppression directive without a rule list arrived together with the code it suppresses |
 | `vend/cjk-noise` | warning | CJK characters glued to Latin letters or digits in the code part of a line (a generation artifact) |
 | `vend/zero-width-chars` | error | an invisible zero-width character (U+200B, U+200C, U+200D, U+2060, U+FEFF or an escape form) |
-| `vend/bidi-controls` | error | BiDi controls (U+202A–U+202E, U+2066–U+2069 or an escape form) on any line, plus directional marks (U+200E, U+200F) in the code part of a line |
+| `vend/bidi-controls` | error | BiDi controls (U+202A-U+202E, U+2066-U+2069) on any line, and directional marks (U+200E, U+200F) in code |
+<!-- stop-ai-slop:rules:end -->
 
 Error rules do not apply to doc-blocks (JSDoc `/** … */`, Python docstrings, and `///` doc-comment lines — dartdoc, rustdoc, C# XML doc): contract documentation for classes and functions may be any length. Inside doc-blocks, changelog markers (error) and signature restatement "This function…" (warning) are still caught.
 

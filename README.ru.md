@@ -494,23 +494,25 @@ node skill/scripts/scan.mjs --audit 50     # последние 50
 
 ## Правила
 
+<!-- stop-ai-slop:rules:start -->
 | Правило | Severity | Суть |
 | --- | --- | --- |
-| `multi-line-comment` | error | комментарий занимает 2+ строки подряд (doc-блоки и `///` doc-раны исключены) |
-| `changelog-marker` | error | комментарий пересказывает дифф: пара слабых маркеров (было/стало, вместо/теперь, previously/instead of, …) в одном comment-run или сильный маркер (`this fixes`, `must take over`, `was X, now Y`, `broke, so`) сам по себе; одиночный слабый маркер — обычная проза и не флагует |
-| `long-comment` | error | строка комментария длиннее 120 символов (doc-блоки исключены) |
-| `vend/step-numbered` | warning | нумерованный шаг в комментарии (Step N / Шаг N / Schritt N / Étape N / Paso N / N., маркер любого языка) |
+| `multi-line-comment` | error | комментарий занимает 2+ строки подряд |
+| `changelog-marker` | error | комментарий пересказывает дифф (пара changelog-маркеров или сильный маркер, ru/en/de/fr/es) |
+| `long-comment` | error | строка комментария длиннее 120 символов |
+| `vend/step-numbered` | warning | нумерованный шаг в комментарии (Step N / Шаг N / N., маркер любого языка) |
 | `vend/section-divider` | warning | строка-разделитель из символов -=#* |
-| `vend/markdown-in-comment` | warning | markdown-разметка внутри комментария (**, -, \|); строка таблицы требует минимум три пайпа (`\| a \| b \|`), одиночный `\|flag\|` в прозе не флагается |
-| `vend/this-function-opener` | warning | комментарий начинается с «This function/class/method/component», «Эта функция/Этот класс», «Diese Funktion», «Cette fonction» или «Esta función» |
+| `vend/markdown-in-comment` | warning | markdown-разметка внутри комментария (**, -, \|) |
+| `vend/this-function-opener` | warning | комментарий начинается с «This function/…», «Эта функция/…», «Diese Funktion…», «Cette fonction…» или «Esta función…» |
 | `vend/file-summary-header` | warning | шапка-резюме из 2+ строк комментария в начале файла |
 | `vend/generic-todo` | warning | TODO без ссылки на тикет |
-| `vend/cross-file-ref` | warning | указатель на другой файл/строку в комментарии (`handler.py:147`, `src/util.py:30`); требует разделитель пути или известное кодовое расширение, поэтому URL с якорем `#L12` и пары host:port не флагаются |
-| `vend/obvious-comment` | warning | однострочный комментарий пересказывает строку кода под ним (`// increment the counter` над `counter += 1`); только кодовые профили, комментарий с «почему» (`т.к.`, `чтобы`, `must`, `only`, `intentionally`, единицы измерения…) не флагается |
+| `vend/cross-file-ref` | warning | указатель на другой файл/строку в комментарии (handler.py:147) |
+| `vend/obvious-comment` | warning | комментарий пересказывает строку кода под ним |
 | `vend/self-suppression` | warning | директива подавления без списка правил пришла вместе с подавляемым кодом |
-| `vend/cjk-noise` | warning | CJK-иероглифы склеены с латиницей или цифрами в code-части строки (артефакт генерации) |
+| `vend/cjk-noise` | warning | CJK-иероглифы склеены с латиницей или цифрами в коде (артефакт генерации) |
 | `vend/zero-width-chars` | error | невидимый символ нулевой ширины (U+200B, U+200C, U+200D, U+2060, U+FEFF или escape-форма) |
-| `vend/bidi-controls` | error | BiDi-контролы (U+202A–U+202E, U+2066–U+2069 или escape-форма) в любой строке и направленные марки (U+200E, U+200F) в кодовой части строки |
+| `vend/bidi-controls` | error | BiDi-контролы (U+202A-U+202E, U+2066-U+2069) в любой строке и направленные марки (U+200E, U+200F) в коде |
+<!-- stop-ai-slop:rules:end -->
 
 Error-правила не применяются к doc-блокам (JSDoc `/** … */`, Python-docstring и `///` doc-строки — dartdoc, rustdoc, C# XML doc): контрактная документация классов и функций допустима любой длины. Внутри doc-блоков по-прежнему ловятся changelog-маркеры (error) и пересказ сигнатуры «This function…» (warning).
 
