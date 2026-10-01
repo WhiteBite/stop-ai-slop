@@ -1,6 +1,6 @@
 {
   "PowerShell/PowerShell": {
-    "changelog-marker": 14,
+    "changelog-marker": 26,
     "long-comment": 1737,
     "multi-line-comment": 7515,
     "vend/cjk-noise": 2,
@@ -50,7 +50,7 @@
     "vend/this-function-opener": 5
   },
   "redis/redis": {
-    "changelog-marker": 21,
+    "changelog-marker": 23,
     "long-comment": 131,
     "multi-line-comment": 8876,
     "vend/file-summary-header": 171,

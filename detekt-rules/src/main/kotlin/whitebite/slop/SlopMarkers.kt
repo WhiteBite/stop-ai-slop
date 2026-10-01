@@ -28,7 +28,7 @@ internal object SlopMarkers {
 
     // (?U) только внутри \s-групп: в JS \s юникодный, а \b/\w/\d — ASCII-only; глобальный флаг сломал бы паритет
     val CHANGELOG_STRONG = Pat.of(
-        """\bwas\b[^,.;\n]{0,60},(?U:\s*)(?:and(?U:\s+))?now\b|\bthis fixes\b|\bthis fix\b|\bmust take over\b|broke, so""",
+        """\bwas\b[^,.;\n]{0,60},(?U:\s*)(?:and(?U:\s+))?now\b|\bthis fixes\b|\bthis fix\b|\bmust take over\b|broke, so|\b(?:before|prior(?U:\s+)to|after|since)(?U:\s+)this(?U:\s+)(?:change|refactor|rewrite)\b(?!((?U:\s+))(?:of|request)\b)|\bthe(?U:\s+)old\b[^,.;\n]{0,40}(?<!\b(?:is|are|was|were|be|been|being)(?U:\s))\b(?:kept|behaved|returned|assumed|treated|held|ignored|skipped)\b(?!((?U:\s+))(?:for|by|as|to|with|in|on|from|like|than|if|when|whenever|unless|until|during|while|over|under|across|through|via|without|within|between|among|against|per|onto|upon|about|after|before|since|despite|except|into|of|at|because|although|though|whereas|whether|around)\b)(?!((?U:\s+))[\w-]{1,20}(?U:\s+)by\b)|(?:(?<![\w)\]](?U:\s))|(?<=\b(?:and|but|since|because|when|while|as|earlier|previously|originally|now|then|so|also|however|rem)(?U:\s)))\b(?:we|they|it|this)(?U:\s+)used to\b|(?<![а-яё])(?:до|после)(?U:\s+)(?:этого(?U:\s+)изменения|этой(?U:\s+)правки)|(?<![а-яё])(?:стар(?:ый|ая|ое|ые|ого|ому|ым|ом|ой|ую|ых|ыми)|прежн(?:ий|яя|ее|ие|его|ему|им|ем|ей|юю|их|ими))[^,.;\n]{0,40}(?:держал[аои]?|возвращал[аои]?|считал[аои]?|обрабатывал[аои]?|игнорировал[аои]?|пропускал[аои]?|вел[аои]?|вёл)(?![а-яё])(?!((?U:\s+))бы(?![а-яё]))|\bused to\b[^,.;\n]{0,50}\b(?:has|have)(?U:\s+)been(?U:\s+)(?:removed|deleted|replaced|dropped)\b""",
         ignoreCase = true,
     )
 
