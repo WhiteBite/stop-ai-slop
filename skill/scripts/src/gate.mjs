@@ -1,12 +1,29 @@
-import { resolve } from "node:path"
+import { dirname, resolve } from "node:path"
 import { RULE_BY_ID, SECURITY_RULES } from "./rules.mjs"
 import { detectCommentSlop, isCodePath, multisetDiff, readDisk } from "./detect.mjs"
 import { genContext, isGeneratedFile } from "./generated.mjs"
 import { profileFor } from "./profiles.mjs"
 import { applyRuleConfig, configOptions, loadConfig } from "./config.mjs"
 import { toRel } from "./paths.mjs"
+import { gitToplevel } from "./git.mjs"
 
 const CONFIG_CACHE = new Map()
+const ROOT_CACHE = new Map()
+const CACHE_MAX = 512
+
+function cacheSet(map, key, value) {
+  if (map.size >= CACHE_MAX) map.delete(map.keys().next().value)
+  map.set(key, value)
+}
+
+// root must come from the edited file, not cwd: the OpenCode host cwd is often another repo
+function resolveConfigRoot(filePath) {
+  const dir = dirname(resolve(filePath))
+  if (ROOT_CACHE.has(dir)) return ROOT_CACHE.get(dir)
+  const root = gitToplevel(dir)
+  cacheSet(ROOT_CACHE, dir, root)
+  return root
+}
 
 export function loadConfigCached(root) {
   if (CONFIG_CACHE.has(root)) {
@@ -16,10 +33,10 @@ export function loadConfigCached(root) {
   }
   try {
     const config = loadConfig(root)
-    CONFIG_CACHE.set(root, config)
+    cacheSet(CONFIG_CACHE, root, config)
     return config
   } catch (error) {
-    CONFIG_CACHE.set(root, error)
+    cacheSet(CONFIG_CACHE, root, error)
     throw error
   }
 }
@@ -70,7 +87,8 @@ export function evaluateEdit(tool, args, opts) {
   if (typeof tool !== "string" || !MUTATING_TOOLS.has(tool)) {
     return { tool, evaluated: false, blocked: false, filePath: null, addedCount: 0, violations: [], message: null }
   }
-  const root = typeof opts?.root === "string" ? opts.root : null
+  const filePathArg = typeof args?.filePath === "string" ? args.filePath : null
+  const root = typeof opts?.root === "string" ? opts.root : filePathArg === null ? null : resolveConfigRoot(filePathArg)
   const extracted = addedFromToolArgs(tool, args ?? {}, root === null ? opts : { ...opts, keepGenerated: true })
   if (extracted === null) {
     return {

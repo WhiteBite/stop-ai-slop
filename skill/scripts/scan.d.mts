@@ -64,7 +64,11 @@ export interface GateResult {
   violations: Violation[]
   message: string | null
 }
-export declare function evaluateEdit(tool: string, args: Record<string, unknown>, opts?: { includeGenerated?: boolean }): GateResult
+export declare function evaluateEdit(
+  tool: string,
+  args: Record<string, unknown>,
+  opts?: { includeGenerated?: boolean; root?: string },
+): GateResult
 // null: файл отсутствует (ENOENT); undefined: другая ошибка чтения
 export declare function readDisk(filePath: string): string | null | undefined
 export declare function loadGitattributesGenerated(root: string): ((rel: string) => boolean) | null
@@ -90,3 +94,6 @@ export declare function benchDelta(
 ): { repo: string; rule: string; was: number; now: number }[]
 export declare function auditLogPath(): string
 export declare function appendAudit(entry: Record<string, unknown>, path?: string): void
+export declare function resolveLang(argv: string[], env?: Record<string, string | undefined>): { lang: string | null; error: boolean }
+export declare function setLang(lang: string): void
+export declare function currentLang(): string

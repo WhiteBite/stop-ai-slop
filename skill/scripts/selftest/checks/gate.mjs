@@ -139,9 +139,13 @@ export default async function ({ check, runCli, selfPath }) {
     const eeGen = evaluateEdit("write", { filePath: join(cfgRoot, "models.g.dart"), content: "final a = '" + ZW + "'\n" })
     const eeClean = evaluateEdit("write", { filePath: join(cfgRoot, "ee.ts"), content: "const x = 1\n" })
     check(
-      "cfg-surface evaluateEdit: контракт без opts не изменён",
-      ee.blocked === true && ee.violations.some((v) => v.rule === "multi-line-comment") && eeGen.evaluated === false && eeClean.blocked === false,
-      JSON.stringify({ blocked: ee.blocked, genEvaluated: eeGen.evaluated, cleanBlocked: eeClean.blocked }),
+      "cfg-surface evaluateEdit: без opts root из файла — generated security-правило живо",
+      ee.blocked === true &&
+        ee.violations.some((v) => v.rule === "multi-line-comment") &&
+        eeGen.blocked === true &&
+        eeGen.violations.some((v) => v.rule === "vend/zero-width-chars") &&
+        eeClean.blocked === false,
+      JSON.stringify({ blocked: ee.blocked, genBlocked: eeGen.blocked, cleanBlocked: eeClean.blocked }),
     )
   } finally {
     rmSync(cfgRoot, { recursive: true, force: true })
