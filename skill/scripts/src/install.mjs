@@ -11,7 +11,8 @@ export function cmdInstall(strict = false) {
   const allCmd = `node "${abs}" scan`
   const pkgPath = join(root, "package.json")
   if (existsSync(pkgPath)) {
-    const pkg = JSON.parse(readFileSync(pkgPath, "utf8"))
+    const raw = readFileSync(pkgPath, "utf8")
+    const pkg = JSON.parse(raw)
     pkg.scripts = typeof pkg.scripts === "object" && pkg.scripts !== null ? pkg.scripts : {}
     const before = JSON.stringify(pkg.scripts)
     const had = Object.prototype.hasOwnProperty.call(pkg.scripts, "stop-ai-slop")
@@ -19,7 +20,10 @@ export function cmdInstall(strict = false) {
     pkg.scripts["stop-ai-slop:all"] = allCmd
     if (JSON.stringify(pkg.scripts) === before) console.log("slop-gate: package.json — scripts уже на месте")
     else {
-      writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + "\n")
+      const eol = raw.includes("\r\n") ? "\r\n" : "\n"
+      const indent = raw.match(/^[ \t]+(?=")/m)?.[0] ?? null
+      const body = indent === null ? JSON.stringify(pkg) : JSON.stringify(pkg, null, indent)
+      writeFileSync(pkgPath, (eol === "\r\n" ? body.replace(/\n/g, "\r\n") : body) + (/\r?\n$/.test(raw) ? eol : ""))
       console.log(`slop-gate: package.json — ${had ? "обновлены" : "добавлены"} scripts.stop-ai-slop и scripts.stop-ai-slop:all`)
     }
   } else {
