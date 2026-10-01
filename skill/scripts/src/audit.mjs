@@ -1,7 +1,9 @@
-import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
+import { appendFileSync, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs"
 import { homedir } from "node:os"
 import { dirname, join } from "node:path"
 import { T } from "./i18n.mjs"
+
+const ROTATION_SCAN_BYTES = 10000
 
 export function auditLogPath() {
   return process.env.STOP_AI_SLOP_LOG ?? join(homedir(), ".config", "opencode", "logs", "comment-gate.jsonl")
@@ -10,8 +12,11 @@ export function auditLogPath() {
 export function appendAudit(entry, path = auditLogPath()) {
   try {
     mkdirSync(dirname(path), { recursive: true })
-    const lines = existsSync(path) ? readFileSync(path, "utf8").split(/\r?\n/) : []
-    if (lines.length > 10000) writeFileSync(path, lines.slice(-5000).join("\n") + "\n")
+    // lines.length > 10000 needs >= 10000 newlines, so a file under 10000 bytes can never rotate
+    if (existsSync(path) && statSync(path).size >= ROTATION_SCAN_BYTES) {
+      const lines = readFileSync(path, "utf8").split(/\r?\n/)
+      if (lines.length > 10000) writeFileSync(path, lines.slice(-5000).join("\n") + "\n")
+    }
     appendFileSync(path, JSON.stringify({ ts: new Date().toISOString(), ...entry }) + "\n")
   } catch {
     return
