@@ -14,6 +14,10 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node skill/scripts/gen-catalog.mjs --check
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
