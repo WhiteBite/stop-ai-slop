@@ -29,6 +29,8 @@ export const MESSAGES = {
     preToolNotJson: "slop-gate: --pre-tool: stdin не является JSON - проверка пропущена",
     pkgNotJson: (p) => `slop-gate: ${p} — не JSON, файл не тронут, --install прерван`,
     mcpUnknownTool: (name) => `неизвестный инструмент ${name}`,
+    gatePolicy:
+      "комментарий — максимум одна строка и только неочевидное внешнее ограничение/инвариант/воркэраунд; пересказ диффа (было/стало/почему тест существует) живёт в коммите и имени теста. Сожми до одной строки WHY: инвариант оставь, историю прежнего поведения удали, контрактную документацию оформи doc-блоком (JSDoc/docstring/`///`).",
   },
   en: {
     clean: "slop-gate: clean",
@@ -58,6 +60,8 @@ export const MESSAGES = {
     preToolNotJson: "slop-gate: --pre-tool: stdin is not JSON - check skipped",
     pkgNotJson: (p) => `slop-gate: ${p} is not valid JSON — file untouched, --install aborted`,
     mcpUnknownTool: (name) => `unknown tool ${name}`,
+    gatePolicy:
+      "a comment is at most one line and only a non-obvious external constraint/invariant/workaround; the retelling of the diff (was/became, why the test exists) lives in the commit and the test name. Compress to one line of WHY: keep the invariant, delete the history of the previous behavior, put contract documentation in a doc-block (JSDoc/docstring/`///`).",
   },
 }
 

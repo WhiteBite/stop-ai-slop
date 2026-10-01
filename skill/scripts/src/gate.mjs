@@ -1,5 +1,6 @@
 import { dirname, resolve } from "node:path"
-import { RULE_BY_ID, SECURITY_RULES } from "./rules.mjs"
+import { SECURITY_RULES } from "./rules.mjs"
+import { T, rt } from "./i18n.mjs"
 import { detectCommentSlop, isCodePath, multisetDiff, readDisk } from "./detect.mjs"
 import { genContext, isGeneratedFile } from "./generated.mjs"
 import { profileFor } from "./profiles.mjs"
@@ -72,8 +73,6 @@ export function addedFromToolArgs(tool, args, opts) {
   return { filePath, added }
 }
 export const MUTATING_TOOLS = new Set(["edit", "write", "multiedit"])
-export const GATE_POLICY =
-  "комментарий — максимум одна строка и только неочевидное внешнее ограничение/инвариант/воркэраунд; пересказ диффа (было/стало/почему тест существует) живёт в коммите и имени теста. Убери комментарий или сожми до одной строки WHY."
 export function evaluateEdit(tool, args, opts) {
   if (typeof tool !== "string" || !MUTATING_TOOLS.has(tool)) {
     return { tool, evaluated: false, blocked: false, filePath: null, addedCount: 0, violations: [], message: null }
@@ -107,8 +106,8 @@ export function evaluateEdit(tool, args, opts) {
       .map(
         (v) =>
           `comment-gate: ${v.rule} [${v.severity}] at ${extracted.filePath}:${v.lineNo}\n${v.lines.join("\n")}\ninstead: ${
-            RULE_BY_ID.get(v.rule)?.instead ?? ""
-          }\nPolicy: ${GATE_POLICY}`,
+            rt(v.rule, "instead") ?? ""
+          }\nPolicy: ${T("gatePolicy")}`,
       )
       .join("\n\n")
   }
