@@ -55,6 +55,7 @@
     "prepublishOnly": "node skill/scripts/scan.mjs --self-test",
     "test": "node skill/scripts/scan.mjs --self-test",
     "self-test": "node skill/scripts/scan.mjs --self-test",
+    "typecheck": "tsc --noEmit",
     "gen:schema": "node skill/scripts/gen-schema.mjs --write",
     "gen:docs": "node skill/scripts/gen-docs.mjs --write",
     "gen:catalog": "node skill/scripts/gen-catalog.mjs --write",
@@ -64,6 +65,7 @@
     "rdk:fix": "rdk fix"
   },
   "devDependencies": {
-    "repo-aeo": "^0.3.0"
+    "repo-aeo": "^0.3.0",
+    "typescript": "^5.9.3"
   }
 }

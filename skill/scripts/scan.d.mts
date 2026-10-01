@@ -11,14 +11,18 @@ export interface FileViolation extends Violation {
   rel: string
 }
 
-export interface Rule {
-  id: string
-  severity: Severity
+export interface RuleText {
   message: string
   why: string
   instead: string
   write: string
   ignoreWhen: string
+}
+
+export interface Rule extends RuleText {
+  id: string
+  severity: Severity
+  en: RuleText
 }
 
 export declare const RULES: Rule[]
@@ -55,15 +59,17 @@ export declare function addedFromToolArgs(
   args: Record<string, unknown>,
   opts?: { includeGenerated?: boolean },
 ): { filePath: string; added: string[] } | null
-export interface GateResult {
+interface GateResultBase {
   tool: string
   evaluated: boolean
-  blocked: boolean
   filePath: string | null
   addedCount: number
   violations: Violation[]
-  message: string | null
 }
+
+export type GateResult =
+  | (GateResultBase & { blocked: false; message: null })
+  | (GateResultBase & { blocked: true; message: string })
 export declare function evaluateEdit(
   tool: string,
   args: Record<string, unknown>,
