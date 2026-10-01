@@ -51,6 +51,20 @@ class RuleCatalogParityTest {
         }
     }
 
+    @Test
+    fun `issue descriptions equal catalog messages`() {
+        val byId = catalog.rules.associateBy { it.id }
+        val mismatches = registered.mapNotNull { rule ->
+            val entry = byId[slopRuleId(rule)] ?: fail("rule ${rule.issue.id} has no catalog entry")
+            if (entry.message == rule.issue.description) {
+                null
+            } else {
+                "${entry.id}:\n  catalog: ${entry.message}\n  kotlin:  ${rule.issue.description}"
+            }
+        }
+        assertTrue(mismatches.isEmpty(), "issue descriptions differ from the catalog:\n" + mismatches.joinToString("\n"))
+    }
+
     private fun slopRuleId(rule: Rule): String = slopRuleIdField.get(rule) as String
 }
 

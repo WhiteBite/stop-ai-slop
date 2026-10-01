@@ -111,6 +111,10 @@ internal object SlopMarkers {
             BS + BS + "u202[a-eA-E]|" + BS + BS + "u206[6-9]",
     )
 
+    val BIDI_MARK = Pat.of(
+        "[" + 0x200E.toChar() + 0x200F.toChar() + "]|" + BS + BS + "u200[eEfF]",
+    )
+
     val SUPPRESS_NEXT = Pat.of("""stop-ai-slop-ignore-next-line\b(.*)${D}""")
     val SUPPRESS_LINE = Pat.of("""stop-ai-slop-ignore-line\b(.*)${D}""")
     val SUPPRESS_FILE = Pat.of("""stop-ai-slop-ignore-file\b(.*)${D}""")

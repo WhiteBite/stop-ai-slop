@@ -96,6 +96,8 @@ internal object SlopDetector {
                     val col = model.inlineStartCol[i]
                     val codePart = if (col >= 0) rawLine.substring(0, col) else rawLine
                     if (SlopMarkers.CJK_ADJACENT.find(codePart)) push("vend/cjk-noise", i)
+                    // U+200E/U+200F в комментарии — легальная RTL-типографика, поэтому только код
+                    if (SlopMarkers.BIDI_MARK.find(codePart)) push("vend/bidi-controls", i)
                 }
             }
             if (SlopMarkers.SUPPRESS_ANY.find(stripped[i])) continue
