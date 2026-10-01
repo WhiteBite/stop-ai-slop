@@ -32,4 +32,9 @@ class StopAiSlopStepNumberedTest {
     fun `prose without a number is clean`() {
         assertEquals(0, rule.lint(lines("// шаги описаны ниже", "val x = 1")).size)
     }
+
+    @Test
+    fun `nbsp between step word and number is flagged`() {
+        assertEquals(1, rule.lint(lines("// step" + ch(0x00A0) + "3: init", "val x = 1")).size)
+    }
 }

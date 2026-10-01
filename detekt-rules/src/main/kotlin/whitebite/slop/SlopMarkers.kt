@@ -26,8 +26,9 @@ internal object SlopMarkers {
 
     val SECURITY_RULES = setOf("vend/zero-width-chars", "vend/bidi-controls", "vend/cjk-noise")
 
+    // (?U) только внутри \s-групп: в JS \s юникодный, а \b/\w/\d — ASCII-only; глобальный флаг сломал бы паритет
     val CHANGELOG_STRONG = Pat.of(
-        """\bwas\b[^,.;\n]{0,60},\s*(?:and\s+)?now\b|\bthis fixes\b|\bthis fix\b|\bmust take over\b|broke, so""",
+        """\bwas\b[^,.;\n]{0,60},(?U:\s*)(?:and(?U:\s+))?now\b|\bthis fixes\b|\bthis fix\b|\bmust take over\b|broke, so""",
         ignoreCase = true,
     )
 
@@ -37,25 +38,26 @@ internal object SlopMarkers {
     )
 
     val STEP_NUMBERED = Pat.of(
-        """^(?:step\s+\d+|шаг\s+\d+|schritt\s+\d+|(?<![a-zéèêàùç])étape\s+\d+|paso\s+\d+|\d+\.)""",
+        """^(?:step(?U:\s+)\d+|шаг(?U:\s+)\d+|schritt(?U:\s+)\d+|(?<![a-zéèêàùç])étape(?U:\s+)\d+|paso(?U:\s+)\d+|\d+\.)""",
         ignoreCase = true,
     )
 
-    val DIVIDER = Pat.of("""[-=#*\s─-╿]{6,}""")
+    // (?U) на весь паттерн: \s здесь единственный предопределённый класс, \b/\w/\d в паттерне нет
+    val DIVIDER = Pat.of("""(?U)^[-=#*\s─-╿]{6,}$""")
 
     val MARKDOWN_BOLD = Pat.of("""^\*\*""")
-    val MARKDOWN_LIST = Pat.of("""^-\s+\S""")
+    val MARKDOWN_LIST = Pat.of("""(?U)^-\s+\S""")
     val MARKDOWN_TABLE = Pat.of("""^\|.+\|.+\|""")
 
     val THIS_OPENER = Pat.of(
-        """^(?:this\s+(?:function|class|method|component)\b|(?:эт[ао]т?\s+|данн(?:ая|ый)\s+)(?:функци[а-яё]*|класс[а-яё]*|метод[а-яё]*|компонент[а-яё]*)|diese[rs]?\s+(?:funktion|klasse|methode|komponente)|cett[ee]\s+(?:fonction|classe|méthode|composant)|est[ae]\s+(?:función|clase|método|componente))""",
+        """^(?:this(?U:\s+)(?:function|class|method|component)\b|(?:эт[ао]т?(?U:\s+)|данн(?:ая|ый)(?U:\s+))(?:функци[а-яё]*|класс[а-яё]*|метод[а-яё]*|компонент[а-яё]*)|diese[rs]?(?U:\s+)(?:funktion|klasse|methode|komponente)|cett[ee](?U:\s+)(?:fonction|classe|méthode|composant)|est[ae](?U:\s+)(?:función|clase|método|componente))""",
         ignoreCase = true,
     )
 
     val TODO_WORD = Pat.of("""\btodo\b""", ignoreCase = true)
     val TICKET_REF = Pat.of("""[A-Z]+-\d+""")
-    val ISSUE_LINK = Pat.of("""https?://\S+|#\d+""")
-    val LONG_LINK = Pat.of("""https?://\S{30,}""")
+    val ISSUE_LINK = Pat.of("""https?://(?U:\S+)|#\d+""")
+    val LONG_LINK = Pat.of("""(?U)https?://\S{30,}""")
 
     val CROSS_FILE_REF = Pat.of("""(?<![\w@:./\\-])((?:[\w.-]+[/\\])*)([\w-]+)\.([A-Za-z]{1,5}):(\d+)""")
 
@@ -68,7 +70,7 @@ internal object SlopMarkers {
     )
 
     val OBVIOUS_WHY = Pat.of(
-        """because|since|otherwise|unless|until|so that|in case|workaround|invariant|constraint|intentionally|deliberately|required|\bmust\b|\bshould\b|\bcannot\b|\bavoid\b|\bonly\b|\butc\b|\bgmt\b|\bms\b|millisecond|second|т\.?\s*к\.|так как|потому что|чтобы|иначе|если|пока|должн|нужно|надо|обязательн|нельзя|воркэраунд|инвариант|ограничен|осторожн|намеренн|специальн|требует|только|миллисекунд|секунд""",
+        """because|since|otherwise|unless|until|so that|in case|workaround|invariant|constraint|intentionally|deliberately|required|\bmust\b|\bshould\b|\bcannot\b|\bavoid\b|\bonly\b|\butc\b|\bgmt\b|\bms\b|millisecond|second|т\.?(?U:\s*)к\.|так как|потому что|чтобы|иначе|если|пока|должн|нужно|надо|обязательн|нельзя|воркэраунд|инвариант|ограничен|осторожн|намеренн|специальн|требует|только|миллисекунд|секунд""",
         ignoreCase = true,
     )
 
@@ -129,10 +131,11 @@ internal object SlopMarkers {
         Pat.of("""do not (?:edit|modify)|do-not-edit""", ignoreCase = true),
     )
 
+    // (?U) на весь паттерн: \s здесь единственный предопределённый класс, \b/\w/\d в паттерне нет
     private val COMMENT_LEAD = Regex(
-        "^(?://+|/\\*+|\\*+|#+|--+|;+|%+|!+|\\(\\*+|<!--+|::+|\\.\\.+|'+|\"+|\\{\\{!--?|\\{\\{!|\\{\\{/\\*+)\\s?",
+        "(?U)^(?://+|/\\*+|\\*+|#+|--+|;+|%+|!+|\\(\\*+|<!--+|::+|\\.\\.+|'+|\"+|\\{\\{!--?|\\{\\{!|\\{\\{/\\*+)\\s?",
     )
-    private val BLOCK_TAIL = Regex("\\*/\\s*$")
+    private val BLOCK_TAIL = Regex("(?U)\\*/\\s*$")
     private val DOC_OPEN = Regex("^[rbf]?(?:\"\"\"|''')")
     private val DOC_CLOSE = Regex("(?:\"\"\"|''')$")
 

@@ -32,4 +32,19 @@ class StopAiSlopSectionDividerTest {
     fun `ordinary comment is clean`() {
         assertEquals(0, rule.lint(lines("// a - b", "val x = 1")).size)
     }
+
+    @Test
+    fun `divider run embedded in prose is clean`() {
+        assertEquals(0, rule.lint(lines("// foo ====== bar", "val x = 1")).size)
+    }
+
+    @Test
+    fun `full line dash divider is flagged`() {
+        assertEquals(1, rule.lint(lines("// ----------", "val x = 1")).size)
+    }
+
+    @Test
+    fun `trailing inline divider is flagged`() {
+        assertEquals(1, rule.lint(lines("const val x = 1 // ------")).size)
+    }
 }

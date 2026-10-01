@@ -80,7 +80,8 @@ internal fun collectComments(root: KtFile): Pair<List<KtCommentInfo>, SourceLine
     return out to src
 }
 
-private val licenseHead = Regex("^(?://+|/\\*+|\\*+|<!--|#+|;+|--+)\\s*(?:copyright|licensed?|SPDX)", RegexOption.IGNORE_CASE)
+// (?U) — \s в JS юникодный (U+00A0), в Java по умолчанию ASCII
+private val licenseHead = Regex("(?U)^(?://+|/\\*+|\\*+|<!--|#+|;+|--+)\\s*(?:copyright|licensed?|SPDX)", RegexOption.IGNORE_CASE)
 
 internal fun isLicenseRun(runLines: List<String>): Boolean =
     runLines.take(3).any { licenseHead.containsMatchIn(it.trim()) } ||

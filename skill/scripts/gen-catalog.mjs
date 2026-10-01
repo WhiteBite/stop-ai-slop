@@ -1,6 +1,7 @@
 #!/usr/bin/env node
-import { existsSync, readFileSync, writeFileSync } from "node:fs"
-import { fileURLToPath } from "node:url"
+import { existsSync, readFileSync, realpathSync, writeFileSync } from "node:fs"
+import { resolve } from "node:path"
+import { fileURLToPath, pathToFileURL } from "node:url"
 import { RULES } from "./scan.mjs"
 
 const CATALOG_PATH = fileURLToPath(new URL("../../detekt-rules/rule-catalog.json", import.meta.url))
@@ -30,12 +31,11 @@ const EXCLUDED = [
   },
 ]
 
-function buildCatalog() {
+export function buildCatalog() {
   const excludedIds = new Set(EXCLUDED.map((e) => e.id))
   const unmapped = RULES.filter((r) => !(r.id in KOTLIN_RULE) && !excludedIds.has(r.id)).map((r) => r.id)
   if (unmapped.length > 0) {
-    console.error(`catalog: unmapped rules (add a kotlinRule or an exclusion): ${unmapped.join(", ")}`)
-    process.exit(2)
+    throw new Error(`catalog: unmapped rules (add a kotlinRule or an exclusion): ${unmapped.join(", ")}`)
   }
   const rules = RULES.filter((r) => r.id in KOTLIN_RULE)
     .map((r) => ({ id: r.id, severity: r.severity, message: r.message, kotlinRule: KOTLIN_RULE[r.id] }))
@@ -67,7 +67,13 @@ function reportDelta(current, next) {
 }
 
 function main(argv) {
-  const next = serialize(buildCatalog())
+  let next
+  try {
+    next = serialize(buildCatalog())
+  } catch (error) {
+    console.error(String(error.message ?? error))
+    return 2
+  }
   const mode = argv[0]
   if (mode === "--write") {
     writeFileSync(CATALOG_PATH, next)
@@ -88,4 +94,16 @@ function main(argv) {
   return 2
 }
 
-process.exit(main(process.argv.slice(2)))
+// Node realpaths the main module before import.meta.url; argv[1] keeps the symlink, so compare realpaths
+const isMain = (() => {
+  try {
+    return process.argv[1] !== undefined && realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url))
+  } catch {
+    try {
+      return process.argv[1] !== undefined && import.meta.url === pathToFileURL(resolve(process.argv[1])).href
+    } catch {
+      return false
+    }
+  }
+})()
+if (isMain) process.exit(main(process.argv.slice(2)))

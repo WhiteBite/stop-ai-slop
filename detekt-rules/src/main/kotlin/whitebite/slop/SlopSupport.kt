@@ -7,8 +7,9 @@ internal class Suppressions(
     val perLine: Map<Int, Set<String>?>,
 )
 
+// (?U) — \s в JS юникодный (U+00A0), в Java по умолчанию ASCII
 internal fun rulesOfTail(tail: String): Set<String>? {
-    val ids = tail.substringBefore("--").trim().split(Regex("""\s+""")).filter { it.isNotEmpty() }
+    val ids = tail.substringBefore("--").trim().split(Regex("""(?U)\s+""")).filter { it.isNotEmpty() }
     return if (ids.isEmpty()) null else ids.toSet()
 }
 
