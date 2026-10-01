@@ -5,7 +5,7 @@
 ## Текущее состояние
 
 - npm `latest` = **0.10.1** (проверено `npm view` 2026-10-01; теги `v0.10.0`, `v0.10.1` в репо). Зеркало `@whitebite/stop-ai-slop` в GitHub Packages; GitHub Releases создаёт воркфлоу сам.
-- Проверки перед любым коммитом: `node skill/scripts/scan.mjs --self-test` (exit 0, 503 PASS), `node skill/scripts/scan.mjs scan .` (exit 0), `gradle -p detekt-rules test` (BUILD SUCCESSFUL), `node skill/scripts/gen-schema.mjs --check` + `gen-catalog.mjs --check` + `gen-docs.mjs --check` (все `in sync`), pre-commit гейт срабатывает сам.
+- Проверки перед любым коммитом: `node skill/scripts/scan.mjs --self-test` (exit 0, 505 PASS), `node skill/scripts/scan.mjs scan .` (exit 0), `gradle -p detekt-rules test` (BUILD SUCCESSFUL), `node skill/scripts/gen-schema.mjs --check` + `gen-catalog.mjs --check` + `gen-docs.mjs --check` (все `in sync`), pre-commit гейт срабатывает сам.
 - Self-test в `skill/scripts/selftest.mjs` (`cmdSelfTest`, :11); проверки авто-дискаверятся из `skill/scripts/selftest/checks/*.mjs` (агрегатор :1717-1726) — новый чек = новый файл там, регистрация в теле не нужна; контракт плагина — фасад `evaluateEdit` (реэкспорт из `src/gate.mjs`); сообщения — `skill/scripts/messages.mjs` (ru+en, выбор через `--lang`/env).
 - Монолит распилён: `scan.mjs` — фасад 35 строк (bin + реэкспорты), логика в 20 модулях `skill/scripts/src/` (7-256 строк); selftest.mjs ~1735 + 17 файлов `selftest/checks/`; messages.mjs ~137.
 - Бэклог re-verified 2026-09-28: все deferred-триггеры не сработали, health checks green.
@@ -75,6 +75,8 @@
 - `--pre-tool` apply_patch-ветвь (`extractPatchDeltas`, `src/gate.mjs:126`): V4A-патч разбирается построчно (заголовки `*** Add/Update File`, `*** Move to`, `*** Delete File`, `+`-строки), не grammar-парсером. Экзотический/битый патч без распознанных `+`-строк даёт пустой added → exit 0 (fail-open, как весь `--pre-tool`). Приемлемо: гейт-помощник, не security-граница.
 - `--pre-tool` shape-gating для неизвестных имён инструментов: read-only guard (`PRE_TOOL_READ_ONLY`, `src/pretool.mjs:41`) — substring-совпадение по lowercased имени (`read|view|grep|search|glob|list|ls|bash|shell|exec|run|fetch|web|think|todo|plan`). Инструмент с write-формой payload, но read-only-словом в имени, не гейтится. Осознанно: имена нестабильны (VS Code Copilot, Devin), ложное блокирование чтения хуже пропуска.
 - Стек tool-директив (`// @ts-expect-error` над `// eslint-disable-next-line`) считается multi-line-раном — осознанный FP: exemptions под конкретные директивы открывают лазейку «два exempt-комментария = не ран». Встречается редко; легаси — через baseline.
+
+- `commentLines` (`src/profiles.mjs`) ведёт состояние блокового комментария по первым 10 строкам: opener, не закрывшийся внутри окна, проглатывает следующие строки как содержимое комментария. По грамматикам языков эти строки и есть комментарий; ложное срабатывание возможно только на синтаксически битом файле или на opener'е внутри многострочного литерала, начинающегося с маркера. Осознанно: общее ограничение «линейное извлечение, не грамматики».
 
 ## Семантики, которые легко сломать невнимательной правкой
 

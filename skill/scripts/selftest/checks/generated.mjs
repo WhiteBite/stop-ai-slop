@@ -36,6 +36,8 @@ export default async function ({ check, runCli, selfRoot }) {
     writeFileSync(join(work, "baremid.hs"), "{-\n" + GEN + "\n-}\n-- aaa\n-- bbb\nmain = return ()\n")
     writeFileSync(join(work, "baremid.lua"), "--[[\n" + GEN + "\n]]\n-- aaa\n-- bbb\nlocal x = 1\n")
     writeFileSync(join(work, "sec.g.dart"), "// " + GEN + "\n// aaa\n// bbb\nfinal s = '" + CP(0x200b) + "'\n")
+    writeFileSync(join(work, "negbare.c"), "/*\nInternal notes for the ingest path.\n*/\n// aaa\n// bbb\nint x = 1;\n")
+    writeFileSync(join(work, "sameline.c"), '/* x */ const a = "generat"\nconst b = "do not edit"\n// aaa\n// bbb\nint y = 1;\n')
 
     const scanOf = (name) => runCli(["scan", name], work)
 
@@ -83,9 +85,22 @@ export default async function ({ check, runCli, selfRoot }) {
       sec.status === 1 && sec.out.includes("vend/zero-width-chars") && !sec.out.includes("multi-line-comment"),
       `exit ${sec.status}: ${sec.out.slice(0, 200)}`,
     )
+    const negbare = scanOf("negbare.c")
+    check(
+      "generated-negative: a bare-middle block without generator words is still linted",
+      negbare.status === 1 && negbare.out.includes("multi-line-comment"),
+      `exit ${negbare.status}: ${negbare.out.slice(0, 200)}`,
+    )
+    const sameline = scanOf("sameline.c")
+    check(
+      "generated-negative: a block closing on its own line does not swallow the code after it",
+      sameline.status === 1 && sameline.out.includes("multi-line-comment"),
+      `exit ${sameline.status}: ${sameline.out.slice(0, 200)}`,
+    )
+
     check(
       "generated-name: unique filename suffixes stay exempt through the direct API",
-      classified("models.g.dart", "// " + GEN + "\n") === true,
+      classified("models.g.dart", "final x = 1\n") === true,
       "name-based exemption regressed",
     )
   } finally {
