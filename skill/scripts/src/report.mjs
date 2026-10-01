@@ -1,22 +1,16 @@
-import { readFileSync } from "node:fs"
-import { dirname, join } from "node:path"
-import { fileURLToPath } from "node:url"
 import { RULES, RULE_BY_ID } from "./rules.mjs"
 import { T, rt } from "./i18n.mjs"
+import { packageVersion } from "./version.mjs"
 
 export function sortedFindings(findings) {
   return [...findings].sort((a, b) => (a.rel === b.rel ? a.lineNo - b.lineNo : a.rel < b.rel ? -1 : 1))
 }
-export let toolVersionCache = null
 export function toolVersion() {
-  if (toolVersionCache === null) {
-    try {
-      toolVersionCache = JSON.parse(readFileSync(join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..", "package.json"), "utf8")).version
-    } catch {
-      toolVersionCache = "0.0.0"
-    }
+  try {
+    return packageVersion()
+  } catch {
+    return "0.0.0"
   }
-  return toolVersionCache
 }
 export function toRdjson(findings) {
   const sorted = sortedFindings(findings)
