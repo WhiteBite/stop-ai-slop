@@ -87,13 +87,13 @@ export const RULES = [
     why: "Markdown в комментарии — документация, которую никто не читает рядом с кодом; она устаревает.",
     instead: "убрать; документация — в README, why — в одну строку",
     write: "// сбрасываем здесь, т.к. ниже освобождаем слот",
-    ignoreWhen: "docstring, который реально рендерится генератором доков",
+    ignoreWhen: "docstring, который реально рендерится генератором доков; одиночный `|flag|` в прозе — строка таблицы требует минимум трёх пайпов",
     en: {
       message: "markdown syntax inside a comment (**, -, |)",
       why: "Markdown in a comment is documentation nobody reads next to the code; it goes stale.",
       instead: "remove it; documentation belongs in README, the why — in one line",
       write: "// reset here because the slot is freed below",
-      ignoreWhen: "a docstring that is actually rendered by a docs generator",
+      ignoreWhen: "a docstring that is actually rendered by a docs generator; a lone `|flag|` in prose — a table row needs at least three pipes",
     },
   },
   {
@@ -151,13 +151,13 @@ export const RULES = [
     why: "Указатель на строку чужого файла гниёт при первой же правке там: номер перестаёт совпадать, и ни один инструмент этого не заметит. URL и host:port не флагаются.",
     instead: "импортировать символ и сослаться на него — резолвится компилятором; либо назвать причину, а не место",
     write: "// формат фиксирован вендором, см. спеку из тикета",
-    ignoreWhen: "URL с якорем #L12, host:port",
+    ignoreWhen: "URL с якорем #L12, host:port; требуется разделитель пути или известное кодовое расширение",
     en: {
       message: "a pointer to another file/line in a comment (handler.py:147)",
       why: "A pointer to a line of someone else's file rots at the first edit there: the number stops matching and no tool notices. URLs with #L12 anchors and host:port pairs are not flagged.",
       instead: "import the symbol and reference it — the compiler resolves it; or name the reason, not the place",
       write: "// the format is fixed by the vendor, see the spec linked from the ticket",
-      ignoreWhen: "URLs with #L12 anchors, host:port",
+      ignoreWhen: "URLs with #L12 anchors, host:port; a path separator or a known code extension is required",
     },
   },
   {
@@ -199,13 +199,13 @@ export const RULES = [
     why: "Переключение модели на китайский посреди идентификатора или строки не читается и не компилируется осмысленно; склейка иероглифов с латиницей — маркер невычищенной генерации, а не осознанной i18n-строки.",
     instead: "переписать идентификатор или строку на одном языке; переводы — в i18n-ресурсы",
     write: "const TAB_LABELS = { features: 'Функции' }",
-    ignoreWhen: "легальные китайские комментарии и строки i18n без смежности с латиницей; подавление директивой",
+    ignoreWhen: "легальные китайские комментарии и строки i18n без смежности с латиницей; prose-файлы (.md/.html/.xml/.rst/.adoc) не проверяются; подавление директивой",
     en: {
       message: "CJK characters glued to Latin letters or digits in the code part of a line (a generation artifact)",
       why: "A model switching to Chinese mid-identifier or mid-string is neither readable nor meaningfully compilable; CJK glued to Latin is a marker of an uncleaned generation, not a deliberate i18n string.",
       instead: "rewrite the identifier or string in one language; translations belong in i18n resources",
       write: "const TAB_LABELS = { features: 'Функции' }",
-      ignoreWhen: "legitimate Chinese comments and i18n strings without Latin adjacency; directive suppression",
+      ignoreWhen: "legitimate Chinese comments and i18n strings without Latin adjacency; prose files (.md/.html/.xml/.rst/.adoc) are not checked; directive suppression",
     },
   },
   {
