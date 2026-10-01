@@ -227,17 +227,17 @@ export const RULES = [
   {
     id: "vend/bidi-controls",
     severity: "error",
-    message: "BiDi-контролы (U+202A-U+202E, U+2066-U+2069 или escape-форма) переопределяют направление текста",
-    why: "BiDi-override меняет визуальный порядок кода без изменения логики: ревьюер видит не тот код, что исполняется.",
+    message: "BiDi-контролы (U+202A-U+202E, U+2066-U+2069) в любой строке и направленные марки (U+200E, U+200F) в коде",
+    why: "BiDi-override меняет визуальный порядок кода без изменения логики: ревьюер видит не тот код, что исполняется. Марки U+200E/U+200F порядок не переопределяют, но в коде это артефакт генерации или инъекция; в комментариях и prose-файлах они легальны для RTL-текста, поэтому там не флагуются.",
     instead: "удалить контрол; направление текста определяет Unicode Bidi Algorithm",
     write: "const url = 'example.com'",
-    ignoreWhen: "нет (явные контролы в коде не нужны)",
+    ignoreWhen: "U+200E/U+200F внутри комментария или prose-файла — легальная RTL-типографика",
     en: {
-      message: "BiDi controls (U+202A-U+202E, U+2066-U+2069 or an escape form) overriding text direction",
-      why: "A BiDi override changes the visual order of code without changing the logic: the reviewer sees code that is not what runs.",
+      message: "BiDi controls (U+202A-U+202E, U+2066-U+2069) on any line, and directional marks (U+200E, U+200F) in code",
+      why: "A BiDi override changes the visual order of code without changing the logic: the reviewer sees code that is not what runs. The U+200E/U+200F marks do not reorder, but in code they are a generation artifact or an injection; in comments and prose files they are legitimate RTL typography, so they are not flagged there.",
       instead: "delete the control; text direction is the Unicode Bidi Algorithm's job",
       write: "const url = 'example.com'",
-      ignoreWhen: "none (explicit controls in code are never needed)",
+      ignoreWhen: "U+200E/U+200F inside a comment or a prose file — legitimate RTL typography",
     },
   },
 ]

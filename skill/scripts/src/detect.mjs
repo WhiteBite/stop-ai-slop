@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs"
 import { RULE_BY_ID } from "./rules.mjs"
 import {
   BIDI,
+  BIDI_MARK,
   CHANGELOG_STRONG,
   CJK_ADJACENT,
   ISSUE_LINK,
@@ -187,6 +188,7 @@ export function detectCommentSlop(addedLines, profile = PROFILES.legacy, diffMod
       if (!cls.comment && !cls.doc && cls.literal !== true && !proseCjk) {
         const m = inlineMarkerAt(rawLine, profile)
         const codePart = m === null ? rawLine : rawLine.slice(0, m.idx)
+        if (BIDI_MARK.test(codePart)) push(finding("vend/bidi-controls", i + 1, [rawLine]))
         if (CJK_ADJACENT.test(codePart)) push(finding("vend/cjk-noise", i + 1, [rawLine]))
       }
     }

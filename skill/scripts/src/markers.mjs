@@ -90,6 +90,7 @@ export const EMOJI = new RegExp(
 export const BIDI = new RegExp(
   "[" + CP(0x202a, 0x202b, 0x202c, 0x202d, 0x202e, 0x2066, 0x2067, 0x2068, 0x2069) + "]|" + BS + BS + "u202[a-eA-E]|" + BS + BS + "u206[6-9]",
 )
+export const BIDI_MARK = new RegExp("[" + CP(0x200e, 0x200f) + "]|" + BS + BS + "u200[eEfF]")
 export const hasBadZwj = (line) => {
   if (ZWJ_ESCAPE.test(line)) return true
   const chars = [...line]
