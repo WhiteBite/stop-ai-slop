@@ -8,7 +8,7 @@ import { RULES, RULE_BY_ID, KNOWN_FLAGS, CONFIG_KEYS, resolveLang, profileFor, d
 const CP = (...cps) => String.fromCodePoint(...cps)
 const BS = CP(0x5c)
 
-export function cmdSelfTest() {
+export async function cmdSelfTest() {
   const dir = mkdtempSync(join(tmpdir(), "slop-gate-"))
   let failures = 0
   const checkNames = []
@@ -1713,6 +1713,14 @@ try {
         v2Run.status === 0 && v2Result !== null && v2Result.ok === true && v2AuditOk,
         v2Result && v2Result.error ? v2Result.error : `exit ${v2Run.status}: ${(v2Run.stderr ?? "").slice(0, 300)}`,
       )
+    }
+    const checksDir = join(dirname(selfPath), "selftest", "checks")
+    if (existsSync(checksDir)) {
+      for (const entry of readdirSync(checksDir).sort()) {
+        if (!entry.endsWith(".mjs")) continue
+        const mod = await import(pathToFileURL(join(checksDir, entry)).href)
+        await mod.default({ check, runCli, selfPath, selfRoot, dir })
+      }
     }
   } finally {
     rmSync(dir, { recursive: true, force: true })
