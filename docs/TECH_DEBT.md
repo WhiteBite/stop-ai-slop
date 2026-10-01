@@ -5,9 +5,9 @@
 ## Текущее состояние
 
 - npm `latest` = **0.10.1** (проверено `npm view` 2026-10-01; теги `v0.10.0`, `v0.10.1` в репо). Зеркало `@whitebite/stop-ai-slop` в GitHub Packages; GitHub Releases создаёт воркфлоу сам.
-- Проверки перед любым коммитом: `node skill/scripts/scan.mjs --self-test` (exit 0, 497 PASS), `node skill/scripts/scan.mjs scan .` (exit 0), `gradle -p detekt-rules test` (BUILD SUCCESSFUL), `node skill/scripts/gen-schema.mjs --check` + `gen-catalog.mjs --check` + `gen-docs.mjs --check` (все `in sync`), pre-commit гейт срабатывает сам.
+- Проверки перед любым коммитом: `node skill/scripts/scan.mjs --self-test` (exit 0, 503 PASS), `node skill/scripts/scan.mjs scan .` (exit 0), `gradle -p detekt-rules test` (BUILD SUCCESSFUL), `node skill/scripts/gen-schema.mjs --check` + `gen-catalog.mjs --check` + `gen-docs.mjs --check` (все `in sync`), pre-commit гейт срабатывает сам.
 - Self-test в `skill/scripts/selftest.mjs` (`cmdSelfTest`, :11); проверки авто-дискаверятся из `skill/scripts/selftest/checks/*.mjs` (агрегатор :1717-1726) — новый чек = новый файл там, регистрация в теле не нужна; контракт плагина — фасад `evaluateEdit` (реэкспорт из `src/gate.mjs`); сообщения — `skill/scripts/messages.mjs` (ru+en, выбор через `--lang`/env).
-- Монолит распилён: `scan.mjs` — фасад 35 строк (bin + реэкспорты), логика в 20 модулях `skill/scripts/src/` (7-256 строк); selftest.mjs ~1730 + 16 файлов `selftest/checks/`; messages.mjs ~137.
+- Монолит распилён: `scan.mjs` — фасад 35 строк (bin + реэкспорты), логика в 20 модулях `skill/scripts/src/` (7-256 строк); selftest.mjs ~1735 + 17 файлов `selftest/checks/`; messages.mjs ~137.
 - Бэклог re-verified 2026-09-28: все deferred-триггеры не сработали, health checks green.
 
 ## Процедура релиза
