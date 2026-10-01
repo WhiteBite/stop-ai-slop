@@ -8,6 +8,13 @@ export const RULES = [
     instead: "удалить или сжать до одной строки: только неочевидное внешнее ограничение, инвариант или воркэраунд",
     write: "// сбрасываем здесь, т.к. ниже освобождаем слот",
     ignoreWhen: "doc-блок (JSDoc/docstring/`///` doc-комментарии) с контрактной документацией; легаси — через baseline",
+    en: {
+      message: "a comment spans 2+ consecutive lines (doc-blocks and /// doc-comment runs exempt)",
+      why: "A multi-line comment is almost always a retelling of the code or the diff. Nobody rereads it a year later, and nobody notices when it drifts from the code.",
+      instead: "delete it or compress to one line: only a non-obvious external constraint, invariant, or workaround",
+      write: "// reset here because the slot is freed below",
+      ignoreWhen: "doc-block (JSDoc/docstring/`///` doc comments) with contract documentation; legacy — via baseline",
+    },
   },
   {
     id: "changelog-marker",
@@ -17,6 +24,13 @@ export const RULES = [
     instead: "убрать комментарий; «почему» — в сообщение коммита",
     write: "ничего в коде — причину пишем в сообщение коммита",
     ignoreWhen: "дословная цитата внешней спеки, где формулировка зафиксирована",
+    en: {
+      message: "the comment retells the diff (a pair of changelog markers or a strong marker, ru/en/de/fr/es)",
+      why: "Change history lives in git. «was/became» in code goes stale the moment you commit and only lies afterwards. A lone «instead of/was» is ordinary prose; the changelog signal is a pair of markers in one comment run or a strong marker (this fixes, must take over, was…, now…).",
+      instead: "remove the comment; the «why» belongs in the commit message",
+      write: "nothing in code — the reason goes into the commit message",
+      ignoreWhen: "a verbatim quote from an external spec where the wording is fixed",
+    },
   },
   {
     id: "long-comment",
@@ -26,6 +40,13 @@ export const RULES = [
     instead: "сжать мысль до одной короткой строки или удалить",
     write: "// сбрасываем здесь, т.к. ниже освобождаем слот",
     ignoreWhen: "doc-блок; строка с длинной ссылкой на спеку/issue",
+    en: {
+      message: "a comment line longer than 120 characters",
+      why: "A long line is the smell of a wall of text. A constraint worth a comment can be stated briefly.",
+      instead: "compress the idea into one short line or delete it",
+      write: "// reset here because the slot is freed below",
+      ignoreWhen: "doc-block; a line whose length is dominated by a long spec/issue link",
+    },
   },
   {
     id: "vend/step-numbered",
@@ -35,6 +56,13 @@ export const RULES = [
     instead: "говорящие имена функций и переменных вместо номеров; комментарий удалить",
     write: "const normalized = normalize(payload)",
     ignoreWhen: "протокол из внешнего документа с фиксированной нумерацией шагов",
+    en: {
+      message: "a numbered step in a comment (Step N / Шаг N / N., any language marker)",
+      why: "Numbering duplicates the order of the code lines. After the first edit steps get inserted in between — the numbers lie.",
+      instead: "speaking names of functions and variables instead of numbers; delete the comment",
+      write: "const normalized = normalize(payload)",
+      ignoreWhen: "a protocol from an external document with fixed step numbering",
+    },
   },
   {
     id: "vend/section-divider",
@@ -44,6 +72,13 @@ export const RULES = [
     instead: "разбить файл или убрать разделитель",
     write: "ничего — навигацию даёт структура модулей",
     ignoreWhen: "сгенерированный файл",
+    en: {
+      message: "a divider line made of -=#* characters",
+      why: "Banners are the smell of a wall-of-text file. Navigation comes from code structure, not rulers.",
+      instead: "split the file or remove the divider",
+      write: "nothing — module structure is the navigation",
+      ignoreWhen: "a generated file",
+    },
   },
   {
     id: "vend/markdown-in-comment",
@@ -53,6 +88,13 @@ export const RULES = [
     instead: "убрать; документация — в README, why — в одну строку",
     write: "// сбрасываем здесь, т.к. ниже освобождаем слот",
     ignoreWhen: "docstring, который реально рендерится генератором доков",
+    en: {
+      message: "markdown syntax inside a comment (**, -, |)",
+      why: "Markdown in a comment is documentation nobody reads next to the code; it goes stale.",
+      instead: "remove it; documentation belongs in README, the why — in one line",
+      write: "// reset here because the slot is freed below",
+      ignoreWhen: "a docstring that is actually rendered by a docs generator",
+    },
   },
   {
     id: "vend/this-function-opener",
@@ -62,6 +104,13 @@ export const RULES = [
     instead: "удалить или переформулировать как инвариант/воркэраунд",
     write: "// дедупликация по id, т.к. источник шлёт повторы",
     ignoreWhen: "публичный API с обязательным JSDoc по внешнему требованию",
+    en: {
+      message: "a comment starts with \"This function/…\", «Эта функция/…», «Diese Funktion…», «Cette fonction…» or «Esta función…»",
+      why: "\"This function does X\" retells the signature. The only value is a non-obvious constraint.",
+      instead: "delete or rephrase as an invariant/workaround",
+      write: "// dedupe by id because the source sends duplicates",
+      ignoreWhen: "a public API where JSDoc is mandatory by external requirement",
+    },
   },
   {
     id: "vend/file-summary-header",
@@ -71,6 +120,13 @@ export const RULES = [
     instead: "убрать шапку; имя файла и структура говорят сами",
     write: "ничего — файл начинается с кода",
     ignoreWhen: "лицензионная шапка, требуемая политикой репо",
+    en: {
+      message: "a 2+ line summary-header comment at the top of a file",
+      why: "A file table of contents goes stale at the first edit. The structure is visible through the file's symbols.",
+      instead: "remove the header; the file name and structure speak for themselves",
+      write: "nothing — the file starts with code",
+      ignoreWhen: "a license header required by repo policy",
+    },
   },
   {
     id: "vend/generic-todo",
@@ -80,6 +136,13 @@ export const RULES = [
     instead: "добавить тикет: // TODO ABC-123 ... — или удалить",
     write: "// TODO KRY-482 снять воркэраунд после фикса upstream",
     ignoreWhen: "локальный черновик до первого коммита",
+    en: {
+      message: "a TODO without a ticket link (any case: todo, Todo, TODO)",
+      why: "A TODO without a ticket is an eternal debt: nobody owns finding it and there is never time to fix it.",
+      instead: "add a ticket: // TODO ABC-123 ... — or delete it",
+      write: "// TODO KRY-482 drop the workaround after the upstream fix",
+      ignoreWhen: "a local draft before the first commit",
+    },
   },
   {
     id: "vend/cross-file-ref",
@@ -89,6 +152,13 @@ export const RULES = [
     instead: "импортировать символ и сослаться на него — резолвится компилятором; либо назвать причину, а не место",
     write: "// формат фиксирован вендором, см. спеку из тикета",
     ignoreWhen: "URL с якорем #L12, host:port",
+    en: {
+      message: "a pointer to another file/line in a comment (handler.py:147)",
+      why: "A pointer to a line of someone else's file rots at the first edit there: the number stops matching and no tool notices. URLs with #L12 anchors and host:port pairs are not flagged.",
+      instead: "import the symbol and reference it — the compiler resolves it; or name the reason, not the place",
+      write: "// the format is fixed by the vendor, see the spec linked from the ticket",
+      ignoreWhen: "URLs with #L12 anchors, host:port",
+    },
   },
   {
     id: "vend/obvious-comment",
@@ -98,6 +168,13 @@ export const RULES = [
     instead: "удалить; неочевидное ограничение — отдельной строкой с «почему»",
     write: "// сбрасываем здесь, т.к. ниже освобождаем слот",
     ignoreWhen: "комментарий содержит обоснование; только кодовые профили, не проза",
+    en: {
+      message: "a single-line comment restates the code line beneath it",
+      why: "A restatement of the line below adds no information: the code describes itself, and the restatement desyncs at the first refactor. A comment with a why (because, so that, must, only, intentionally…) is not flagged.",
+      instead: "delete it; a non-obvious constraint — as a separate line with the why",
+      write: "// reset here because the slot is freed below",
+      ignoreWhen: "the comment carries a rationale; code profiles only, not prose",
+    },
   },
   {
     id: "vend/self-suppression",
@@ -107,6 +184,13 @@ export const RULES = [
     instead: "указать явный список правил или внести директиву отдельной правкой",
     write: "// stop-ai-slop-ignore-next-line vend/step-numbered -- нумерация из внешнего протокола",
     ignoreWhen: "full-scan: директива уже в репо, подавление легитимно",
+    en: {
+      message: "a suppression directive without a rule list arrived together with the code it suppresses",
+      why: "A directive in the same edit as the code it silences is amnesty without review: nobody checked the justification.",
+      instead: "list the rules explicitly or land the directive as a separate edit",
+      write: "// stop-ai-slop-ignore-next-line vend/step-numbered -- numbering comes from the external protocol",
+      ignoreWhen: "full-scan: the directive is already in the repo, the suppression is legitimate",
+    },
   },
   {
     id: "vend/cjk-noise",
@@ -116,6 +200,13 @@ export const RULES = [
     instead: "переписать идентификатор или строку на одном языке; переводы — в i18n-ресурсы",
     write: "const TAB_LABELS = { features: 'Функции' }",
     ignoreWhen: "легальные китайские комментарии и строки i18n без смежности с латиницей; подавление директивой",
+    en: {
+      message: "CJK characters glued to Latin letters or digits in the code part of a line (a generation artifact)",
+      why: "A model switching to Chinese mid-identifier or mid-string is neither readable nor meaningfully compilable; CJK glued to Latin is a marker of an uncleaned generation, not a deliberate i18n string.",
+      instead: "rewrite the identifier or string in one language; translations belong in i18n resources",
+      write: "const TAB_LABELS = { features: 'Функции' }",
+      ignoreWhen: "legitimate Chinese comments and i18n strings without Latin adjacency; directive suppression",
+    },
   },
   {
     id: "vend/zero-width-chars",
@@ -125,6 +216,13 @@ export const RULES = [
     instead: "удалить символ; пробел — обычным пробелом",
     write: "const label = 'test'",
     ignoreWhen: "нет (всегда артефакт или инъекция)",
+    en: {
+      message: "an invisible zero-width character (U+200B, U+200C, U+200D, U+2060, U+FEFF or an escape form)",
+      why: "Invisible characters are an injection and obfuscation channel (Unicode Instruction Injection, Trojan Source): the text does not look the way it executes.",
+      instead: "delete the character; use an ordinary space for a space",
+      write: "const label = 'test'",
+      ignoreWhen: "none (always an artifact or an injection)",
+    },
   },
   {
     id: "vend/bidi-controls",
@@ -134,9 +232,17 @@ export const RULES = [
     instead: "удалить контрол; направление текста определяет Unicode Bidi Algorithm",
     write: "const url = 'example.com'",
     ignoreWhen: "нет (явные контролы в коде не нужны)",
+    en: {
+      message: "BiDi controls (U+202A-U+202E, U+2066-U+2069 or an escape form) overriding text direction",
+      why: "A BiDi override changes the visual order of code without changing the logic: the reviewer sees code that is not what runs.",
+      instead: "delete the control; text direction is the Unicode Bidi Algorithm's job",
+      write: "const url = 'example.com'",
+      ignoreWhen: "none (explicit controls in code are never needed)",
+    },
   },
 ]
 export const RULE_BY_ID = new Map(RULES.map((r) => [r.id, r]))
+export const RULE_TEXT_EN = Object.fromEntries(RULES.map((r) => [r.id, r.en]))
 export const SECURITY_RULES = new Set(["vend/zero-width-chars", "vend/bidi-controls", "vend/cjk-noise"])
 export const FIXABLE_RULES = new Set([
   "multi-line-comment",
