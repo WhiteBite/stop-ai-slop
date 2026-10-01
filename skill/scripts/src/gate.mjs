@@ -1,15 +1,48 @@
-import { RULE_BY_ID } from "./rules.mjs"
+import { resolve } from "node:path"
+import { RULE_BY_ID, SECURITY_RULES } from "./rules.mjs"
 import { detectCommentSlop, isCodePath, multisetDiff, readDisk } from "./detect.mjs"
-import { isGeneratedFile } from "./generated.mjs"
+import { genContext, isGeneratedFile } from "./generated.mjs"
 import { profileFor } from "./profiles.mjs"
+import { applyRuleConfig, configOptions, loadConfig } from "./config.mjs"
+import { toRel } from "./paths.mjs"
+
+const CONFIG_CACHE = new Map()
+
+export function loadConfigCached(root) {
+  if (CONFIG_CACHE.has(root)) {
+    const hit = CONFIG_CACHE.get(root)
+    if (hit instanceof Error) throw hit
+    return hit
+  }
+  try {
+    const config = loadConfig(root)
+    CONFIG_CACHE.set(root, config)
+    return config
+  } catch (error) {
+    CONFIG_CACHE.set(root, error)
+    throw error
+  }
+}
+
+export function configFindings(root, filePath, lines, diffMode, config) {
+  const cfg = config === undefined ? (root === null ? null : loadConfigCached(root)) : config
+  const detected = detectCommentSlop(lines, profileFor(filePath) ?? undefined, diffMode, null, configOptions(cfg))
+  if (root === null) return applyRuleConfig(detected, cfg)
+  const disk = readDisk(filePath)
+  const text = typeof disk === "string" ? disk : lines.join("\n")
+  const visible = isGeneratedFile(toRel(root, resolve(filePath)), text, genContext(root, cfg))
+    ? detected.filter((f) => SECURITY_RULES.has(f.rule))
+    : detected
+  return applyRuleConfig(visible, cfg)
+}
 
 export function addedFromToolArgs(tool, args, opts) {
   const filePath = typeof args.filePath === "string" ? args.filePath : null
   if (filePath === null || !isCodePath(filePath)) return null
   const genExtra = { gitattr: null, cfgPaths: [], scanGenerated: opts?.includeGenerated === true }
-  if (isGeneratedFile(filePath, "", genExtra)) return null
+  if (opts?.keepGenerated !== true && isGeneratedFile(filePath, "", genExtra)) return null
   if (tool === "write") {
-    if (typeof args.content !== "string" || isGeneratedFile(filePath, args.content, genExtra)) return null
+    if (typeof args.content !== "string" || (opts?.keepGenerated !== true && isGeneratedFile(filePath, args.content, genExtra))) return null
     const disk = readDisk(filePath)
     return {
       filePath,
@@ -37,7 +70,8 @@ export function evaluateEdit(tool, args, opts) {
   if (typeof tool !== "string" || !MUTATING_TOOLS.has(tool)) {
     return { tool, evaluated: false, blocked: false, filePath: null, addedCount: 0, violations: [], message: null }
   }
-  const extracted = addedFromToolArgs(tool, args ?? {}, opts)
+  const root = typeof opts?.root === "string" ? opts.root : null
+  const extracted = addedFromToolArgs(tool, args ?? {}, root === null ? opts : { ...opts, keepGenerated: true })
   if (extracted === null) {
     return {
       tool,
@@ -49,9 +83,7 @@ export function evaluateEdit(tool, args, opts) {
       message: null,
     }
   }
-  const violations = detectCommentSlop(extracted.added, profileFor(extracted.filePath) ?? undefined, true).filter(
-    (v) => v.severity === "error",
-  )
+  const violations = configFindings(root, extracted.filePath, extracted.added, true).filter((v) => v.severity === "error")
   const result = {
     tool,
     evaluated: true,

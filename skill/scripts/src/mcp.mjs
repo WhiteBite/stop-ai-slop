@@ -1,7 +1,8 @@
 import { createInterface } from "node:readline"
-import { gitToplevel, collectFiles, scanFiles } from "./git.mjs"
-import { applyRuleConfig, configOptions, loadConfig } from "./config.mjs"
-import { genContext } from "./generated.mjs"
+import { gitToplevel, collectFiles, readScannable } from "./git.mjs"
+import { loadConfig } from "./config.mjs"
+import { configFindings } from "./gate.mjs"
+import { toRel } from "./paths.mjs"
 import { loadBaseline, maskBaselined } from "./baseline.mjs"
 import { explainText, findingsToText, toolVersion } from "./report.mjs"
 import { T } from "./i18n.mjs"
@@ -38,10 +39,14 @@ export function mcpCallTool(name, args) {
     } catch (error) {
       return mcpToolResult(`ошибка конфига: ${error.message}`, true)
     }
-    const findings = applyRuleConfig(
-      scanFiles(collectFiles([path], root, config?.excludePaths ?? []), root, configOptions(config), genContext(root, config)),
-      config,
-    )
+    const findings = []
+    for (const file of collectFiles([path], root, config?.excludePaths ?? [])) {
+      const text = readScannable(file)
+      if (text === null) continue
+      for (const v of configFindings(root, file, text.replaceAll("\r\n", "\n").split("\n"), false, config)) {
+        findings.push({ rel: toRel(root, file), ...v })
+      }
+    }
     const baseline = loadBaseline(root)
     return mcpToolResult(findingsToText(maskBaselined(baseline, findings)))
   }

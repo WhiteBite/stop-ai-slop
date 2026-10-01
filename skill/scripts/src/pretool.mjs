@@ -1,16 +1,20 @@
 import { existsSync, readFileSync } from "node:fs"
 import { resolve } from "node:path"
-import { SECURITY_RULES } from "./rules.mjs"
 import { toRel } from "./paths.mjs"
 import { profileFor } from "./profiles.mjs"
-import { detectCommentSlop, readDisk } from "./detect.mjs"
-import { genContext, isGeneratedFile } from "./generated.mjs"
-import { addedFromToolArgs, extractPatchDeltas } from "./gate.mjs"
-import { loadConfig } from "./config.mjs"
-import { gitToplevel, scanFiles } from "./git.mjs"
+import { addedFromToolArgs, configFindings, extractPatchDeltas, loadConfigCached } from "./gate.mjs"
+import { gitToplevel, readScannable } from "./git.mjs"
 import { loadBaseline, maskBaselined } from "./baseline.mjs"
 import { failsGate, printFindings } from "./report.mjs"
 import { T, rt } from "./i18n.mjs"
+
+function loadConfigOrNull(root) {
+  try {
+    return loadConfigCached(root)
+  } catch {
+    return null
+  }
+}
 
 export function cmdStdinPath() {
   const payload = readFileSync(0, "utf8")
@@ -23,15 +27,12 @@ export function cmdStdinPath() {
   }
   if (typeof filePath !== "string" || filePath === "") return 0
   const root = gitToplevel(process.cwd())
-  const profile = profileFor(filePath)
-  if (profile === null || !existsSync(filePath)) return 0
-  let config = null
-  try {
-    config = loadConfig(root)
-  } catch {
-    config = null
-  }
-  const findings = scanFiles([filePath], root, null, genContext(root, config)).map((f) => ({ ...f, rel: toRel(root, resolve(filePath)) }))
+  if (profileFor(filePath) === null || !existsSync(filePath)) return 0
+  const text = readScannable(filePath)
+  if (text === null) return 0
+  const findings = configFindings(root, filePath, text.replaceAll("\r\n", "\n").split("\n"), false, loadConfigOrNull(root)).map(
+    (f) => ({ ...f, rel: toRel(root, resolve(filePath)) }),
+  )
   const baseline = loadBaseline(root)
   const fresh = maskBaselined(baseline, findings)
   printFindings(fresh)
@@ -45,21 +46,10 @@ export function preToolPatch(ti) {
   const deltas = extractPatchDeltas(text)
   if (deltas.length === 0) return 0
   const root = gitToplevel(process.cwd())
-  let config = null
-  try {
-    config = loadConfig(root)
-  } catch {
-    config = null
-  }
+  const config = loadConfigOrNull(root)
   let blocked = false
   for (const { filePath, added } of deltas) {
-    if (isGeneratedFile(filePath, "", { gitattr: null, cfgPaths: [], scanGenerated: config?.scanGenerated === true })) continue
-    let violations = detectCommentSlop(added, profileFor(filePath) ?? undefined, true).filter((v) => v.severity === "error")
-    const disk = readDisk(filePath)
-    const genText = typeof disk === "string" ? disk : added.join("\n")
-    if (isGeneratedFile(toRel(root, resolve(filePath)), genText, genContext(root, config))) {
-      violations = violations.filter((v) => SECURITY_RULES.has(v.rule))
-    }
+    const violations = configFindings(root, filePath, added, true, config).filter((v) => v.severity === "error")
     for (const v of violations) {
       process.stderr.write(`slop-gate: ${v.rule} [${v.severity}] at ${filePath}:${v.lineNo}\n${v.lines.join("\n")}\ninstead: ${rt(v.rule, "instead")}\n`)
     }
@@ -97,12 +87,7 @@ export function cmdPreTool() {
     else return 0
   }
   const root = gitToplevel(process.cwd())
-  let config = null
-  try {
-    config = loadConfig(root)
-  } catch {
-    config = null
-  }
+  const config = loadConfigOrNull(root)
   const extracted = addedFromToolArgs(
     tool,
     {
@@ -114,15 +99,10 @@ export function cmdPreTool() {
         ? ti.edits.map((e) => ({ oldString: e?.old_string ?? e?.oldString, newString: e?.new_string ?? e?.newString }))
         : ti.edits,
     },
-    { includeGenerated: config?.scanGenerated === true },
+    { includeGenerated: config?.scanGenerated === true, keepGenerated: true },
   )
   if (extracted === null) return 0
-  let violations = detectCommentSlop(extracted.added, profileFor(extracted.filePath) ?? undefined, true).filter((v) => v.severity === "error")
-  const disk = readDisk(extracted.filePath)
-  const genText = typeof disk === "string" ? disk : extracted.added.join("\n")
-  if (isGeneratedFile(toRel(root, resolve(extracted.filePath)), genText, genContext(root, config))) {
-    violations = violations.filter((v) => SECURITY_RULES.has(v.rule))
-  }
+  const violations = configFindings(root, extracted.filePath, extracted.added, true, config).filter((v) => v.severity === "error")
   if (violations.length === 0) return 0
   for (const v of violations) {
     process.stderr.write(`slop-gate: ${v.rule} [${v.severity}] at ${extracted.filePath}:${v.lineNo}\n${v.lines.join("\n")}\ninstead: ${rt(v.rule, "instead")}\n`)
