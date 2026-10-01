@@ -8,7 +8,7 @@ const SENTINEL = "library-import-ok"
 
 export default async function ({ check, runCli, selfPath, dir }) {
   const work = mkdtempSync(join(tmpdir(), "slop-gate-main-"))
-  const siblingLink = join(dirname(selfPath), ".selftest-main-link.mjs")
+  const mainLink = join(work, ".selftest-main-link.mjs")
   try {
     const direct = runCli(["--help"], dir)
     check("main-direct: прямой запуск бина [exit 0, help]", direct.status === 0 && direct.out.includes("stop-ai-slop"), `exit ${direct.status}: stdout ${direct.out.length} bytes`)
@@ -32,7 +32,8 @@ export default async function ({ check, runCli, selfPath, dir }) {
     let symlinkOk = false
     try {
       symlinkSync(selfPath, link)
-      symlinkSync(selfPath, siblingLink)
+      symlinkSync(selfPath, mainLink)
+      symlinkSync(join(dirname(selfPath), "src"), join(work, "src"), "dir")
       symlinkOk = true
     } catch {
       check("main-symlink: skip — symlink creation not permitted", true, "skip: symlink creation not permitted (Windows needs developer mode or admin)")
@@ -54,18 +55,18 @@ export default async function ({ check, runCli, selfPath, dir }) {
           preserved.status === 0 && preserved.stdout.includes("stop-ai-slop"),
           `exit ${preserved.status}: stdout ${preserved.stdout.length} bytes`,
         )
-        const preservedMain = spawnSync(process.execPath, ["--preserve-symlinks-main", siblingLink, "--help"], { encoding: "utf8", cwd: dir, env })
+        const preservedMain = spawnSync(process.execPath, ["--preserve-symlinks-main", mainLink, "--help"], { encoding: "utf8", cwd: dir, env })
         check(
-          "main-preserve-main: --preserve-symlinks-main через symlink в одном каталоге с бинарём [exit 0, help]",
+          "main-preserve-main: --preserve-symlinks-main через symlink [exit 0, help]",
           preservedMain.status === 0 && preservedMain.stdout.includes("stop-ai-slop"),
           `exit ${preservedMain.status}: stdout ${preservedMain.stdout.length} bytes`,
         )
       } finally {
-        rmSync(siblingLink, { force: true })
+        rmSync(mainLink, { force: true })
       }
     }
   } finally {
-    rmSync(siblingLink, { force: true })
+    rmSync(mainLink, { force: true })
     rmSync(work, { recursive: true, force: true })
   }
 }

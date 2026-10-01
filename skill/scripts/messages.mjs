@@ -27,6 +27,7 @@ export const MESSAGES = {
     benchWritten: (n) => `slop-gate: bench: эталон записан -> bench-history.json (${n} репозиториев)`,
     benchFetch: (repo, sha) => `slop-gate: bench: fetch ${repo}@${sha}`,
     preToolNotJson: "slop-gate: --pre-tool: stdin не является JSON - проверка пропущена",
+    pkgNotJson: (p) => `slop-gate: ${p} — не JSON, файл не тронут, --install прерван`,
     mcpUnknownTool: (name) => `неизвестный инструмент ${name}`,
   },
   en: {
@@ -55,6 +56,7 @@ export const MESSAGES = {
     benchWritten: (n) => `slop-gate: bench: baseline written -> bench-history.json (${n} repos)`,
     benchFetch: (repo, sha) => `slop-gate: bench: fetch ${repo}@${sha}`,
     preToolNotJson: "slop-gate: --pre-tool: stdin is not JSON - check skipped",
+    pkgNotJson: (p) => `slop-gate: ${p} is not valid JSON — file untouched, --install aborted`,
     mcpUnknownTool: (name) => `unknown tool ${name}`,
   },
 }

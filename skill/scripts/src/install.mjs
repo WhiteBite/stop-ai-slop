@@ -2,6 +2,7 @@ import { execFileSync } from "node:child_process"
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import { dirname, join, resolve, sep } from "node:path"
 import { fileURLToPath } from "node:url"
+import { T } from "./i18n.mjs"
 import { RULES } from "./rules.mjs"
 
 export function cmdInstall(strict = false) {
@@ -12,7 +13,18 @@ export function cmdInstall(strict = false) {
   const pkgPath = join(root, "package.json")
   if (existsSync(pkgPath)) {
     const raw = readFileSync(pkgPath, "utf8")
-    const pkg = JSON.parse(raw)
+    const noBom = raw.charCodeAt(0) === 0xfeff ? raw.slice(1) : raw
+    let pkg
+    if (noBom.trim() === "") {
+      pkg = {}
+    } else {
+      try {
+        pkg = JSON.parse(noBom)
+      } catch {
+        console.log(T("pkgNotJson", pkgPath))
+        return 2
+      }
+    }
     pkg.scripts = typeof pkg.scripts === "object" && pkg.scripts !== null ? pkg.scripts : {}
     const before = JSON.stringify(pkg.scripts)
     const had = Object.prototype.hasOwnProperty.call(pkg.scripts, "stop-ai-slop")

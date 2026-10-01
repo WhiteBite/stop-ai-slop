@@ -165,4 +165,54 @@ export default async function ({ check, runCli, selfPath }) {
   } finally {
     rmSync(dNoop, { recursive: true, force: true })
   }
+
+  const parseJson = (text) => {
+    try {
+      return JSON.parse(text)
+    } catch {
+      return null
+    }
+  }
+  const BOM = String.fromCodePoint(0xfeff)
+
+  const dEmpty = repoWith("slop-gate-pkgempty-", "")
+  try {
+    const res = runCli(["--install"], dEmpty)
+    const after = pkgOf(dEmpty)
+    const pkg = parseJson(after)
+    check(
+      "install-pkg-empty: пустой package.json -> scripts добавлены, записан валидный JSON [exit 0]",
+      res.status === 0 && after.trim() !== "" && pkg !== null && scriptsOk(pkg),
+      `exit ${res.status}: ${JSON.stringify(after)}`,
+    )
+  } finally {
+    rmSync(dEmpty, { recursive: true, force: true })
+  }
+
+  const dBom = repoWith("slop-gate-pkgbom-", BOM + '{\n    "name": "consumer",\n    "scripts": {\n        "test": "echo test"\n    }\n}\n')
+  try {
+    const res = runCli(["--install"], dBom)
+    const after = pkgOf(dBom)
+    const pkg = parseJson(after)
+    check(
+      "install-pkg-bom: BOM распарсен, отступ сохранён, BOM не остался ни в начале, ни в середине [exit 0]",
+      res.status === 0 && pkg !== null && !after.includes(BOM) && /^ {4}"name"/m.test(after) && scriptsOk(pkg),
+      `exit ${res.status}: ${JSON.stringify(after)}`,
+    )
+  } finally {
+    rmSync(dBom, { recursive: true, force: true })
+  }
+
+  const dBad = repoWith("slop-gate-pkgbad-", '{ "name": "consumer", oops }\n')
+  try {
+    const before = pkgOf(dBad)
+    const res = runCli(["--install"], dBad)
+    check(
+      "install-pkg-malformed: битый JSON -> exit 2, файл не тронут, сообщение называет файл",
+      res.status === 2 && pkgOf(dBad) === before && res.out.includes("package.json") && res.out.includes("не JSON"),
+      `exit ${res.status}: ${res.out}`,
+    )
+  } finally {
+    rmSync(dBad, { recursive: true, force: true })
+  }
 }
