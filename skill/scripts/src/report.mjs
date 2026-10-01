@@ -94,16 +94,22 @@ export function printFindings(findings, format = "text", strict = false) {
 export function failsGate(findings, strict) {
   return strict ? findings.length > 0 : findings.some((f) => f.severity === "error")
 }
+export function resolveRuleId(ruleId) {
+  if (RULE_BY_ID.has(ruleId)) return ruleId
+  const prefixed = `vend/${ruleId}`
+  return RULE_BY_ID.has(prefixed) ? prefixed : null
+}
 export function explainText(ruleId) {
-  const rule = RULE_BY_ID.get(ruleId)
-  if (rule === undefined) return null
+  const id = resolveRuleId(ruleId)
+  if (id === null) return null
+  const rule = RULE_BY_ID.get(id)
   return [
-    `${rt(ruleId, "id") ?? rule.id} [${rule.severity}]`,
-    `Message: ${rt(ruleId, "message")}`,
-    `Why: ${rt(ruleId, "why")}`,
-    `Instead of: ${rt(ruleId, "instead")}`,
-    `Write: ${rt(ruleId, "write")}`,
-    `Ignore it when: ${rt(ruleId, "ignoreWhen")}`,
+    `${rt(id, "id") ?? rule.id} [${rule.severity}]`,
+    `Message: ${rt(id, "message")}`,
+    `Why: ${rt(id, "why")}`,
+    `Instead of: ${rt(id, "instead")}`,
+    `Write: ${rt(id, "write")}`,
+    `Ignore it when: ${rt(id, "ignoreWhen")}`,
   ].join("\n")
 }
 
