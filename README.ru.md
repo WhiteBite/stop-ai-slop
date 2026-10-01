@@ -413,7 +413,7 @@ Write-time плагин OpenCode: файл `%USERPROFILE%\.config\opencode\plugi
 ```yaml
 repos:
   - repo: https://github.com/WhiteBite/stop-ai-slop
-    rev: v0.3.0
+    rev: v0.11.0
     hooks:
       - id: stop-ai-slop
 ```

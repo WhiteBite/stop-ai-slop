@@ -97,6 +97,16 @@ function modelineSurface(version, relPath) {
   return { name, relPath, expected, actual, ok: actual === expected }
 }
 
+function revSurface(version, relPath) {
+  const name = `version-sync-precommit: ${relPath} pre-commit rev == v${version}`
+  const expected = `v${version}`
+  const raw = readText(relPath)
+  if (raw === null) return { name, relPath, expected, actual: "missing", ok: false }
+  const m = /^\s*rev:\s*v(\d+\.\d+\.\d+)\s*$/m.exec(raw)
+  const actual = m !== null ? `v${m[1]}` : "no pre-commit rev"
+  return { name, relPath, expected, actual, ok: actual === expected }
+}
+
 export function versionSurfaces() {
   const version = packageVersion()
   return [
@@ -107,5 +117,7 @@ export function versionSurfaces() {
     jsonldSurface(version),
     modelineSurface(version, "README.md"),
     modelineSurface(version, "README.ru.md"),
+    revSurface(version, "README.md"),
+    revSurface(version, "README.ru.md"),
   ]
 }
