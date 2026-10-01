@@ -5,7 +5,7 @@
 ## Текущее состояние
 
 - npm `latest` = **0.10.1** (проверено `npm view` 2026-10-01; теги `v0.10.0`, `v0.10.1` в репо). Зеркало `@whitebite/stop-ai-slop` в GitHub Packages; GitHub Releases создаёт воркфлоу сам.
-- Проверки перед любым коммитом: `node skill/scripts/scan.mjs --self-test` (exit 0, 505 PASS), `node skill/scripts/scan.mjs scan .` (exit 0), `gradle -p detekt-rules test` (BUILD SUCCESSFUL), `node skill/scripts/gen-schema.mjs --check` + `gen-catalog.mjs --check` + `gen-docs.mjs --check` (все `in sync`), pre-commit гейт срабатывает сам.
+- Проверки перед любым коммитом: `node skill/scripts/scan.mjs --self-test` (exit 0, 508 PASS), `node skill/scripts/scan.mjs scan .` (exit 0), `npm run typecheck` (exit 0), `gradle -p detekt-rules test` (BUILD SUCCESSFUL), `node skill/scripts/gen-schema.mjs --check` + `gen-catalog.mjs --check` + `gen-docs.mjs --check` (все `in sync`), pre-commit гейт срабатывает сам.
 - Self-test в `skill/scripts/selftest.mjs` (`cmdSelfTest`, :11); проверки авто-дискаверятся из `skill/scripts/selftest/checks/*.mjs` (агрегатор :1717-1726) — новый чек = новый файл там, регистрация в теле не нужна; контракт плагина — фасад `evaluateEdit` (реэкспорт из `src/gate.mjs`); сообщения — `skill/scripts/messages.mjs` (ru+en, выбор через `--lang`/env).
 - Монолит распилён: `scan.mjs` — фасад 35 строк (bin + реэкспорты), логика в 20 модулях `skill/scripts/src/` (7-256 строк); selftest.mjs ~1735 + 17 файлов `selftest/checks/`; messages.mjs ~137.
 - Бэклог re-verified 2026-09-28: все deferred-триггеры не сработали, health checks green.
@@ -47,8 +47,6 @@
 | detekt-порт: держать паритет с `RULES` | любое изменение `RULES` или `rule-catalog.json` | паритет 14 правил достигнут 2026-10-01 (weak-pair семантика, de/fr/es маркеры, Unicode-правила, generated-эксемпт — всё портировано); дрейф загейчен механически: `RuleCatalogParityTest` сверяет провайдер с `rule-catalog.json` (классы в обе стороны, количество, id, severity error→Defect/warning→Style, текст `Issue` == `message` каталога; исключённые id обязаны отсутствовать в порте) + `node skill/scripts/gen-catalog.mjs --check` в CI `detekt.yml` до gradle-шага. `vend/self-suppression` не портирован осознанно (diff-mode-only, запись в excluded каталога) |
 | Homebrew tap | спрос вне npm-аудитории | формула-обёртка над `npm i -g`; маргинально при npm-базе |
 | Бенч-когорта: обновление пинов | плановое (раз в полгода) ИЛИ после смены правил, где хочется свежий срез | править `BENCH_COHORT` (`src/bench.mjs:9`): repo + SHA до 2025-01-01 (GitHub API `commits?until=`), затем `--bench-write`, ревью дельты `bench-history.json` в PR: рост обязан объясняться истинными срабатываниями |
-| Проводка `tsconfig.json` в CI | рецидив расхождения типов в `plugin/*.ts` или `scan.d.mts` | `typescript` в devDependencies + шаг `tsc --noEmit` в `slop.yml`; сейчас `checkJs: false` и tsc не запускается нигде, конфиг обслуживает только редактор. Декларации загейчены чеками `types-` (имена экспортов фасада в обе стороны, счётчик 23, `SlopConfig.rules` = `Map`), но это инвентарный гейт: типы параметров и возвратов он не проверяет |
-| Независимая проверка языка в `gen-docs` | подозрение, что таблица сгенерирована не из того языкового поля | чек `docs-block` зовёт ту же `tableFor()`, что и генератор, поэтому ошибка маппинга (EN-таблица из RU-полей) была бы самосогласованной и невидимой. Частично покрывают `docs-coverage` (id правил), `docs-clean` (сканер) и ревью диффа в PR; полное решение — ассерт на язык таблицы отдельным от генератора путём |
 
 ## Бэклог: отклонено с обоснованием
 
