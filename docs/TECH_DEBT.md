@@ -76,6 +76,8 @@
 
 - `commentLines` (`src/profiles.mjs`) ведёт состояние блокового комментария по первым 10 строкам: opener, не закрывшийся внутри окна, проглатывает следующие строки как содержимое комментария. По грамматикам языков эти строки и есть комментарий; ложное срабатывание возможно только на синтаксически битом файле или на opener'е внутри многострочного литерала, начинающегося с маркера. Осознанно: общее ограничение «линейное извлечение, не грамматики».
 
+- detekt-сборка НЕ использует `jvmToolchain`: резолвинг toolchain на GitHub-раннере падал (`Failed to calculate the value of task ':compileTestJava' property 'javaCompiler'`) даже при `JAVA_HOME` = JDK 17 от `setup-java`, а локально mascarovался committed-путём `org.gradle.java.installations.paths=D:/SDKs/Java/...` в `gradle.properties`. Цель 17 задаётся напрямую (`kotlin.compilerOptions.jvmTarget`, `JavaCompile.options.release`), байткод major=61 проверен; `gradle.properties` с машинным путём удалён. Не возвращать `jvmToolchain` без foojay-resolver и без проверки на раннере.
+
 ## Семантики, которые легко сломать невнимательной правкой
 
 - Baseline v2 (`loadBaseline` `src/baseline.mjs:5`, `fingerprint` :25, `maskBaselined` :37): fp = sha256(rule + "\n" + trimmed-строки находки).slice(0,16); файл = заголовок v2 + пары `rel:line` / `fp:<hash>`. Маскинг **с потреблением**: каждая baselined-вхождение гасит одну находку с тем же fp — вставленный повторно идентичный slop флагается. v1-файлы (только `rel:line`) маскируют по-старому до следующего `--baseline-write`. Не «улучшать» до чистого set-membership: сломается чек «baseline: новый слоп поверх легаси блокирует» (`selftest.mjs:1109`, доказано эмпирически при вводе v2).
