@@ -1586,7 +1586,7 @@ export function cmdSelfTest() {
     let configDetail = "schema missing"
     if (schema !== null && schema.properties !== null && typeof schema.properties === "object") {
       const schemaKeys = Object.keys(schema.properties).sort()
-      const loadConfigSrc = readFileSync(selfPath, "utf8")
+      const loadConfigSrc = readFileSync(join(dirname(selfPath), "src", "config.mjs"), "utf8")
       const missingInSrc = CONFIG_KEYS.filter((k) => !new RegExp("\\b" + k + "\\b").test(loadConfigSrc))
       configOk = sameKeys(schemaKeys, CONFIG_KEYS.slice().sort()) && missingInSrc.length === 0
       configDetail = `schema: ${schemaKeys.join(",")}; CONFIG_KEYS: ${CONFIG_KEYS.join(",")}; loadConfig не упоминает: ${missingInSrc.join(",") || "—"}`

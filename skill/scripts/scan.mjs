@@ -9,7 +9,6 @@ export { isCommentLine, profileFor } from "./src/profiles.mjs"
 export { detectCommentSlop, isCodePath, multisetDiff, readDisk } from "./src/detect.mjs"
 export { isGeneratedFile, loadGitattributesGenerated } from "./src/generated.mjs"
 export { addedFromToolArgs, evaluateEdit } from "./src/gate.mjs"
-// self-test greps this bin for these tokens: maxCommentLength excludePaths generatedPaths scanGenerated rules
 export { CONFIG_KEYS, loadConfig } from "./src/config.mjs"
 export { collectFiles, scanFiles } from "./src/git.mjs"
 export { benchDelta } from "./src/bench.mjs"
