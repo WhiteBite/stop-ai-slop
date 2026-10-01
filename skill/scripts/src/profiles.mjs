@@ -147,6 +147,35 @@ export function isCommentLine(line, profile = PROFILES.legacy) {
   return profile.regexPrefixes.some((re) => re.test(t))
 }
 
+// block middles carry no marker (`<#` in ps1, bare lines in /* */), so per-line filtering alone would drop them
+export function commentLines(lines, profile = PROFILES.legacy) {
+  const out = []
+  let close = null
+  for (const line of lines) {
+    const t = line.trim()
+    if (close !== null) {
+      out.push(line)
+      if (t.includes(close)) close = null
+      continue
+    }
+    const opened = profile.blocks.find(([open, end]) => t.startsWith(open) && !t.slice(open.length).includes(end))
+    if (opened !== undefined) {
+      out.push(line)
+      close = opened[1]
+      continue
+    }
+    const doc = profile.doc.find((d) => d.openRe.test(t))
+    if (doc !== undefined) {
+      out.push(line)
+      const m = doc.openRe.exec(t)
+      if (!t.slice(m[0].length).includes(doc.close)) close = doc.close
+      continue
+    }
+    if (isCommentLine(line, profile)) out.push(line)
+  }
+  return out
+}
+
 export function stripCommentMarker(line) {
   return line
     .trim()

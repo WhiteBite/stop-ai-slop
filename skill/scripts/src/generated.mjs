@@ -2,15 +2,11 @@ import { existsSync, readFileSync } from "node:fs"
 import { join } from "node:path"
 import { GEN_HEADER_LAX, GEN_HEADER_STRICT, GEN_NAME_SAFE } from "./markers.mjs"
 import { isExcludedPath } from "./paths.mjs"
-import { isCommentLine, profileFor } from "./profiles.mjs"
+import { commentLines, profileFor } from "./profiles.mjs"
 
 // header markers are comments; matching raw source would exempt any file that merely quotes the patterns
 function headerText(relPath, text) {
-  const profile = profileFor(relPath) ?? undefined
-  return text
-    .split("\n", 10)
-    .filter((line) => isCommentLine(line, profile))
-    .join("\n")
+  return commentLines(text.split("\n", 10), profileFor(relPath) ?? undefined).join("\n")
 }
 
 export function isGeneratedFile(relPath, text, extra) {
