@@ -1,0 +1,50 @@
+name: bench
+
+on:
+  schedule:
+    - cron: '37 4 * * *'
+  workflow_dispatch:
+    inputs:
+      update_baseline:
+        description: 'Overwrite bench-history.json with current counts (still not pushed)'
+        type: boolean
+        required: false
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  bench:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      STOP_AI_SLOP_BENCH_CACHE: ${{ github.workspace }}/.cache/stop-ai-slop/bench
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/.cache/stop-ai-slop/bench
+          key: ${{ runner.os }}-slop-bench-${{ hashFiles('bench-history.json', '.github/workflows/bench.yml') }}
+          restore-keys: ${{ runner.os }}-slop-bench-
+      - name: fp-regression bench
+        run: |
+          set +e
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.update_baseline }}" = "true" ]; then
+            node skill/scripts/scan.mjs --bench-write
+          else
+            node skill/scripts/scan.mjs --bench
+          fi
+          rc=$?
+          set -e
+          case $rc in
+            0) echo "bench: no rule-count growth vs committed baseline" ;;
+            1) echo "::error::bench: FP regression — a rule count grew on a pinned repo, see delta above"; exit 1 ;;
+            2) echo "::warning::bench: cohort fetch failed (network flake), non-fatal by design" ;;
+            *) echo "::error::bench: unexpected exit code $rc"; exit 1 ;;
+          esac
