@@ -47,6 +47,17 @@ const MODES = [
     name: "mcp",
     args: ["--mcp"],
     input: () => JSON.stringify({ jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2026-07-28" } }) + "\n",
+    expect: 0,
+    extra: (res) => {
+      const lines = res.out.split(/\r?\n/).filter((l) => l.trim() !== "")
+      if (lines.length !== 1) return false
+      try {
+        const msg = JSON.parse(lines[0])
+        return msg.id === 1 && msg.result?.protocolVersion === "2026-07-28" && msg.result?.serverInfo?.name === "stop-ai-slop"
+      } catch {
+        return false
+      }
+    },
   },
   { name: "unknown-flag", args: ["--definitely-not-a-flag"], input: null, expect: 2 },
   { name: "missing-path", args: ["scan", "no-such-dir-xyz"], input: null, expect: 2 },
@@ -68,9 +79,10 @@ export default async function ({ check, selfPath }) {
         const res = run(selfPath, mode.args, dir, mode.input === null ? undefined : mode.input(dir))
         const crashed = CRASH.test(res.out)
         const badStatus = mode.expect === undefined ? res.status > 2 : res.status !== mode.expect
+        const badShape = mode.extra !== undefined && !mode.extra(res)
         check(
           `cli-smoke[${variant}]: ${mode.name} не падает`,
-          !crashed && !badStatus,
+          !crashed && !badStatus && !badShape,
           `exit ${res.status}: ${res.out.slice(0, 300)}`,
         )
       }

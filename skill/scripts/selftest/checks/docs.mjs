@@ -42,6 +42,14 @@ export default async function ({ check, runCli, selfRoot }) {
     check(`docs-block[${rel}]: generated block equals tableFor(${kind})`, block === tableFor(kind), (block ?? "").slice(0, 200))
     const missing = RULES.filter((r) => !(block ?? "").includes(`\`${r.id}\``)).map((r) => r.id)
     check(`docs-coverage[${rel}]: every rule id present with its vend/ prefix`, missing.length === 0, missing.join(", "))
+    const sample = RULES.find((r) => r.id === "long-comment")
+    const expected = kind === "readme-en" ? sample.en.message : kind === "readme-ru" ? sample.message : sample.why
+    const foreign = kind === "readme-en" ? sample.message : kind === "readme-ru" ? sample.en.message : sample.en.why
+    check(
+      `docs-lang[${rel}]: the block carries the expected language and not the other one`,
+      (block ?? "").includes(expected) && !(block ?? "").includes(foreign),
+      `expected absent or foreign present; expected: ${expected.slice(0, 70)}`,
+    )
     const scanned = runCli(["scan", rel], selfRoot)
     check(`docs-clean[${rel}]: the generated document passes the scanner [exit 0]`, scanned.status === 0, `exit ${scanned.status}: ${scanned.out.slice(0, 200)}`)
   }
