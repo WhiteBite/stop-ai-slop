@@ -126,11 +126,15 @@ export const BLOCK_OPENER = /^(?:\/\*|<!--|<#|\(\*|###|\{\{!--?|\{\{\/\*|-{2}\[\
 export const BIDI_CHARS = new RegExp("[" + CP(0x202a, 0x202b, 0x202c, 0x202d, 0x202e, 0x2066, 0x2067, 0x2068, 0x2069) + "]", "g")
 
 // escape-формы невидимых символов — предмет кода (тесты BOM), вырезаются только настоящие символы
-export function stripBadInvisibles(line, lineIdx) {
+// marks U+200E/U+200F легитимны в комментарии — вырезаются только из кодовой части (до commentStart)
+export function stripBadInvisibles(line, lineIdx, commentStart = Infinity) {
   const chars = [...line]
   const out = []
+  let pos = 0
   for (let k = 0; k < chars.length; k++) {
     const cp = chars[k].codePointAt(0)
+    const inCode = pos < commentStart
+    pos += chars[k].length
     if (cp === 0x200d && EMOJI.test(chars[k - 1] ?? "") && EMOJI.test(chars[k + 1] ?? "")) {
       out.push(chars[k])
       continue
@@ -140,7 +144,8 @@ export function stripBadInvisibles(line, lineIdx) {
       continue
     }
     const bad =
-      (cp >= 0x200b && cp <= 0x200f) ||
+      (cp >= 0x200b && cp <= 0x200d) ||
+      (inCode && (cp === 0x200e || cp === 0x200f)) ||
       cp === 0x2060 ||
       cp === 0xfeff ||
       (cp >= 0x202a && cp <= 0x202e) ||

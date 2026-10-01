@@ -55,7 +55,8 @@ export function planFixes(lines, findings, profile) {
         replaced.set(f.lineNo, lead + " " + marker + " " + rest)
       }
     } else if (f.rule === "vend/zero-width-chars" || f.rule === "vend/bidi-controls") {
-      const cleaned = stripBadInvisibles(raw, i)
+      const commentStart = isCommentLine(raw, profile) ? 0 : (inlineMarkerAt(raw, profile)?.idx ?? raw.length)
+      const cleaned = stripBadInvisibles(raw, i, commentStart)
       if (cleaned !== raw) replaced.set(f.lineNo, cleaned)
     }
   }
