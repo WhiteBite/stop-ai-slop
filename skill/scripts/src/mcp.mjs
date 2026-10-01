@@ -9,6 +9,9 @@ import { T } from "./i18n.mjs"
 
 export const MCP_PROTOCOLS = ["2024-11-05", "2025-11-25", "2026-07-28"]
 
+// resultType определён схемой 2026-07-28 (обязательное поле базового Result); ранние ревизии его не знают
+const RESULT_TYPE_PROTOCOLS = new Set(["2026-07-28"])
+
 export const MCP_TOOLS = [
   {
     name: "slop_scan",
@@ -26,10 +29,14 @@ export const MCP_TOOLS = [
     inputSchema: { type: "object", properties: {}, required: [] },
   },
 ]
-export function mcpToolResult(text, isError = false) {
-  return { resultType: "complete", content: [{ type: "text", text }], ...(isError ? { isError: true } : {}) }
+export function mcpToolResult(text, isError = false, protocolVersion) {
+  return {
+    ...(RESULT_TYPE_PROTOCOLS.has(protocolVersion) ? { resultType: "complete" } : {}),
+    content: [{ type: "text", text }],
+    ...(isError ? { isError: true } : {}),
+  }
 }
-export function mcpCallTool(name, args) {
+export function mcpCallTool(name, args, protocolVersion) {
   if (name === "slop_scan") {
     const path = typeof args?.path === "string" && args.path !== "" ? args.path : "."
     const root = gitToplevel(process.cwd())
@@ -37,7 +44,7 @@ export function mcpCallTool(name, args) {
     try {
       config = loadConfig(root)
     } catch (error) {
-      return mcpToolResult(`ошибка конфига: ${error.message}`, true)
+      return mcpToolResult(`ошибка конфига: ${error.message}`, true, protocolVersion)
     }
     const findings = []
     for (const file of collectFiles([path], root, config?.excludePaths ?? [])) {
@@ -48,21 +55,22 @@ export function mcpCallTool(name, args) {
       }
     }
     const baseline = loadBaseline(root)
-    return mcpToolResult(findingsToText(maskBaselined(baseline, findings)))
+    return mcpToolResult(findingsToText(maskBaselined(baseline, findings)), false, protocolVersion)
   }
   if (name === "slop_explain") {
     const text = explainText(String(args?.ruleId ?? ""))
-    return text === null ? mcpToolResult("правило не найдено", true) : mcpToolResult(text)
+    return text === null ? mcpToolResult("правило не найдено", true, protocolVersion) : mcpToolResult(text, false, protocolVersion)
   }
   if (name === "slop_baseline") {
     const baseline = loadBaseline(gitToplevel(process.cwd()))
     const entries = [...baseline.legacy, ...[...baseline.fp].map((p) => `fp:${p}`)]
-    return mcpToolResult(entries.length === 0 ? "baseline пуст" : entries.join("\n"))
+    return mcpToolResult(entries.length === 0 ? "baseline пуст" : entries.join("\n"), false, protocolVersion)
   }
-  return mcpToolResult(T("mcpUnknownTool", name), true)
+  return mcpToolResult(T("mcpUnknownTool", name), true, protocolVersion)
 }
 export function cmdMcp() {
   const version = toolVersion()
+  let negotiated = null
   const write = (msg) => process.stdout.write(JSON.stringify(msg) + "\n")
   const rl = createInterface({ input: process.stdin })
   return new Promise((resolvePromise) => {
@@ -80,11 +88,12 @@ export function cmdMcp() {
       if (method === "notifications/initialized" || method === "notifications/cancelled") return
       if (method === "initialize") {
         const requested = params?.protocolVersion
+        negotiated = MCP_PROTOCOLS.includes(requested) ? requested : MCP_PROTOCOLS[MCP_PROTOCOLS.length - 1]
         write({
           jsonrpc: "2.0",
           id,
           result: {
-            protocolVersion: MCP_PROTOCOLS.includes(requested) ? requested : MCP_PROTOCOLS[MCP_PROTOCOLS.length - 1],
+            protocolVersion: negotiated,
             capabilities: { tools: {} },
             serverInfo: { name: "stop-ai-slop", version },
           },
@@ -96,15 +105,15 @@ export function cmdMcp() {
         return
       }
       if (method === "tools/list") {
-        write({ jsonrpc: "2.0", id, result: { resultType: "complete", tools: MCP_TOOLS } })
+        write({ jsonrpc: "2.0", id, result: { tools: MCP_TOOLS } })
         return
       }
       if (method === "tools/call") {
         let result
         try {
-          result = mcpCallTool(params?.name, params?.arguments)
+          result = mcpCallTool(params?.name, params?.arguments, negotiated)
         } catch (error) {
-          result = mcpToolResult(String(error?.message ?? error), true)
+          result = mcpToolResult(String(error?.message ?? error), true, negotiated)
         }
         write({ jsonrpc: "2.0", id, result })
         return
