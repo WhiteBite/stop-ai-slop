@@ -1,3 +1,5 @@
+import { writeFileSync } from "node:fs"
+import { join } from "node:path"
 import { HELP_EN, HELP_RU } from "../messages.mjs"
 import { gitDiffRef, gitStagedDiff, gitToplevel, collectFiles, runDiffGate, scanFiles } from "./git.mjs"
 import { applyRuleConfig, configOptions, loadConfig } from "./config.mjs"
