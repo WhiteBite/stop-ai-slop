@@ -1,6 +1,7 @@
 #!/usr/bin/env node
+import { realpathSync } from "node:fs"
 import { resolve } from "node:path"
-import { pathToFileURL } from "node:url"
+import { fileURLToPath, pathToFileURL } from "node:url"
 import { main } from "./src/cli.mjs"
 
 export { RULES, RULE_BY_ID } from "./src/rules.mjs"
@@ -15,11 +16,16 @@ export { benchDelta } from "./src/bench.mjs"
 export { appendAudit, auditLogPath } from "./src/audit.mjs"
 export { KNOWN_FLAGS } from "./src/cli.mjs"
 
+// Node realpaths the main module before import.meta.url; argv[1] keeps the symlink, so compare realpaths
 const isMain = (() => {
   try {
-    return process.argv[1] !== undefined && import.meta.url === pathToFileURL(resolve(process.argv[1])).href
+    return process.argv[1] !== undefined && realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url))
   } catch {
-    return false
+    try {
+      return process.argv[1] !== undefined && import.meta.url === pathToFileURL(resolve(process.argv[1])).href
+    } catch {
+      return false
+    }
   }
 })()
 if (isMain) {
