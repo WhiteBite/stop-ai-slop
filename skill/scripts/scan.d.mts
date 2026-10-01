@@ -7,6 +7,10 @@ export interface Violation {
   severity: Severity
 }
 
+export interface FileViolation extends Violation {
+  rel: string
+}
+
 export interface Rule {
   id: string
   severity: Severity
@@ -61,22 +65,25 @@ export interface GateResult {
   message: string | null
 }
 export declare function evaluateEdit(tool: string, args: Record<string, unknown>, opts?: { includeGenerated?: boolean }): GateResult
+// null: файл отсутствует (ENOENT); undefined: другая ошибка чтения
 export declare function readDisk(filePath: string): string | null | undefined
 export declare function loadGitattributesGenerated(root: string): ((rel: string) => boolean) | null
 export declare function collectFiles(paths: string[], root: string, excludePaths?: string[]): string[]
 export declare function scanFiles(
   files: string[],
   root: string,
-  options?: { maxLength?: number; excludePaths?: string[]; [key: string]: unknown } | null,
+  options?: { maxLength?: number } | null,
   genCtx?: GeneratedContext | null,
-): Violation[]
-export declare function loadConfig(root: string): {
-  maxCommentLength?: number
-  excludePaths?: string[]
-  generatedPaths?: string[]
-  scanGenerated?: boolean
-  rules?: Record<string, string> | null
-} | null
+): FileViolation[]
+export interface SlopConfig {
+  maxCommentLength: number | null
+  excludePaths: string[]
+  generatedPaths: string[]
+  scanGenerated: boolean | null
+  rules: Map<string, string>
+}
+export declare const CONFIG_KEYS: string[]
+export declare function loadConfig(root: string): SlopConfig | null
 export declare function benchDelta(
   history: Record<string, Record<string, number>>,
   current: Record<string, Record<string, number>>,

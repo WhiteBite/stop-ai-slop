@@ -11,8 +11,10 @@ const BS = CP(0x5c)
 export function cmdSelfTest() {
   const dir = mkdtempSync(join(tmpdir(), "slop-gate-"))
   let failures = 0
+  const checkNames = []
     const check = (name, ok, detail) => {
       console.log(`${ok ? "PASS" : "FAIL"} ${name}${ok ? "" : " — " + JSON.stringify(detail)}`)
+      checkNames.push(name)
       if (!ok) failures++
     }
     const selfPath = resolve(dirname(fileURLToPath(import.meta.url)), "scan.mjs")
@@ -1280,6 +1282,26 @@ export function cmdSelfTest() {
     } finally {
       rmSync(cfgDir, { recursive: true, force: true })
     }
+    const shapeDir = mkdtempSync(join(tmpdir(), "slop-gate-shape-"))
+    try {
+      const noCfg = loadConfig(shapeDir)
+      writeFileSync(join(shapeDir, ".stop-ai-slop.yaml"), "maxCommentLength: 100\nrules:\n  multi-line-comment: off\n")
+      const shapeCfg = loadConfig(shapeDir)
+      check(
+        "types-shape: loadConfig runtime shape",
+        noCfg === null &&
+          shapeCfg !== null &&
+          shapeCfg.rules instanceof Map &&
+          Array.isArray(shapeCfg.excludePaths) &&
+          Array.isArray(shapeCfg.generatedPaths) &&
+          typeof shapeCfg.maxCommentLength === "number" &&
+          shapeCfg.scanGenerated === null &&
+          CONFIG_KEYS.every((key) => Object.hasOwn(shapeCfg, key)),
+        JSON.stringify({ noCfg, shapeCfg }),
+      )
+    } finally {
+      rmSync(shapeDir, { recursive: true, force: true })
+    }
     const genCfgDir = mkdtempSync(join(tmpdir(), "slop-gate-gencfg-"))
     try {
       writeFileSync(join(genCfgDir, "api2_pb2.py"), "# первая строка блока\n# вторая строка блока\nx = 1\n")
@@ -1694,6 +1716,10 @@ try {
     }
   } finally {
     rmSync(dir, { recursive: true, force: true })
+  }
+  const jsonPath = process.env.STOP_AI_SLOP_SELFTEST_JSON
+  if (jsonPath !== undefined && jsonPath !== "") {
+    writeFileSync(jsonPath, JSON.stringify({ total: checkNames.length, failures, names: checkNames }) + "\n")
   }
   return failures === 0 ? 0 : 1
 }
