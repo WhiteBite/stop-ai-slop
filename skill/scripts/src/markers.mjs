@@ -125,8 +125,7 @@ export const COMMENT_LEAD_FIX = /^(\s*(?:\/\/+|#+|--+|;+|%+|::+|\.\.+|!|\(\*+|<!
 export const BLOCK_OPENER = /^(?:\/\*|<!--|<#|\(\*|###|\{\{!--?|\{\{\/\*|-{2}\[\[|\{-|#\[|=#)/
 export const BIDI_CHARS = new RegExp("[" + CP(0x202a, 0x202b, 0x202c, 0x202d, 0x202e, 0x2066, 0x2067, 0x2068, 0x2069) + "]", "g")
 
-// escape-формы невидимых символов — предмет кода (тесты BOM), вырезаются только настоящие символы
-// marks U+200E/U+200F легитимны в комментарии — вырезаются только из кодовой части (до commentStart)
+// escape-формы — предмет кода; марки U+200E/F легитимны в комментарии, режутся только до commentStart
 export function stripBadInvisibles(line, lineIdx, commentStart = Infinity) {
   const chars = [...line]
   const out = []
