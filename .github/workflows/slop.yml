@@ -37,3 +37,4 @@ jobs:
       - uses: ./
         with:
           base: ${{ github.base_ref }}
+      - run: node skill/scripts/check-coship.mjs --diff origin/${{ github.base_ref }}

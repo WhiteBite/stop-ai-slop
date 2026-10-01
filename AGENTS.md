@@ -38,6 +38,16 @@ New language = one row in the profile table inside `skill/scripts/scan.mjs`. Tha
 
 Use `// stop-ai-slop-ignore-next-line [rule-id]`, `// stop-ai-slop-ignore-line [rule-id]`, or `// stop-ai-slop-ignore-file` (after `--` give a reason). Self-suppression in the same diff as the suppressed code is flagged by `vend/self-suppression`.
 
+## Co-ship gate (detector vs baseline)
+
+A changeset must not touch both detector-semantics files (`skill/scripts/src/{markers,detect,rules,profiles,generated}.mjs`) and baseline-semantics (`skill/scripts/src/baseline.mjs`): if both move at once, a masking regression cannot be attributed (`docs/TECH_DEBT.md`). CI runs on PRs:
+
+```
+node skill/scripts/check-coship.mjs --diff origin/<base>
+```
+
+Escape hatch: `--allow-coship "<reason>"` — the reason is printed in the output.
+
 ## Discoverability (RDK)
 
 - `npm run rdk:audit` — Discoverability Score 0-100 and findings; read-only.
