@@ -3,7 +3,8 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "nod
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 
-const CRASH = /ReferenceError|is not defined|TypeError|Cannot read properties|SyntaxError|at cmd|at async/i
+const CRASH =
+  /ReferenceError|is not defined|TypeError|Cannot read properties|Cannot read property|RangeError|SyntaxError|UnhandledPromiseRejection|Cannot find module|ERR_MODULE_NOT_FOUND|at cmd|at async/i
 
 const git = (cwd, args) =>
   execFileSync("git", ["-c", "user.email=slop@test", "-c", "user.name=slop", "-c", "commit.gpgsign=false", ...args], {
@@ -28,19 +29,20 @@ const MODES = [
   { name: "scan-format-json", args: ["scan", ".", "--format", "json"], input: null },
   { name: "scan-format-sarif", args: ["scan", ".", "--format", "sarif"], input: null },
   { name: "scan-lang-en", args: ["--lang", "en", "scan", "."], input: null },
-  { name: "staged", args: ["--staged"], input: null },
-  { name: "diff", args: ["--diff", "HEAD"], input: null },
-  { name: "fix-dry-run", args: ["--fix", "--dry-run"], input: null },
-  { name: "baseline-write", args: ["--baseline-write"], input: null },
-  { name: "baseline-prune", args: ["--baseline-prune"], input: null },
-  { name: "explain", args: ["--explain", "changelog-marker"], input: null },
-  { name: "help", args: ["--help"], input: null },
-  { name: "audit", args: ["--audit"], input: null },
-  { name: "install", args: ["--install"], input: null },
-  { name: "install-hooks", args: ["--install-hooks"], input: null },
-  { name: "install-rules", args: ["--install-rules"], input: null },
+  { name: "staged", args: ["--staged"], input: null, expect: 0 },
+  { name: "diff", args: ["--diff", "HEAD"], input: null, expect: 0 },
+  { name: "fix-dry-run", args: ["--fix", "--dry-run"], input: null, expect: 0 },
+  { name: "baseline-write", args: ["--baseline-write"], input: null, expect: 0 },
+  { name: "baseline-prune", args: ["--baseline-prune"], input: null, expect: 0 },
+  { name: "explain", args: ["--explain", "changelog-marker"], input: null, expect: 0 },
+  { name: "explain-bare-id", args: ["--explain", "step-numbered"], input: null, expect: 0 },
+  { name: "help", args: ["--help"], input: null, expect: 0 },
+  { name: "audit", args: ["--audit"], input: null, expect: 0 },
+  { name: "install", args: ["--install"], input: null, expect: 0 },
+  { name: "install-hooks", args: ["--install-hooks"], input: null, expect: 0 },
+  { name: "install-rules", args: ["--install-rules"], input: null, expect: 0 },
   { name: "stdin-path", args: ["--stdin-path"], input: (cwd) => payload(join(cwd, "a.ts")) },
-  { name: "pre-tool", args: ["--pre-tool"], input: (cwd) => payload(join(cwd, "a.ts")) },
+  { name: "pre-tool", args: ["--pre-tool"], input: (cwd) => payload(join(cwd, "a.ts")), expect: 0 },
   {
     name: "mcp",
     args: ["--mcp"],

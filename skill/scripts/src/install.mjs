@@ -21,9 +21,13 @@ export function cmdInstall(strict = false) {
       try {
         pkg = JSON.parse(noBom)
       } catch {
-        console.log(T("pkgNotJson", pkgPath))
+        console.error(T("pkgNotJson", pkgPath))
         return 2
       }
+    }
+    if (typeof pkg !== "object" || pkg === null || Array.isArray(pkg)) {
+      console.error(T("pkgNotJson", pkgPath))
+      return 2
     }
     pkg.scripts = typeof pkg.scripts === "object" && pkg.scripts !== null ? pkg.scripts : {}
     const before = JSON.stringify(pkg.scripts)

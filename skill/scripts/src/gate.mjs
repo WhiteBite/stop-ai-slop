@@ -26,19 +26,10 @@ function resolveConfigRoot(filePath) {
 }
 
 export function loadConfigCached(root) {
-  if (CONFIG_CACHE.has(root)) {
-    const hit = CONFIG_CACHE.get(root)
-    if (hit instanceof Error) throw hit
-    return hit
-  }
-  try {
-    const config = loadConfig(root)
-    cacheSet(CONFIG_CACHE, root, config)
-    return config
-  } catch (error) {
-    cacheSet(CONFIG_CACHE, root, error)
-    throw error
-  }
+  if (CONFIG_CACHE.has(root)) return CONFIG_CACHE.get(root)
+  const config = loadConfig(root)
+  cacheSet(CONFIG_CACHE, root, config)
+  return config
 }
 
 export function configFindings(root, filePath, lines, diffMode, config) {
