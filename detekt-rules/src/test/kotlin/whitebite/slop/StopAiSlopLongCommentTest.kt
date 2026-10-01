@@ -10,19 +10,25 @@ class StopAiSlopLongCommentTest {
 
     @Test
     fun `comment line longer than 120 chars is flagged`() {
-        val code = "// " + "y".repeat(118) + "\nval x = 1\n"
+        val code = lines("// " + "y".repeat(118), "val x = 1")
         assertEquals(1, rule.lint(code).size)
     }
 
     @Test
     fun `comment line at 120 chars is clean`() {
-        val code = "// " + "y".repeat(117) + "\nval x = 1\n"
+        val code = lines("// " + "y".repeat(117), "val x = 1")
         assertEquals(0, rule.lint(code).size)
     }
 
     @Test
     fun `long kdoc line is clean`() {
-        val code = "/** " + "y".repeat(130) + " */\nfun f() {}\n"
+        val code = lines("/** " + "y".repeat(130) + " */", "fun f() {}")
+        assertEquals(0, rule.lint(code).size)
+    }
+
+    @Test
+    fun `line dominated by a long link is clean`() {
+        val code = lines("// see https://example.com/" + "a".repeat(40), "val x = 1")
         assertEquals(0, rule.lint(code).size)
     }
 }

@@ -1,6 +1,9 @@
 package whitebite.slop
 
 import org.jetbrains.kotlin.com.intellij.psi.PsiComment
+import org.jetbrains.kotlin.com.intellij.psi.PsiElement
+import org.jetbrains.kotlin.com.intellij.psi.util.PsiTreeUtil
+import org.jetbrains.kotlin.kdoc.psi.api.KDoc
 import org.jetbrains.kotlin.lexer.KtTokens
 import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.psi.KtTreeVisitorVoid
@@ -8,7 +11,7 @@ import org.jetbrains.kotlin.psi.KtTreeVisitorVoid
 internal enum class CommentKind { LINE, BLOCK, DOC }
 
 internal class KtCommentInfo(
-    val element: PsiComment,
+    val element: PsiElement,
     val kind: CommentKind,
     val startLine: Int,
     val endLine: Int,
@@ -51,8 +54,8 @@ internal fun collectComments(root: KtFile): Pair<List<KtCommentInfo>, SourceLine
     root.accept(object : KtTreeVisitorVoid() {
         override fun visitComment(comment: PsiComment) {
             val kind = when (comment.node?.elementType) {
-                KtTokens.EOL_COMMENT -> CommentKind.LINE
-                KtTokens.BLOCK_COMMENT -> CommentKind.BLOCK
+                KtTokens.EOL_COMMENT -> if (comment.text.trimStart().startsWith("///")) CommentKind.DOC else CommentKind.LINE
+                KtTokens.BLOCK_COMMENT -> if (comment.text.startsWith("/**")) CommentKind.DOC else CommentKind.BLOCK
                 else -> CommentKind.DOC
             }
             out += KtCommentInfo(
@@ -63,6 +66,17 @@ internal fun collectComments(root: KtFile): Pair<List<KtCommentInfo>, SourceLine
             )
         }
     })
+    val seen = out.mapTo(HashSet()) { it.startOffset }
+    PsiTreeUtil.collectElementsOfType(root, KDoc::class.java).forEach { kdoc ->
+        if (kdoc.textRange.startOffset !in seen) {
+            out += KtCommentInfo(
+                kdoc,
+                CommentKind.DOC,
+                src.lineOf(kdoc.textRange.startOffset),
+                src.lineOf(kdoc.textRange.endOffset),
+            )
+        }
+    }
     return out to src
 }
 

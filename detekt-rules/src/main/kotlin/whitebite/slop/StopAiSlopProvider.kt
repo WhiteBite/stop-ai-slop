@@ -13,6 +13,17 @@ class StopAiSlopProvider : RuleSetProvider {
             StopAiSlopMultiLineComment(config),
             StopAiSlopChangelogMarker(config),
             StopAiSlopLongComment(config),
+            StopAiSlopStepNumbered(config),
+            StopAiSlopSectionDivider(config),
+            StopAiSlopMarkdownInComment(config),
+            StopAiSlopThisFunctionOpener(config),
+            StopAiSlopFileSummaryHeader(config),
+            StopAiSlopGenericTodo(config),
+            StopAiSlopCrossFileRef(config),
+            StopAiSlopObviousComment(config),
+            StopAiSlopCjkNoise(config),
+            StopAiSlopZeroWidthChars(config),
+            StopAiSlopBidiControls(config),
         ),
     )
 }

@@ -1,0 +1,94 @@
+{
+  "rules": [
+    {
+      "id": "changelog-marker",
+      "severity": "error",
+      "message": "комментарий пересказывает дифф (пара changelog-маркеров или сильный маркер, ru/en/de/fr/es)",
+      "kotlinRule": "StopAiSlopChangelogMarker"
+    },
+    {
+      "id": "long-comment",
+      "severity": "error",
+      "message": "строка комментария длиннее 120 символов",
+      "kotlinRule": "StopAiSlopLongComment"
+    },
+    {
+      "id": "multi-line-comment",
+      "severity": "error",
+      "message": "комментарий занимает 2+ строки подряд",
+      "kotlinRule": "StopAiSlopMultiLineComment"
+    },
+    {
+      "id": "vend/bidi-controls",
+      "severity": "error",
+      "message": "BiDi-контролы (U+202A-U+202E, U+2066-U+2069 или escape-форма) переопределяют направление текста",
+      "kotlinRule": "StopAiSlopBidiControls"
+    },
+    {
+      "id": "vend/cjk-noise",
+      "severity": "warning",
+      "message": "CJK-иероглифы склеены с латиницей или цифрами в коде (артефакт генерации)",
+      "kotlinRule": "StopAiSlopCjkNoise"
+    },
+    {
+      "id": "vend/cross-file-ref",
+      "severity": "warning",
+      "message": "указатель на другой файл/строку в комментарии (handler.py:147)",
+      "kotlinRule": "StopAiSlopCrossFileRef"
+    },
+    {
+      "id": "vend/file-summary-header",
+      "severity": "warning",
+      "message": "шапка-резюме из 2+ строк комментария в начале файла",
+      "kotlinRule": "StopAiSlopFileSummaryHeader"
+    },
+    {
+      "id": "vend/generic-todo",
+      "severity": "warning",
+      "message": "TODO без ссылки на тикет",
+      "kotlinRule": "StopAiSlopGenericTodo"
+    },
+    {
+      "id": "vend/markdown-in-comment",
+      "severity": "warning",
+      "message": "markdown-разметка внутри комментария (**, -, |)",
+      "kotlinRule": "StopAiSlopMarkdownInComment"
+    },
+    {
+      "id": "vend/obvious-comment",
+      "severity": "warning",
+      "message": "комментарий пересказывает строку кода под ним",
+      "kotlinRule": "StopAiSlopObviousComment"
+    },
+    {
+      "id": "vend/section-divider",
+      "severity": "warning",
+      "message": "строка-разделитель из символов -=#*",
+      "kotlinRule": "StopAiSlopSectionDivider"
+    },
+    {
+      "id": "vend/step-numbered",
+      "severity": "warning",
+      "message": "нумерованный шаг в комментарии (Step N / Шаг N / N., маркер любого языка)",
+      "kotlinRule": "StopAiSlopStepNumbered"
+    },
+    {
+      "id": "vend/this-function-opener",
+      "severity": "warning",
+      "message": "комментарий начинается с «This function/…», «Эта функция/…», «Diese Funktion…», «Cette fonction…» или «Esta función…»",
+      "kotlinRule": "StopAiSlopThisFunctionOpener"
+    },
+    {
+      "id": "vend/zero-width-chars",
+      "severity": "error",
+      "message": "невидимый символ нулевой ширины (U+200B, U+200C, U+200D, U+2060, U+FEFF или escape-форма)",
+      "kotlinRule": "StopAiSlopZeroWidthChars"
+    }
+  ],
+  "excluded": [
+    {
+      "id": "vend/self-suppression",
+      "reason": "diff-mode-only: it needs the added-lines diff (a directive arriving in the same diff as the code it suppresses) and is meaningless in a whole-file PSI rule"
+    }
+  ]
+}
