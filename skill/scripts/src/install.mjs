@@ -1,9 +1,18 @@
 import { execFileSync } from "node:child_process"
-import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import { dirname, join, resolve, sep } from "node:path"
 import { fileURLToPath } from "node:url"
 import { T } from "./i18n.mjs"
 import { RULES } from "./rules.mjs"
+import {
+  ConfigParseError,
+  collectCommands,
+  mergeHooks,
+  readJsonConfig,
+  recordOwnership,
+  writeJsonAtomic,
+  writeMarkerBlock,
+} from "../vendor/harness-kit/src/index.mjs"
 
 export function hooksDirFor(root) {
   const gitDir = join(root, ".git")
@@ -67,28 +76,13 @@ export function cmdInstall(strict = false) {
     console.log("slop-gate: .git не найден — pre-commit hook пропущен")
     return 0
   }
-  mkdirSync(hooksDir, { recursive: true })
   const hookPath = join(hooksDir, "pre-commit")
   const MARK = "# >>> slop-gate >>>"
   const block = `${MARK}\nif [ ! -f "${abs}" ]; then\n  echo "slop-gate: сканер не найден: ${abs} — запустите --install заново" >&2\n  exit 2\nfi\n${stagedCmd}\n# <<< slop-gate <<<\n`
-  const blockRe = /# >>> slop-gate >>>[\s\S]*?# <<< slop-gate <<<\r?\n?/
-  const writeHook = (content) => {
-    writeFileSync(hookPath, content)
-    chmodSync(hookPath, 0o755)
-  }
-  if (existsSync(hookPath)) {
-    const current = readFileSync(hookPath, "utf8")
-    if (blockRe.test(current)) {
-      writeHook(current.replace(blockRe, block))
-      console.log("slop-gate: pre-commit hook — slop-gate блок обновлён")
-    } else {
-      writeHook(current.replace(/\n?$/, "\n") + block)
-      console.log("slop-gate: pre-commit hook — добавлен блок после существующего содержимого")
-    }
-  } else {
-    writeHook(`#!/bin/sh\n${block}`)
-    console.log("slop-gate: pre-commit hook создан")
-  }
+  const result = writeMarkerBlock(hookPath, block, { variant: "shell-block", id: "slop-gate" })
+  if (result.action === "created") console.log("slop-gate: pre-commit hook создан")
+  else if (result.action === "appended") console.log("slop-gate: pre-commit hook — добавлен блок после существующего содержимого")
+  else console.log("slop-gate: pre-commit hook — slop-gate блок обновлён")
   return 0
 }
 
@@ -97,47 +91,49 @@ export function cmdInstallHooks() {
   const abs = join(dirname(fileURLToPath(import.meta.url)), "..", "scan.mjs").split(sep).join("/")
   const command = `node "${abs}" --pre-tool`
   const matcher = "Write|Edit|MultiEdit|write_file|replace|apply_patch"
-  const mergeHook = (rel, entry, nested) => {
+  const isMine = (cmd) => typeof cmd === "string" && cmd.includes("--pre-tool")
+  const mergeHook = (rel, template, shape, locatorOf) => {
     const file = join(root, rel)
-    let obj = {}
-    if (existsSync(file)) {
-      try {
-        obj = JSON.parse(readFileSync(file, "utf8"))
-      } catch {
-        console.log(`slop-gate: ${rel} — не JSON, пропущен`)
+    let existing
+    try {
+      existing = readJsonConfig(file)
+    } catch (error) {
+      if (error instanceof ConfigParseError) {
+        console.log(`slop-gate: ${rel} — ${error.message.includes("not valid JSON") ? "не JSON" : "не объект"}, пропущен`)
         return
       }
-      if (
-        typeof obj !== "object" ||
-        obj === null ||
-        Array.isArray(obj) ||
-        (nested && obj.hooks !== undefined && (typeof obj.hooks !== "object" || obj.hooks === null || Array.isArray(obj.hooks)))
-      ) {
-        console.log(`slop-gate: ${rel} — не объект, пропущен`)
-        return
-      }
+      throw error
     }
-    const box = nested ? (obj.hooks = typeof obj.hooks === "object" && obj.hooks !== null && !Array.isArray(obj.hooks) ? obj.hooks : {}) : obj
-    const list = Array.isArray(box.PreToolUse) ? box.PreToolUse : (box.PreToolUse = [])
-    const idx = list.findIndex((e) => Array.isArray(e?.hooks) && e.hooks.some((h) => typeof h?.command === "string" && h.command.includes("--pre-tool")))
-    if (idx === -1) {
-      list.push(entry)
-      console.log(`slop-gate: ${rel} — хук добавлен`)
-    } else {
-      list[idx] = entry
-      console.log(`slop-gate: ${rel} — хук обновлён`)
+    let merged
+    try {
+      merged = mergeHooks(existing ?? {}, template, { shape, isMine })
+    } catch {
+      console.log(`slop-gate: ${rel} — не объект, пропущен`)
+      return
     }
-    mkdirSync(dirname(file), { recursive: true })
-    writeFileSync(file, JSON.stringify(obj, null, 2) + "\n")
+    const hadOwn = existing !== null && collectCommands(existing, { shape }).some(isMine)
+    writeJsonAtomic(file, merged)
+    recordOwnership(root, "stop-ai-slop", rel, merged, [locatorOf(merged)])
+    console.log(`slop-gate: ${rel} — ${hadOwn ? "хук обновлён" : "хук добавлен"}`)
   }
-  mergeHook(".codex/hooks.json", { matcher, hooks: [{ type: "command", command }] }, true)
-  mergeHook(".devin/hooks.v1.json", { hooks: [{ type: "command", command }] }, false)
+  mergeHook(
+    ".codex/hooks.json",
+    { hooks: { PreToolUse: [{ matcher, hooks: [{ type: "command", command }] }] } },
+    "nested-hooks",
+    (merged) => ["hooks", "PreToolUse", merged.hooks.PreToolUse.length - 1],
+  )
+  mergeHook(
+    ".devin/hooks.v1.json",
+    { PreToolUse: [{ hooks: [{ type: "command", command }] }] },
+    "root-events",
+    (merged) => ["PreToolUse", merged.PreToolUse.length - 1],
+  )
   const vscodeRel = ".github/hooks/stop-ai-slop.json"
   const vscodeFile = join(root, vscodeRel)
-  const vscodeData = JSON.stringify({ hooks: { PreToolUse: [{ type: "command", command, timeout: 30 }] } }, null, 2) + "\n"
+  const vscodeObj = { hooks: { PreToolUse: [{ type: "command", command, timeout: 30 }] } }
+  const vscodeData = JSON.stringify(vscodeObj, null, 2) + "\n"
   const prev = existsSync(vscodeFile) ? readFileSync(vscodeFile, "utf8") : null
-  mkdirSync(dirname(vscodeFile), { recursive: true })
-  if (prev !== vscodeData) writeFileSync(vscodeFile, vscodeData)
+  if (prev !== vscodeData) writeJsonAtomic(vscodeFile, vscodeObj)
   console.log(`slop-gate: ${vscodeRel} — ${prev === null ? "создан" : prev === vscodeData ? "уже на месте" : "обновлён"}`)
   console.log("slop-gate: добавьте в .gemini/settings.json:")
   console.log(`"hooks": ${JSON.stringify({ BeforeTool: [{ matcher: "write_file|replace", hooks: [{ type: "command", command: "npx stop-ai-slop --pre-tool", timeout: 60000 }] }] }, null, 2)}`)
@@ -169,13 +165,18 @@ export function cmdInstallRules() {
   const generatedMarker = "Generated by stop-ai-slop"
   const blockOpen = "<!-- >>> stop-ai-slop >>> -->"
   const blockClose = "<!-- <<< stop-ai-slop <<< -->"
-  const writeTarget = (rel, content, marker) => {
+  const message = (rel, action) => {
+    if (action === "skipped-foreign") return `slop-gate: ${rel} — пропущен (чужой контент)`
+    if (action === "unchanged") return `slop-gate: ${rel} — уже на месте`
+    return `slop-gate: ${rel} — ${action === "created" ? "создан" : "обновлён"}`
+  }
+  const writeMarked = (rel, block, opts) => {
+    const result = writeMarkerBlock(join(root, rel), block, opts)
+    console.log(message(rel, result.action))
+  }
+  const writeOwned = (rel, content) => {
     const file = join(root, rel)
     const prev = existsSync(file) ? readFileSync(file, "utf8") : null
-    if (prev !== null && marker !== null && prev.split("\n")[0] !== marker) {
-      console.log(`slop-gate: ${rel} — пропущен (чужой контент)`)
-      return
-    }
     if (prev === content) {
       console.log(`slop-gate: ${rel} — уже на месте`)
       return
@@ -184,32 +185,22 @@ export function cmdInstallRules() {
     writeFileSync(file, content)
     console.log(`slop-gate: ${rel} — ${prev === null ? "создан" : "обновлён"}`)
   }
-  writeTarget(".cursor/rules/stop-ai-slop.mdc", `---\ndescription: stop-ai-slop — политика комментариев: одна строка, только WHY\nglobs: "**/*"\nalwaysApply: true\n---\n\n${body}`, null)
-  writeTarget(".windsurfrules", `${hashMarker}\n${body}`, hashMarker)
-  writeTarget("CONVENTIONS.md", `${generatedMarker}\n\n${body}`, generatedMarker)
-  writeTarget(".clinerules", `${hashMarker}\n${body}`, hashMarker)
-  writeTarget(".devin/rules/stop-ai-slop.md", `${generatedMarker}\n\n${body}`, null)
-  const copilotRel = ".github/copilot-instructions.md"
-  const copilotFile = join(root, copilotRel)
-  const block = `${blockOpen}\n# stop-ai-slop\n\n${body}${blockClose}\n`
-  const prevCopilot = existsSync(copilotFile) ? readFileSync(copilotFile, "utf8") : null
-  if (prevCopilot === null) {
-    mkdirSync(dirname(copilotFile), { recursive: true })
-    writeFileSync(copilotFile, block)
-    console.log(`slop-gate: ${copilotRel} — создан`)
-  } else {
-    const open = prevCopilot.indexOf(blockOpen)
-    const close = prevCopilot.indexOf(blockClose)
-    const next =
-      open !== -1 && close > open
-        ? prevCopilot.slice(0, open) + block.trimEnd() + prevCopilot.slice(close + blockClose.length)
-        : prevCopilot.replace(/\n*$/, "\n\n") + block
-    if (next === prevCopilot) {
-      console.log(`slop-gate: ${copilotRel} — уже на месте`)
-    } else {
-      writeFileSync(copilotFile, next)
-      console.log(`slop-gate: ${copilotRel} — обновлён`)
-    }
-  }
+  writeMarked(".cursor/rules/stop-ai-slop.mdc", null, {
+    variant: "mdc-frontmatter",
+    fields: [
+      ["description", "stop-ai-slop — политика комментариев: одна строка, только WHY"],
+      ["globs", '"**/*"'],
+      ["alwaysApply", "true"],
+    ],
+    body,
+  })
+  writeMarked(".windsurfrules", `${hashMarker}\n${body}`, { variant: "first-line-marker", marker: hashMarker })
+  writeMarked("CONVENTIONS.md", `${generatedMarker}\n\n${body}`, { variant: "first-line-marker", marker: generatedMarker })
+  writeMarked(".clinerules", `${hashMarker}\n${body}`, { variant: "first-line-marker", marker: hashMarker })
+  writeOwned(".devin/rules/stop-ai-slop.md", `${generatedMarker}\n\n${body}`)
+  writeMarked(".github/copilot-instructions.md", `${blockOpen}\n# stop-ai-slop\n\n${body}${blockClose}\n`, {
+    variant: "html-block",
+    id: "stop-ai-slop",
+  })
   return 0
 }
