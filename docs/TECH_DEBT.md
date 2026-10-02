@@ -1,11 +1,11 @@
 # Техдолг и передача смены
 
-Реестр остатка, ограничений и операционных заметок. Точка входа для следующей сессии: сначала этот файл, затем `AGENTS.md`. Состояние на релиз 0.11.0 (main).
+Реестр остатка, ограничений и операционных заметок. Точка входа для следующей сессии: сначала этот файл, затем `AGENTS.md`. Состояние на релиз 0.12.0 (main).
 
 ## Текущее состояние
 
-- npm `latest` = **0.11.0** (проверено `npm view` 2026-10-01; теги `v0.10.0`, `v0.10.1`, `v0.11.0` в репо). Зеркало `@whitebite/stop-ai-slop@0.11.0` в GitHub Packages; GitHub Releases создаёт воркфлоу сам.
-- Проверки перед любым коммитом: `node skill/scripts/scan.mjs --self-test` (exit 0, 542 PASS), `node skill/scripts/scan.mjs scan .` (exit 0), `npm run typecheck` (exit 0), `gradle -p detekt-rules test` (BUILD SUCCESSFUL, 123 теста), `node skill/scripts/gen-schema.mjs --check` + `gen-catalog.mjs --check` + `gen-docs.mjs --check` (все `in sync`), pre-commit гейт срабатывает сам. Исключение после правок детектора 2026-10-01 (5 заимствований у aislop: why-эксемпт long-comment, density-гейт obvious, string-safe suppression, `vend/ai-plan-narration`, Go doc-эксемпт): `gradle -p detekt-rules test` падает на `RuleCatalogParityTest` — каталог содержит `vend/ai-plan-narration` (kotlinRule `StopAiSlopAiPlanNarration`), Kotlin-класса ещё нет; фаза 2 порта закроет.
+- npm `latest` = **0.12.0** (проверено `npm view` 2026-10-02; теги `v0.10.0`, `v0.10.1`, `v0.11.0`, `v0.12.0` в репо). Зеркало `@whitebite/stop-ai-slop@0.12.0` в GitHub Packages; GitHub Releases создаёт воркфлоу сам.
+- Проверки перед любым коммитом: `node skill/scripts/scan.mjs --self-test` (exit 0, 580 PASS), `node skill/scripts/scan.mjs scan .` (exit 0), `npm run typecheck` (exit 0), `gradle -p detekt-rules test` (BUILD SUCCESSFUL, 137 тестов), `node skill/scripts/gen-schema.mjs --check` + `gen-catalog.mjs --check` + `gen-docs.mjs --check` (все `in sync`), pre-commit гейт срабатывает сам.
 - Self-test в `skill/scripts/selftest.mjs` (`cmdSelfTest`, :11); проверки авто-дискаверятся из `skill/scripts/selftest/checks/*.mjs` (агрегатор :1717-1726) — новый чек = новый файл там, регистрация в теле не нужна; контракт плагина — фасад `evaluateEdit` (реэкспорт из `src/gate.mjs`); сообщения — `skill/scripts/messages.mjs` (ru+en, выбор через `--lang`/env).
 - Монолит распилён: `scan.mjs` — фасад 35 строк (bin + реэкспорты), логика в 20 модулях `skill/scripts/src/` (7-256 строк); selftest.mjs ~1735 + 17 файлов `selftest/checks/`; messages.mjs ~137.
 - Бэклог re-verified 2026-09-28: все deferred-триггеры не сработали, health checks green.
