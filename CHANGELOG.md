@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.13.0
+
+- новые правила: `vend/ticket-ref` (warning, конфиг-гейт: правило инертно, пока в `.stop-ai-slop.yaml` не задан `ticketPattern` — реальность паттерна типа `\bKRY-\d+\b` вместо generic `[A-Z]+-\d+`, который ловит RFC-3330/UTF-8/SHA-256; гварды TODO/ISSUE_LINK/CVE/GHSA, doc-блоки исключены) и `vend/research-citation` (warning: `(Cormen et al., 2009)`, `«(Иванов и др., 2023)»`, `arXiv:2407.12241`; bench: 3 допустимых warning на redis — провенанс HLL-математики)
+- отвергнуто по bench-эвиденции (TECH_DEBT, секция 2026-10-02): `vend/commented-out-code` (268 находок при лимите 25 — зрелые репо несут слишком много реального S125) и `vend/assertion-without-invariant` (91 при лимите 8, vue 90: import-alias интерьеры + строковый контент)
+- детектор: template-literal state machine для c-family профилей — `//` внутри бэктиков и `${}`-интерполяций больше не коммент (bench −2 реальных FP на PowerShell; попутно починен FN на экранированных кавычках); purity-сплит — `node:fs` вынесен в `src/diskio.mjs`, ядро детектора браузерно-чистое
+- конфиг: `overrides` (per-path severity: список `{paths, rules}`, mini-glob `*`/`**`, без wildcard = prefix как excludePaths; порядок — позже-победит, override бьёт глобальный remap) + `ticketPattern` (regex-source, валидация при загрузке); `applyRuleConfig` матчит по `rel`-пути нахождения
+- CLI: `--policy` (политика + таблица правил одной простынёй — кормит новый SessionStart-хук Claude-плагина: правила входят в контекст сессии до первой правки) и `--fix-suggestions` (строка `fix-suggestions: [{file,line,rule,kind,from,to}]` — JSON-действия из механических планов `--fix`, в text-режиме на stdout, в json/sarif на stderr)
+- Kotlin-порт: `StopAiSlopAiVocabDensity` + `StopAiSlopResearchCitation` (19 сьют / 150 тестов, паритет каталога 4/4); excluded-записи каталога сжались до self-suppression и ticket-ref (config-gated)
+- дистрибуция: Homebrew — `Formula/stop-ai-slop.rb` (npm-tarball + sha256, репо как собственный тап) с macOS-CI `brew.yml` (brew install + brew test на каждый чих формулы); VS Code extension `editors/vscode/` (zero-build CommonJS: scan-on-save → Problems, команды scanFile/scanWorkspace, настройка `stopAiSlop.command`, headless-тесты парсинга); playground `playground/` (Vite single-file 48 КБ: настоящий детектор в браузере, RU/EN, профиль-селектор, сэмплы; `dist/index.html` закоммичен — скачал и работает)
+- self-test: 640 PASS (overrides 9, ticket-ref 13, template-literal 6, research-citation 9, policy 2, fix-suggestions 5, vscode 4, playground 5 + cli-smoke policy)
+
 ## 0.12.0
 
 - новое правило `vend/ai-vocab-density` (warning): 3+ разных слов из ИИ-канона (delve, pivotal, tapestry, intricate… — 19 токенов, Wikipedia "Signs of AI writing" §3.1 минус код-литеральные существительные) в комментариях файла; порог плотности вместо одиночных срабатываний — ко-встречаемость статистически документирована (Juzek & Ward 2025, ACL Findings); bench: 0 находок на когорте из 8 репо; эксперимент — Kotlin-порт отложен (excluded-запись в каталоге)
