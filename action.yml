@@ -14,6 +14,10 @@ inputs:
     description: Output format — text, json (rdjson) or sarif
     required: false
     default: "text"
+  annotations:
+    description: "true to emit ::error/::warning workflow commands (text format only)"
+    required: false
+    default: "true"
 
 runs:
   using: composite
@@ -32,10 +36,12 @@ runs:
         args=(--diff FETCH_HEAD)
         if [ "$STRICT" = "true" ]; then args+=(--strict); fi
         args+=(--format "$FORMAT")
+        if [ "$ANNOTATIONS" = "true" ] && [ "$FORMAT" = "text" ]; then args+=(--annotations); fi
         node "$GITHUB_ACTION_PATH/skill/scripts/scan.mjs" "${args[@]}"
       env:
         STRICT: "${{ inputs.strict }}"
         FORMAT: "${{ inputs.format }}"
+        ANNOTATIONS: "${{ inputs.annotations }}"
 
 branding:
   icon: alert-octagon

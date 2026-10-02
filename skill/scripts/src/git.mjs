@@ -178,7 +178,7 @@ export function consecutiveRuns(lines) {
   return runs
 }
 
-export function runDiffGate(diffText, root, strict, format = "text", config = null, genCtx = null) {
+export function runDiffGate(diffText, root, strict, format = "text", config = null, genCtx = null, annotations = false) {
   const findings = []
   const excludePaths = config?.excludePaths ?? []
   const options = configOptions(config)
@@ -202,7 +202,7 @@ export function runDiffGate(diffText, root, strict, format = "text", config = nu
   }
   const baseline = loadBaseline(root)
   const fresh = maskBaselined(baseline, applyRuleConfig(findings, config))
-  printFindings(fresh, format, strict)
+  printFindings(fresh, format, strict, annotations)
   return failsGate(fresh, strict) ? 1 : 0
 }
 export function gitDiffRef(ref, root) {

@@ -3,6 +3,7 @@ import { RULE_BY_ID } from "./rules.mjs"
 import {
   AI_PLAN_ACK,
   AI_PLAN_REFERENCE,
+  AI_VOCAB_TOKENS,
   BIDI,
   BIDI_MARK,
   CHANGELOG_STRONG,
@@ -46,6 +47,7 @@ import {
 
 // hand-written files carry a few terse comments; generated ones narrate every few lines
 const OBVIOUS_DENSITY = 0.02
+const AI_VOCAB_MIN = 3
 
 export function finding(id, lineNo, lines, reason) {
   const v = { rule: id, lineNo, lines, severity: RULE_BY_ID.get(id).severity }
@@ -140,6 +142,14 @@ export function detectCommentSlop(addedLines, profile = PROFILES.legacy, diffMod
   const violations = []
   const obvious = []
   let codeLines = 0
+  const aiVocab = new Set()
+  let aiVocabLine = -1
+  const aiVocabHit = (text, i) => {
+    for (const m of text.matchAll(AI_VOCAB_TOKENS)) {
+      if (aiVocabLine === -1) aiVocabLine = i + 1
+      aiVocab.add(m[0].toLowerCase())
+    }
+  }
   const push = (v) => {
     if (fileSuppress !== null && fileSuppress.has(v.rule)) return
     const s = suppress.perLine.get(v.lineNo)
@@ -234,6 +244,7 @@ export function detectCommentSlop(addedLines, profile = PROFILES.legacy, diffMod
     if (SUPPRESS_ANY.test(line) && directiveInComment(line, profile)) continue
     if (cls.comment || cls.doc) {
       const weak = testLine(line, i, cls.doc)
+      if (!cls.doc) aiVocabHit(line, i)
       if (weak > 0) {
         weakRun += weak
         if (weakRunLine === -1) weakRunLine = i + 1
@@ -258,12 +269,14 @@ export function detectCommentSlop(addedLines, profile = PROFILES.legacy, diffMod
       flushWeakRun()
       const inline = inlineComment(line, profile)
       if (inline !== null && testLine(inline, i, false) >= 2) push(finding("changelog-marker", i + 1, [inline], "inline-weak-marker-pair"))
+      if (inline !== null) aiVocabHit(inline, i)
     }
   }
   flushWeakRun()
   if (obvious.length > 0 && codeLines > 0 && obvious.length / codeLines >= OBVIOUS_DENSITY) {
     for (const v of obvious) push(v)
   }
+  if (aiVocab.size >= AI_VOCAB_MIN) push(finding("vend/ai-vocab-density", aiVocabLine, [lines[aiVocabLine - 1] ?? ""]))
   return violations
 }
 export function multisetDiff(oldText, newText) {

@@ -51,7 +51,7 @@
     {
       "id": "vend/generic-todo",
       "severity": "warning",
-      "message": "TODO без ссылки на тикет",
+      "message": "TODO/FIXME/XXX без ссылки на тикет",
       "kotlinRule": "StopAiSlopGenericTodo"
     },
     {
@@ -92,6 +92,10 @@
     }
   ],
   "excluded": [
+    {
+      "id": "vend/ai-vocab-density",
+      "reason": "experimental: JS-side bench validation, Kotlin port deferred"
+    },
     {
       "id": "vend/self-suppression",
       "reason": "diff-mode-only: it needs the added-lines diff (a directive arriving in the same diff as the code it suppresses) and is meaningless in a whole-file PSI rule"

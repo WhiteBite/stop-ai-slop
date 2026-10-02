@@ -22,7 +22,9 @@ export const AI_PLAN_REFERENCE =
   /\bper\s+the\s+(?:spec|task|ticket|prompt|plan)\b|\bstep\s+\d+\s+of\s+the\s+plan\b|\bas\s+per\s+requirements?\b|(?<![а-яё])(?:согласно\s+тз|по\s+плану|шаг\s+\d+\s+плана|согласно\s+спецификации)(?![а-яё])|(?<![a-zäöüß])(?:gemäß\s+(?:spec|plan)|laut\s+anforderungen?)(?![a-zäöüß])|(?<![a-zéèêàùç])(?:selon\s+(?:la\s+spec|le\s+plan))(?![a-zéèêàùç])|(?<![a-záéíóúñ])(?:conforme\s+a\s+la\s+especificación|según\s+el\s+plan)(?![a-záéíóúñ])/i
 export const AI_PLAN_ACK =
   /^as\s+(?:instructed|requested)\b|^the\s+user\s+asked\b|(?<![а-яё])(?:как\s+было\s+запрошено|пользователь\s+попросил)(?![а-яё])|(?<![a-zäöüß])(?:wie\s+angewiesen)(?![a-zäöüß])|(?<![a-zéèêàùç])(?:comme\s+demandé(?:e|s|es)?)(?![a-zéèêàùç])|(?<![a-záéíóúñ])(?:como\s+se\s+indicó)(?![a-záéíóúñ])/i
-export const TODO_WORD = /\btodo\b/i
+export const TODO_WORD = /\b(?:todo|fixme|xxx)\b/i
+export const AI_VOCAB_TOKENS =
+  /\b(?:additionally|boasts|bolstered|crucial|delve|emphasizing|enduring|garner|intricate|intricacies|interplay|meticulously|meticulous|pivotal|tapestry|testament|vibrant|fostering|showcasing)\b/gi
 export const TICKET_REF = /[A-Z]+-\d+/
 export const ISSUE_LINK = /https?:\/\/\S+|#\d+/
 export const LONG_LINK = /https?:\/\/\S{30,}/

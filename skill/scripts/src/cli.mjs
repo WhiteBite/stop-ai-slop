@@ -13,8 +13,9 @@ import { cmdAudit } from "./audit.mjs"
 import { cmdMcp } from "./mcp.mjs"
 import { cmdPreTool, cmdStdinPath } from "./pretool.mjs"
 import { cmdBench } from "./bench.mjs"
+import { cmdDoctor } from "./doctor.mjs"
 
-export function cmdScan(paths, { writeBaseline = false, strict = false, prune = false, format = "text" } = {}) {
+export function cmdScan(paths, { writeBaseline = false, strict = false, prune = false, format = "text", annotations = false } = {}) {
   const root = gitToplevel(process.cwd())
   let config
   try {
@@ -52,10 +53,10 @@ export function cmdScan(paths, { writeBaseline = false, strict = false, prune = 
   }
   const baseline = loadBaseline(root)
   const fresh = maskBaselined(baseline, findings)
-  printFindings(fresh, format, strict)
+  printFindings(fresh, format, strict, annotations)
   return failsGate(fresh, strict) ? 1 : 0
 }
-export function cmdStaged(strict = false, format = "text") {
+export function cmdStaged(strict = false, format = "text", annotations = false) {
   const root = gitToplevel(process.cwd())
   let config
   try {
@@ -75,9 +76,9 @@ export function cmdStaged(strict = false, format = "text") {
     console.log(T("notGitStaged"))
     return 0
   }
-  return runDiffGate(diff, root, strict, format, config, genContext(root, config))
+  return runDiffGate(diff, root, strict, format, config, genContext(root, config), annotations)
 }
-export function cmdDiff(ref, strict = false, format = "text") {
+export function cmdDiff(ref, strict = false, format = "text", annotations = false) {
   const root = gitToplevel(process.cwd())
   let config
   try {
@@ -97,12 +98,14 @@ export function cmdDiff(ref, strict = false, format = "text") {
     console.log(T("notGitDiff"))
     return 0
   }
-  return runDiffGate(diff, root, strict, format, config, genContext(root, config))
+  return runDiffGate(diff, root, strict, format, config, genContext(root, config), annotations)
 }
 export const KNOWN_FLAGS = new Set([
   "--self-test",
   "--explain",
   "--strict",
+  "--annotations",
+  "--doctor",
   "--install",
   "--install-hooks",
   "--install-rules",
@@ -150,19 +153,20 @@ export const MODES = [
   ["--install-hooks", () => cmdInstallHooks()],
   ["--install-rules", () => cmdInstallRules()],
   ["--fix", (argv, { strict }) => cmdFix(positionalPaths(argv), { dryRun: argv.includes("--dry-run"), strict })],
-  ["--staged", (argv, { strict, format }) => cmdStaged(strict, format)],
+  ["--staged", (argv, { strict, format, annotations }) => cmdStaged(strict, format, annotations)],
   [
     "--diff",
-    (argv, { strict, format }) => {
+    (argv, { strict, format, annotations }) => {
       const ref = argv[argv.indexOf("--diff") + 1]
       if (ref === undefined || ref.startsWith("--")) {
         console.error("slop-gate: --diff требует ref (например, main)")
         return 2
       }
-      return cmdDiff(ref, strict, format)
+      return cmdDiff(ref, strict, format, annotations)
     },
   ],
   ["--help", () => cmdUsage()],
+  ["--doctor", () => cmdDoctor()],
   [
     "--audit",
     (argv) => {
@@ -198,17 +202,18 @@ export function main(argv) {
     return cmdExplain(ruleId)
   }
   const strict = argv.includes("--strict")
+  const annotations = argv.includes("--annotations")
   const parsed = parseFormat(argv)
   if (parsed === null) return 2
   const { format } = parsed
   argv = parsed.rest
   for (const [flag, run] of MODES) {
-    if (argv.includes(flag)) return run(argv, { strict, format })
+    if (argv.includes(flag)) return run(argv, { strict, format, annotations })
   }
   const unknown = argv.filter((a) => a.startsWith("--") && !KNOWN_FLAGS.has(a) && a !== "--lang")
   if (unknown.length > 0) {
     console.error(T("unknownFlag", unknown[0]))
     return 2
   }
-  return cmdScan(positionalPaths(argv), { writeBaseline: argv.includes("--baseline-write"), strict, format })
+  return cmdScan(positionalPaths(argv), { writeBaseline: argv.includes("--baseline-write"), strict, format, annotations })
 }

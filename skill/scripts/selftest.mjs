@@ -1325,7 +1325,7 @@ export async function cmdSelfTest() {
     const noReasonLine = noReason.out.split("\n").find((l) => l.includes("vend/generic-todo ["))
     check(
       "reason: single-trigger правило без reason-суффикса",
-      noReason.status === 0 && noReasonLine === "todo.ts:1 vend/generic-todo [warning] TODO без ссылки на тикет",
+      noReason.status === 0 && noReasonLine === "todo.ts:1 vend/generic-todo [warning] TODO/FIXME/XXX без ссылки на тикет",
       `exit ${noReason.status}: ${noReason.out.slice(0, 200)}`,
     )
     const reasonJson = runCli(["scan", "transition-before-this.ts", "--format", "json"], dir)
@@ -1354,7 +1354,7 @@ export async function cmdSelfTest() {
       plainJson.status === 0 &&
         plainJsonParsed !== null &&
         plainJsonParsed.diagnostics.length === 1 &&
-        plainJsonParsed.diagnostics[0].message === "TODO без ссылки на тикет",
+        plainJsonParsed.diagnostics[0].message === "TODO/FIXME/XXX без ссылки на тикет",
       `exit ${plainJson.status}: ${plainJson.out.slice(0, 200)}`,
     )
     const reasonSarif = runCli(["scan", "transition-before-this.ts", "--format", "sarif"], dir)

@@ -516,10 +516,11 @@ Comment syntax comes from a language profile, not a single shared list: `#` is a
 | `vend/markdown-in-comment` | warning | markdown syntax inside a comment (**, -, \|); a table row needs at least three pipes (`\| a \| b \|`), a lone `\|flag\|` in prose is not flagged |
 | `vend/this-function-opener` | warning | a comment starts with "This function/class/method/component", "Эта функция/Этот класс", "Diese Funktion", "Cette fonction" or "Esta función" |
 | `vend/file-summary-header` | warning | a 2+ line summary-header comment at the top of a file |
-| `vend/generic-todo` | warning | a TODO without a ticket link (any case: `todo`, `Todo`, `TODO`) |
+| `vend/generic-todo` | warning | a TODO/FIXME/XXX without a ticket link (any case) |
 | `vend/cross-file-ref` | warning | a pointer to another file/line in a comment (`handler.py:147`, `src/util.py:30`); requires a path separator or a known code extension, so URLs with `#L12` anchors and host:port pairs are not flagged |
 | `vend/obvious-comment` | warning | a single-line comment that restates the code line beneath it (`// increment the counter` above `counter += 1`); code profiles only, a comment with a why (`т.к.`, `чтобы`, `must`, `only`, `intentionally`, units…) is not flagged; per-file density gate: findings are dropped unless they make up at least 2% of the file's non-empty, non-comment lines |
 | `vend/ai-plan-narration` | warning | a comment narrates the agent's own work process: plan/spec/task/prompt references and instruction acknowledgements ("per the spec", "as requested", "step 2 of the plan", «согласно ТЗ», «по плану», DE/FR/ES equivalents); a ticketed TODO is not flagged |
+| `vend/ai-vocab-density` | warning | 3+ distinct AI-vocabulary words (delve, pivotal, tapestry...) in the file's comments; one file-level finding at the first matching line; doc-blocks are not counted |
 | `vend/self-suppression` | warning | a suppression directive arrives in the same diff as the code it suppresses |
 | `vend/cjk-noise` | warning | CJK characters glued to Latin letters or digits in the code part of a line (a generation artifact) |
 | `vend/zero-width-chars` | error | an invisible zero-width character (U+200B, U+200C, U+200D, U+2060, U+FEFF or an escape form) |

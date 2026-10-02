@@ -133,13 +133,13 @@ export const RULES = [
   {
     id: "vend/generic-todo",
     severity: "warning",
-    message: "TODO без ссылки на тикет",
+    message: "TODO/FIXME/XXX без ссылки на тикет",
     why: "TODO без тикета — вечный долг: некому искать и некогда чинить.",
     instead: "добавить тикет: // TODO ABC-123 ... — или удалить",
     write: "// TODO KRY-482 снять воркэраунд после фикса upstream",
     ignoreWhen: "локальный черновик до первого коммита",
     en: {
-      message: "a TODO without a ticket link (any case: todo, Todo, TODO)",
+      message: "a TODO/FIXME/XXX without a ticket link (any case)",
       why: "A TODO without a ticket is an eternal debt: nobody owns finding it and there is never time to fix it.",
       instead: "add a ticket: // TODO ABC-123 ... — or delete it",
       write: "// TODO KRY-482 drop the workaround after the upstream fix",
@@ -192,6 +192,22 @@ export const RULES = [
       instead: "remove it; a non-obvious requirement — as a TODO ticket or one line of WHY",
       write: "// 30s timeout because the vendor never answers faster",
       ignoreWhen: "a verbatim quote from an external spec where the wording is fixed",
+    },
+  },
+  {
+    id: "vend/ai-vocab-density",
+    severity: "warning",
+    message: "3+ разных слов из ИИ-канона (delve, pivotal, tapestry...) в комментариях файла",
+    why: "Плотность канонных ИИ-слов — статистическая сигнатура генерации (Juzek & Ward 2025): где есть одно слово, там обычно есть и другие. Одиночное слово бывает и у человека; три разных в комментариях одного файла — уже сигнатура.",
+    instead: "заменить канонные слова на простые",
+    write: "обычная человеческая лексика",
+    ignoreWhen: "дословная цитата из внешнего текста, где формулировка зафиксирована",
+    en: {
+      message: "3+ distinct AI-vocabulary words (delve, pivotal, tapestry...) in the file's comments",
+      why: "The density of canonical AI words is a statistical signature of generation (Juzek & Ward 2025): where there is one word, there are likely others. A single word occurs in human writing too; three distinct ones in one file's comments is already a signature.",
+      instead: "replace the canonical words with plain ones",
+      write: "ordinary human wording",
+      ignoreWhen: "a verbatim quote from an external text where the wording is fixed",
     },
   },
   {

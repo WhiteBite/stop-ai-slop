@@ -122,3 +122,15 @@
 - QA-рецепты поверхностей (проверено live, повторять при правках соответствующих режимов): MCP — пайп NDJSON-сессии в `node skill/scripts/scan.mjs --mcp` (initialize/tools/list/tools/call/unknown-method), ожидать чистый JSON в stdout и exit 0 по закрытии stdin; PreToolUse — пайп JSON `{tool_name, tool_input}` в `--pre-tool`, slop → exit 2 + stderr, clean/Read → exit 0; конфиг — temp-каталог с `.stop-ai-slop.yaml` и cwd в нём (конфиг читается от git-root, вне репо — от cwd).
 - Бенч требует сеть и git; кеш `~/.cache/stop-ai-slop/bench/<owner>--<name>` (override `STOP_AI_SLOP_BENCH_CACHE`). Счётчики когорты включают истинные находки в репо без политики (тысячи multi-line у PowerShell/redis) — смысл имеют только ДЕЛЬТЫ между запусками, не абсолютные числа.
 - Комментарии в коде: ноль по умолчанию (гейт `comment-gate` + pre-commit); RU-строки для юзеров, EN-идентификаторы; коммиты — императив EN ≤100 символов, без трейлеров атрибуции.
+
+## 2026-10-02 policy review
+
+- hedge-language REJECTED: когорта даёт FP (redis 19 / PowerShell 24 файла честных человеческих оговорок «We are not sure the input is sane»); конфликт с OBVIOUS_WHY should-маркером.
+- ticket-ref REJECTED as specified: TICKET_REF матчит RFC-3330/UTF-8/SHA-256/ISO-8859; рецепт на случай рецидива — обязательный ticketPattern + warning + denylist спеков, только по юзер-комплейнам.
+- `--commit-msg` REJECTED: README отдаёт prose в ai-slop-linter; RU-императив морфологически нерешаем детерминированно.
+- per-path overrides REJECTED: yaml-кейс реален (PowerShell `.github/workflows/codeql-analysis.yml:32,35,49`), но закрыт global remap + baseline + excludePaths; триггер пересмотра — юзер-ишью, где все три не спасают.
+- diff-mode FN: obvious-коммент, добавленный над НЕдобавленной строкой кода, ускользает в `--staged`/`--diff` (lines[j] видит только добавленные строки).
+- harm-map: GitClear 2026 — рефакторинг 25%→3.8%, дубликаты +81% vs 2023; прямых данных о коммент-чёрне нет — экстраполяция «клон × вложенный нарратив».
+- HN-эвиденция классов слопа: items 43642896, 46927407, 38369576, 49431446, 49705359, 46228649.
+- ai-vocab-density ADOPTED: 0 находок на когорте (порог 3 разных токена; независимый греп по всему тексту файлов — тоже 0 файлов с 3+ разными токенами, самый частый токен additionally), bench-history не изменился; эксперимент — Kotlin-порт отложен (запись в excluded каталога).
+- не-EN валидация через когорту НЕВОЗМОЖНА (проверено 2026-10-02 на 6 репо × 300k+ строк комментов на пиннутых SHA: typo3/contao/symfony/PrestaShop/phpfastcache/pyload): зрелый не-EN-комментированный OSS не существует — анлгийский лингва-франка комментов и у DE/FR-команд (typo3 — 2 опечатки, contao — 4 строки из 12.7k, pyload — кириллица только в строковых литералах). RU/DE/FR/ES маркеры остаются fixture-валидируемыми; живого корпуса нет. Клоны для перепроверки: `$env:TEMP\opencode\slop-bench\{typo3,contao,symfony,prestashop,phpfastcache,pyload}`.

@@ -5,6 +5,23 @@ import { fileURLToPath } from "node:url"
 import { T } from "./i18n.mjs"
 import { RULES } from "./rules.mjs"
 
+export function hooksDirFor(root) {
+  const gitDir = join(root, ".git")
+  if (!existsSync(gitDir)) return null
+  let hooksDir = join(gitDir, "hooks")
+  try {
+    const configured = execFileSync("git", ["config", "core.hooksPath"], {
+      cwd: root,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+    }).trim()
+    if (configured !== "") hooksDir = resolve(root, configured)
+  } catch {
+    hooksDir = join(gitDir, "hooks")
+  }
+  return hooksDir
+}
+
 export function cmdInstall(strict = false) {
   const root = process.cwd()
   const abs = join(dirname(fileURLToPath(import.meta.url)), "..", "scan.mjs").split(sep).join("/")
@@ -45,21 +62,10 @@ export function cmdInstall(strict = false) {
   } else {
     console.log("slop-gate: package.json не найден — npm scripts пропущены")
   }
-  const gitDir = join(root, ".git")
-  if (!existsSync(gitDir)) {
+  const hooksDir = hooksDirFor(root)
+  if (hooksDir === null) {
     console.log("slop-gate: .git не найден — pre-commit hook пропущен")
     return 0
-  }
-  let hooksDir = join(gitDir, "hooks")
-  try {
-    const configured = execFileSync("git", ["config", "core.hooksPath"], {
-      cwd: root,
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "pipe"],
-    }).trim()
-    if (configured !== "") hooksDir = resolve(root, configured)
-  } catch {
-    hooksDir = join(gitDir, "hooks")
   }
   mkdirSync(hooksDir, { recursive: true })
   const hookPath = join(hooksDir, "pre-commit")

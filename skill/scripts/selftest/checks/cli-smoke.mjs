@@ -39,6 +39,7 @@ const MODES = [
   { name: "help", args: ["--help"], input: null, expect: 0 },
   { name: "audit", args: ["--audit"], input: null, expect: 0 },
   { name: "install", args: ["--install"], input: null, expect: 0 },
+  { name: "doctor", args: ["--doctor"], input: null, expect: 0 },
   { name: "install-hooks", args: ["--install-hooks"], input: null, expect: 0 },
   { name: "install-rules", args: ["--install-rules"], input: null, expect: 0 },
   { name: "stdin-path", args: ["--stdin-path"], input: (cwd) => payload(join(cwd, "a.ts")) },

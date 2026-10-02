@@ -29,7 +29,7 @@
       "type": "object",
       "additionalProperties": false,
       "patternProperties": {
-        "^(multi-line-comment|changelog-marker|long-comment|vend/step-numbered|vend/section-divider|vend/markdown-in-comment|vend/this-function-opener|vend/file-summary-header|vend/generic-todo|vend/cross-file-ref|vend/obvious-comment|vend/ai-plan-narration|vend/self-suppression|vend/cjk-noise|vend/zero-width-chars|vend/bidi-controls)$": {
+        "^(multi-line-comment|changelog-marker|long-comment|vend/step-numbered|vend/section-divider|vend/markdown-in-comment|vend/this-function-opener|vend/file-summary-header|vend/generic-todo|vend/cross-file-ref|vend/obvious-comment|vend/ai-plan-narration|vend/ai-vocab-density|vend/self-suppression|vend/cjk-noise|vend/zero-width-chars|vend/bidi-controls)$": {
           "type": "string",
           "enum": ["error", "warning", "off"]
         }

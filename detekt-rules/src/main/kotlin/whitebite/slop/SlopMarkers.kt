@@ -59,7 +59,7 @@ internal object SlopMarkers {
         ignoreCase = true,
     )
 
-    val TODO_WORD = Pat.of("""\btodo\b""", ignoreCase = true)
+    val TODO_WORD = Pat.of("""\b(?:todo|fixme|xxx)\b""", ignoreCase = true)
     val TICKET_REF = Pat.of("""[A-Z]+-\d+""")
     val ISSUE_LINK = Pat.of("""https?://(?U:\S+)|#\d+""")
     val LONG_LINK = Pat.of("""(?U)https?://\S{30,}""")

@@ -81,7 +81,20 @@ export function findingsToText(findings, strict = false) {
   return lines.join("\n")
 }
 
-export function printFindings(findings, format = "text", strict = false) {
+export function escapeAnnotationMessage(msg) {
+  return msg.replaceAll("%", "%25").replaceAll("\r", "%0D").replaceAll("\n", "%0A").replaceAll(":", "%3A")
+}
+
+export function annotationsToText(findings) {
+  const lines = []
+  for (const f of sortedFindings(findings)) {
+    const level = f.severity === "error" ? "error" : "warning"
+    lines.push(`::${level} file=${f.rel},line=${f.lineNo}::${escapeAnnotationMessage(`${f.rule} ${withReason(rt(f.rule, "message"), f)}`)}`)
+  }
+  return lines.join("\n")
+}
+
+export function printFindings(findings, format = "text", strict = false, annotations = false) {
   if (format === "json") {
     console.log(toRdjson(findings))
     return
@@ -90,6 +103,7 @@ export function printFindings(findings, format = "text", strict = false) {
     console.log(toSarif(findings))
     return
   }
+  if (annotations && findings.length > 0) console.log(annotationsToText(findings))
   console.log(findingsToText(findings, strict))
 }
 export function failsGate(findings, strict) {

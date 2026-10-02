@@ -97,6 +97,7 @@ node skill/scripts/scan.mjs --install-hooks     # write agent hook configs (Code
 node skill/scripts/scan.mjs --install-rules     # generate agent instruction files from the RULES table (.cursor/rules/.windsurfrules/CONVENTIONS.md/.clinerules/.devin/rules/, marked block in .github/copilot-instructions.md)
 node skill/scripts/scan.mjs --baseline-write    # record current findings into the baseline
 node skill/scripts/scan.mjs --baseline-prune    # remove baseline entries with no live finding
+node skill/scripts/scan.mjs --doctor            # environment diagnostics: node, git, pre-commit hook path, config, baseline
 node skill/scripts/scan.mjs --help              # help for all flags
 ```
 
@@ -380,7 +381,7 @@ on: pull_request:
             base: ${{ github.base_ref }}
 ```
 
-The action fetches the base ref itself, so a standard shallow checkout is enough; `strict: "true"` enables warnings-as-errors; `format: "json"` or `format: "sarif"` switches the action output to a machine-readable format (see "Output formats"). The action does not run on push events (there is no `github.base_ref`) — use `pull_request` or pass `base` explicitly.
+The action fetches the base ref itself, so a standard shallow checkout is enough; `strict: "true"` enables warnings-as-errors; `format: "json"` or `format: "sarif"` switches the action output to a machine-readable format (see "Output formats"). The action does not run on push events (there is no `github.base_ref`) — use `pull_request` or pass `base` explicitly. The `annotations` input (default `"true"`) adds `--annotations` to the text-format scan: every finding is also emitted as a GitHub Actions workflow command (`::error file=<rel>,line=<n>::…` / `::warning …`) and shows up inline on the PR diff; with `format: "json"` or `"sarif"` the flag is a no-op.
 
 ## Publishing to npm
 
@@ -455,6 +456,8 @@ node skill/scripts/scan.mjs --audit        # counters + last 20 entries
 node skill/scripts/scan.mjs --audit 50     # last 50
 ```
 
+`node skill/scripts/scan.mjs --doctor` diagnoses the environment in one pass — node version, git on PATH, the pre-commit hook and its embedded scanner path (the moved-scanner case above), the npm scripts, `.stop-ai-slop.yaml` validity, the baseline and the OpenCode plugin stub — and exits 1 naming the broken piece; `!` lines are informational and never fail.
+
 The plugin is loaded by the OpenCode process at session start: after editing `plugin/comment-gate.ts`, restart OpenCode, otherwise the old version runs (the audit log shows this immediately by the absence of new entries).
 
 ## Language profiles
@@ -506,10 +509,11 @@ Comment syntax comes from a language profile, not a single shared list: `#` is a
 | `vend/markdown-in-comment` | warning | markdown syntax inside a comment (**, -, \|) |
 | `vend/this-function-opener` | warning | a comment starts with "This function/…", «Эта функция/…», «Diese Funktion…», «Cette fonction…» or «Esta función…» |
 | `vend/file-summary-header` | warning | a 2+ line summary-header comment at the top of a file |
-| `vend/generic-todo` | warning | a TODO without a ticket link (any case: todo, Todo, TODO) |
+| `vend/generic-todo` | warning | a TODO/FIXME/XXX without a ticket link (any case) |
 | `vend/cross-file-ref` | warning | a pointer to another file/line in a comment (handler.py:147) |
 | `vend/obvious-comment` | warning | a single-line comment restates the code line beneath it |
 | `vend/ai-plan-narration` | warning | a comment narrates the agent's own work process (plan/spec/task references, instruction acknowledgements) |
+| `vend/ai-vocab-density` | warning | 3+ distinct AI-vocabulary words (delve, pivotal, tapestry...) in the file's comments |
 | `vend/self-suppression` | warning | a suppression directive without a rule list arrived together with the code it suppresses |
 | `vend/cjk-noise` | warning | CJK characters glued to Latin letters or digits in the code part of a line (a generation artifact) |
 | `vend/zero-width-chars` | error | an invisible zero-width character (U+200B, U+200C, U+200D, U+2060, U+FEFF or an escape form) |

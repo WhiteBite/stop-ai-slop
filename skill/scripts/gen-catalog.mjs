@@ -30,6 +30,10 @@ const EXCLUDED = [
     reason:
       "diff-mode-only: it needs the added-lines diff (a directive arriving in the same diff as the code it suppresses) and is meaningless in a whole-file PSI rule",
   },
+  {
+    id: "vend/ai-vocab-density",
+    reason: "experimental: JS-side bench validation, Kotlin port deferred",
+  },
 ]
 
 export function buildCatalog() {

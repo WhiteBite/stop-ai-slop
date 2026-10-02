@@ -97,6 +97,7 @@ node skill/scripts/scan.mjs --install-hooks     # написать конфиг�
 node skill/scripts/scan.mjs --install-rules     # сгенерировать файлы инструкций агентов из таблицы RULES (.cursor/rules/.windsurfrules/CONVENTIONS.md/.clinerules/.devin/rules/, отмеченный блок в .github/copilot-instructions.md)
 node skill/scripts/scan.mjs --baseline-write    # записать текущие находки в baseline
 node skill/scripts/scan.mjs --baseline-prune    # удалить из baseline записи без живых находок
+node skill/scripts/scan.mjs --doctor            # диагностика окружения: node, git, путь сканера в pre-commit hook, конфиг, baseline
 node skill/scripts/scan.mjs --help              # справка по всем флагам
 ```
 
@@ -380,7 +381,7 @@ on: pull_request:
             base: ${{ github.base_ref }}
 ```
 
-Action сам подтягивает базовый реф, поэтому стандартного shallow checkout достаточно; `strict: "true"` включает режим warnings-as-errors; `format: "json"` или `format: "sarif"` переключает вывод action на машиночитаемый формат (см. «Форматы вывода»). На push-событиях action не работает (нет `github.base_ref`) — используйте `pull_request` или передавайте base явно.
+Action сам подтягивает базовый реф, поэтому стандартного shallow checkout достаточно; `strict: "true"` включает режим warnings-as-errors; `format: "json"` или `format: "sarif"` переключает вывод action на машиночитаемый формат (см. «Форматы вывода»). На push-событиях action не работает (нет `github.base_ref`) — используйте `pull_request` или передавайте base явно. Вход `annotations` (по умолчанию `"true"`) добавляет `--annotations` к скану в text-формате: каждая находка дополнительно печатается workflow-командой GitHub Actions (`::error file=<rel>,line=<n>::…` / `::warning …`) и подсвечивается прямо в диффе PR; при `format: "json"` или `"sarif"` флаг ничего не меняет.
 
 ## Релизы в npm
 
@@ -455,6 +456,8 @@ node skill/scripts/scan.mjs --audit        # счётчики + последни
 node skill/scripts/scan.mjs --audit 50     # последние 50
 ```
 
+`node skill/scripts/scan.mjs --doctor` проверяет окружение одним проходом — версию node, git в PATH, pre-commit hook и зашитый в него путь сканера (кейс переноса сканера выше), npm scripts, валидность `.stop-ai-slop.yaml`, baseline и стаб плагина OpenCode — и выходит с 1, называя сломанное; строки с `!` информационные и никогда не роняют гейт.
+
 Плагин загружается процессом OpenCode на старте сессии: после правок `plugin/comment-gate.ts` перезапустите OpenCode, иначе работает старая версия (аудит-лог это сразу покажет отсутствием новых записей).
 
 ## Языковые профили
@@ -506,10 +509,11 @@ node skill/scripts/scan.mjs --audit 50     # последние 50
 | `vend/markdown-in-comment` | warning | markdown-разметка внутри комментария (**, -, \|) |
 | `vend/this-function-opener` | warning | комментарий начинается с «This function/…», «Эта функция/…», «Diese Funktion…», «Cette fonction…» или «Esta función…» |
 | `vend/file-summary-header` | warning | шапка-резюме из 2+ строк комментария в начале файла |
-| `vend/generic-todo` | warning | TODO без ссылки на тикет |
+| `vend/generic-todo` | warning | TODO/FIXME/XXX без ссылки на тикет |
 | `vend/cross-file-ref` | warning | указатель на другой файл/строку в комментарии (handler.py:147) |
 | `vend/obvious-comment` | warning | комментарий пересказывает строку кода под ним |
 | `vend/ai-plan-narration` | warning | комментарий пересказывает рабочий процесс агента (ссылки на план/спеку/задачу, подтверждение инструкций) |
+| `vend/ai-vocab-density` | warning | 3+ разных слов из ИИ-канона (delve, pivotal, tapestry...) в комментариях файла |
 | `vend/self-suppression` | warning | директива подавления без списка правил пришла вместе с подавляемым кодом |
 | `vend/cjk-noise` | warning | CJK-иероглифы склеены с латиницей или цифрами в коде (артефакт генерации) |
 | `vend/zero-width-chars` | error | невидимый символ нулевой ширины (U+200B, U+200C, U+200D, U+2060, U+FEFF или escape-форма) |
