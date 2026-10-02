@@ -1,3 +1,33 @@
+<!-- rdk:generated:start -->
+# stop-ai-slop
+
+> Zero-dependency linter that blocks AI-generated comment slop. Enforces a one-line, why-only comment policy via pre-commit hook, IDE plugin and CI.
+
+This file follows the llms.txt convention: a short, LLM-friendly index of the project.
+
+## Docs
+
+- [Homepage](https://github.com/WhiteBite/stop-ai-slop#readme): project landing page
+- [Issues](https://github.com/WhiteBite/stop-ai-slop/issues): roadmap and known gaps
+- [README.md](./README.md): install, run and test instructions
+
+## Key facts
+
+- Install: `npm install stop-ai-slop`
+- Run: `npx stop-ai-slop scan .`
+- Test: `npm run test`
+- Use cases: block AI-slop comments at the moment the agent writes them (OpenCode plugin, Claude Code, Codex, Gemini, Qwen, Devin hooks); gate every commit that adds narrative or changelog comments (pre-commit hook); fail CI on comment slop in PR diffs (GitHub Action, GitLab CI template, SARIF, reviewdog rdjson); clean existing comment slop mechanically with --fix and a fingerprinted baseline; teach agents the comment policy via generated rules files and the MCP server
+
+## Optional
+
+- [llms-full.txt](./llms-full.txt): the full documentation in a single file
+- [AGENTS.md](./AGENTS.md): instructions for coding agents
+<!-- rdk:generated:end -->
+
+## Hand-written notes
+
+<!-- Everything below the end marker is preserved by `rdk fix`. Put hand-written context here; the block above is regenerated from .discoverability/project.yml. -->
+
 # stop-ai-slop
 
 > Zero-dependency comment linter and gate that blocks AI-generated comment slop: multi-line narrative comments, "was X, now Y" changelog markers, step-numbered filler, banner dividers, markdown in comments, TODOs without tickets, and invisible zero-width/BiDi characters. One deterministic scanner, no LLM, no network, zero npm dependencies. Enforced at write time (OpenCode plugin, Claude Code PreToolUse hook), commit time (pre-commit hook), and in CI (GitHub Action, GitLab CI). Also an MCP server. Node >= 18, MIT.

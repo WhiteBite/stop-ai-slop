@@ -3,6 +3,7 @@
   "version": "0.13.0",
   "description": "Zero-dependency linter that blocks AI-generated comment slop. Enforces a one-line, why-only comment policy via pre-commit hook, IDE plugin and CI.",
   "license": "MIT",
+  "types": "./skill/scripts/scan.d.mts",
   "author": {
     "name": "WhiteBite",
     "url": "https://github.com/WhiteBite"
