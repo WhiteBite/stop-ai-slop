@@ -24,7 +24,7 @@ npx stop-ai-slop --install        # пишет pre-commit hook + npm scripts в 
 
 ```
 brew tap WhiteBite/stop-ai-slop https://github.com/WhiteBite/stop-ai-slop
-brew install stop-ai-slop
+brew install WhiteBite/stop-ai-slop/stop-ai-slop
 ```
 
 Формула оборачивает npm-пакет (этот репозиторий — собственный tap: формула лежит в `Formula/stop-ai-slop.rb`) и подтягивает `node` из Homebrew, который удовлетворяет требованию Node >= 18.

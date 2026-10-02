@@ -20,9 +20,13 @@ jobs:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - name: Install the formula from the repo
-        run: brew install --formula ./Formula/stop-ai-slop.rb
+      - name: Link the repo into Homebrew as a local tap
+        run: |
+          mkdir -p "$(brew --repository)/Library/Taps/whitebite"
+          ln -s "$GITHUB_WORKSPACE" "$(brew --repository)/Library/Taps/whitebite/homebrew-stop-ai-slop"
+      - name: Install the formula via the tap
+        run: brew install whitebite/stop-ai-slop/stop-ai-slop
       - name: Run the formula test block
-        run: brew test stop-ai-slop
+        run: brew test whitebite/stop-ai-slop/stop-ai-slop
       - name: Smoke
         run: stop-ai-slop --help | head -1

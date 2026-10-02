@@ -24,7 +24,7 @@ npx stop-ai-slop --install        # writes the pre-commit hook + npm scripts int
 
 ```
 brew tap WhiteBite/stop-ai-slop https://github.com/WhiteBite/stop-ai-slop
-brew install stop-ai-slop
+brew install WhiteBite/stop-ai-slop/stop-ai-slop
 ```
 
 The formula wraps the npm package (this repository doubles as its own tap — the formula lives in `Formula/stop-ai-slop.rb`) and pulls in Homebrew's `node`, which satisfies the Node >= 18 requirement.
