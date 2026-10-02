@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.12.0
+
+- новое правило `vend/ai-vocab-density` (warning): 3+ разных слов из ИИ-канона (delve, pivotal, tapestry, intricate… — 19 токенов, Wikipedia "Signs of AI writing" §3.1 минус код-литеральные существительные) в комментариях файла; порог плотности вместо одиночных срабатываний — ко-встречаемость статистически документирована (Juzek & Ward 2025, ACL Findings); bench: 0 находок на когорте из 8 репо; эксперимент — Kotlin-порт отложен (excluded-запись в каталоге)
+- `vend/generic-todo` расширен: TODO_WORD ловит FIXME и XXX (HACK не включён — workaround-лейбл, а не debt-маркер, конфликтует с why-политикой); экземция по тикету наследуется; bench +28, все TP (PowerShell +12, redis +5, rack +4, vue +4, tokio +3); detekt-порт синхронизирован (тесты + паритет)
+- новый режим `--doctor`: диагностика окружения — node >= 18, git, git-root, pre-commit хук (блок slop-gate + валидность вшитого пути сканера), npm scripts, парсинг `.stop-ai-slop.yaml`, baseline, opencode-stub; exit 1 только на поломках (сломанный путь после переноса сканера — документированная боль №1); i18n ru/en
+- новый флаг `--annotations` (scan/--staged/--diff, text-вывод): workflow-команды GitHub Actions `::error|::warning file=,line=::` на каждую находку с экранированием `%`/CR/LF/`:` по спеке; input `annotations` (default true) в action.yml — находки кликабельны в PR; json/sarif не затронуты
+- политика: секция «2026-10-02 policy review» в docs/TECH_DEBT.md — по эвиденции bench-когорты и adversarial-верификации отвергнуты hedge-language (FP на человеческих оговорках), ticket-ref (TICKET_REF матчит спек-имена), `--commit-msg` (скоуп README отдаёт prose в ai-slop-linter), per-path overrides (закрыто global remap + baseline + excludePaths); не-EN валидация когортой невозможна — зрелого не-EN-комментированного OSS не существует (6 репо × 300k+ строк)
+- self-test: 580 PASS — новые чеки todo-word/doctor/annotations/ai-vocab + режим doctor в cli-smoke; задокументирован diff-mode FN obvious-коммента
+
 ## 0.11.0
 
 - архитектура: монолит `scan.mjs` (2353 строки) распилен на 20 модулей `skill/scripts/src/` с ациклическим графом импортов; `scan.mjs` — bin + фасад на 35 строк с теми же 23 экспортами, `RULE_BY_ID` конструируется ровно один раз; self-test-проверки авто-дискаверятся из `skill/scripts/selftest/checks/*.mjs`, новый чек = новый файл (520 PASS против 277)
