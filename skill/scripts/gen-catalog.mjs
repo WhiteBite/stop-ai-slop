@@ -18,6 +18,7 @@ const KOTLIN_RULE = {
   "vend/generic-todo": "StopAiSlopGenericTodo",
   "vend/cross-file-ref": "StopAiSlopCrossFileRef",
   "vend/obvious-comment": "StopAiSlopObviousComment",
+  "vend/ai-plan-narration": "StopAiSlopAiPlanNarration",
   "vend/cjk-noise": "StopAiSlopCjkNoise",
   "vend/zero-width-chars": "StopAiSlopZeroWidthChars",
   "vend/bidi-controls": "StopAiSlopBidiControls",

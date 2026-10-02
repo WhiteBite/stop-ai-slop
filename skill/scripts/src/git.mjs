@@ -187,10 +187,11 @@ export function runDiffGate(diffText, root, strict, format = "text", config = nu
     if (isExcludedPath(file, excludePaths)) continue
     const disk = readDisk(join(root, file))
     if (typeof disk === "string" && disk.slice(0, 8192).includes("\u0000")) continue
-    const fileIds = fileSuppressIds(lines.map((l) => l.text))
+    const profile = profileFor(file) ?? PROFILES.legacy
+    const fileIds = fileSuppressIds(lines.map((l) => l.text), profile)
     const visible = []
     for (const run of consecutiveRuns(lines)) {
-      for (const v of detectCommentSlop(run.map((r) => r.text), profileFor(file) ?? PROFILES.legacy, true, fileIds, options)) {
+      for (const v of detectCommentSlop(run.map((r) => r.text), profile, true, fileIds, options)) {
         visible.push({ rel: file, ...v, lineNo: run[0].lineNo + v.lineNo - 1 })
       }
     }

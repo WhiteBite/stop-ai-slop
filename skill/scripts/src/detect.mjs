@@ -1,16 +1,20 @@
 import { readFileSync } from "node:fs"
 import { RULE_BY_ID } from "./rules.mjs"
 import {
+  AI_PLAN_ACK,
+  AI_PLAN_REFERENCE,
   BIDI,
   BIDI_MARK,
   CHANGELOG_STRONG,
   CJK_ADJACENT,
+  GO_DECL_NAME,
   ISSUE_LINK,
   LONG_LINK,
   MARKDOWN_BOLD,
   MARKDOWN_LIST,
   MARKDOWN_TABLE,
   STEP_NUMBERED,
+  STEP_WORD,
   STRIP_INVISIBLE,
   SUPPRESS_ANY,
   SUPPRESS_FILE,
@@ -19,6 +23,7 @@ import {
   THIS_OPENER,
   TICKET_REF,
   TODO_WORD,
+  WHY_MARKERS,
   isCrossFileRef,
   isLicenseRun,
   isObviousComment,
@@ -31,30 +36,42 @@ import {
   PROFILES,
   PROSE_PROFILES,
   SKIPPED_SEGMENTS,
+  dividerReason,
   inlineComment,
   inlineMarkerAt,
   isCommentLine,
-  isDividerLine,
   profileFor,
   stripCommentMarker,
 } from "./profiles.mjs"
 
-export function finding(id, lineNo, lines) {
-  return { rule: id, lineNo, lines, severity: RULE_BY_ID.get(id).severity }
+// hand-written files carry a few terse comments; generated ones narrate every few lines
+const OBVIOUS_DENSITY = 0.02
+
+export function finding(id, lineNo, lines, reason) {
+  const v = { rule: id, lineNo, lines, severity: RULE_BY_ID.get(id).severity }
+  if (reason !== undefined) v.reason = reason
+  return v
 }
-export function fileSuppressIds(lines) {
+const directiveInComment = (line, profile) => {
+  if (isCommentLine(line, profile)) return true
+  const m = inlineMarkerAt(line, profile)
+  return m !== null && SUPPRESS_ANY.test(line.slice(m.idx))
+}
+export function fileSuppressIds(lines, profile = PROFILES.legacy) {
   for (const raw of lines) {
+    if (!directiveInComment(raw, profile)) continue
     const m = SUPPRESS_FILE.exec(raw)
     if (m !== null) return rulesOfTail(m[1])
   }
   return null
 }
-export function collectSuppressions(lines, diffMode = false) {
+export function collectSuppressions(lines, diffMode = false, profile = PROFILES.legacy) {
   const perLine = new Map()
   let file = false
   const selfSuppress = []
   const rulesOf = rulesOfTail
   lines.forEach((raw, i) => {
+    if (!directiveInComment(raw, profile)) return
     const next = SUPPRESS_NEXT.exec(raw)
     const same = next === null ? SUPPRESS_LINE.exec(raw) : null
     const isFile = SUPPRESS_FILE.test(raw)
@@ -78,7 +95,7 @@ export function detectCommentSlop(addedLines, profile = PROFILES.legacy, diffMod
   const maxCommentLength = options?.maxLength ?? MAX_COMMENT_LENGTH
   const rawLines = addedLines.map((l) => l ?? "")
   const lines = rawLines.map((l) => l.replace(STRIP_INVISIBLE, ""))
-  const suppress = collectSuppressions(lines, diffMode)
+  const suppress = collectSuppressions(lines, diffMode, profile)
   const YAML_LITERAL_KEY = /^( *)(?!#)(?:- )?.*?:\s*[|>][+-]?\d*\s*(?:#.*)?$/
   const YAML_LITERAL_SEQ = /^( *)-\s*[|>][+-]?\d*\s*(?:#.*)?$/
   const makeClassify = () => {
@@ -121,6 +138,8 @@ export function detectCommentSlop(addedLines, profile = PROFILES.legacy, diffMod
     }
   }
   const violations = []
+  const obvious = []
+  let codeLines = 0
   const push = (v) => {
     if (fileSuppress !== null && fileSuppress.has(v.rule)) return
     const s = suppress.perLine.get(v.lineNo)
@@ -132,18 +151,34 @@ export function detectCommentSlop(addedLines, profile = PROFILES.legacy, diffMod
   const proseCjk = PROSE_PROFILES.has(profile)
   const testLine = (raw, i, doc) => {
     const t = raw.trim()
-    if (CHANGELOG_STRONG.test(raw)) push(finding("changelog-marker", i + 1, [raw]))
-    if (!doc && raw.length > maxCommentLength && !LONG_LINK.test(raw)) push(finding("long-comment", i + 1, [raw]))
+    if (CHANGELOG_STRONG.test(raw)) push(finding("changelog-marker", i + 1, [raw], "strong-marker"))
     const stripped = stripCommentMarker(t)
-    if (!doc && STEP_NUMBERED.test(stripped)) push(finding("vend/step-numbered", i + 1, [raw]))
-    if (isDividerLine(t)) push(finding("vend/section-divider", i + 1, [raw]))
+    if (!doc && raw.length > maxCommentLength && !LONG_LINK.test(raw) && !WHY_MARKERS.test(stripped)) {
+      push(finding("long-comment", i + 1, [raw]))
+    }
+    if (!doc && STEP_NUMBERED.test(stripped)) {
+      push(finding("vend/step-numbered", i + 1, [raw], STEP_WORD.test(stripped) ? "step-word" : "bare-number"))
+    }
+    const divider = dividerReason(t)
+    if (divider !== null) push(finding("vend/section-divider", i + 1, [raw], divider))
     if (!doc && (MARKDOWN_BOLD.test(stripped) || MARKDOWN_LIST.test(stripped) || MARKDOWN_TABLE.test(stripped))) {
-      push(finding("vend/markdown-in-comment", i + 1, [raw]))
+      push(finding("vend/markdown-in-comment", i + 1, [raw], MARKDOWN_BOLD.test(stripped) ? "bold" : MARKDOWN_LIST.test(stripped) ? "list" : "table"))
     }
     if (THIS_OPENER.test(stripped)) push(finding("vend/this-function-opener", i + 1, [raw]))
+    const planReference = AI_PLAN_REFERENCE.test(stripped)
+    if ((planReference || AI_PLAN_ACK.test(stripped)) && !(TODO_WORD.test(t) && (TICKET_REF.test(t) || ISSUE_LINK.test(t)))) {
+      push(finding("vend/ai-plan-narration", i + 1, [raw], planReference ? "plan-reference" : "instruction-ack"))
+    }
     if (TODO_WORD.test(t) && !TICKET_REF.test(t) && !ISSUE_LINK.test(t)) push(finding("vend/generic-todo", i + 1, [raw]))
     if (!doc && isCrossFileRef(stripped)) push(finding("vend/cross-file-ref", i + 1, [raw]))
     return weakMarkerHits(raw)
+  }
+  const goDocRun = (runLines, nextLine) => {
+    if (profile.goDoc !== true) return false
+    const m = GO_DECL_NAME.exec(nextLine ?? "")
+    if (m === null) return false
+    if (!runLines.every((l) => l.trim().startsWith("//"))) return false
+    return (stripCommentMarker(runLines[0].trim()).split(/\s+/)[0] ?? "") === m[1]
   }
   let runStart = -1
   const classifyRun = makeClassify()
@@ -154,7 +189,9 @@ export function detectCommentSlop(addedLines, profile = PROFILES.legacy, diffMod
     if (inRun && runStart === -1) runStart = i
     if (!inRun && runStart !== -1) {
       const runLines = lines.slice(runStart, i)
-      if (i - runStart >= 2 && !isLicenseRun(runLines)) push(finding("multi-line-comment", runStart + 1, runLines))
+      if (i - runStart >= 2 && !isLicenseRun(runLines) && !goDocRun(runLines, lines[i])) {
+        push(finding("multi-line-comment", runStart + 1, runLines))
+      }
       runStart = -1
     }
   }
@@ -165,7 +202,7 @@ export function detectCommentSlop(addedLines, profile = PROFILES.legacy, diffMod
     if (!classifyHeader(line).comment || SUPPRESS_ANY.test(line) || (headerEnd === 0 && line.startsWith("#!"))) break
     headerEnd++
   }
-  if (headerEnd >= 2 && !isLicenseRun(lines.slice(0, headerEnd))) {
+  if (headerEnd >= 2 && !isLicenseRun(lines.slice(0, headerEnd)) && !goDocRun(lines.slice(0, headerEnd), lines[headerEnd])) {
     push(finding("vend/file-summary-header", 1, lines.slice(0, headerEnd)))
   }
   const classifyEach = makeClassify()
@@ -174,7 +211,7 @@ export function detectCommentSlop(addedLines, profile = PROFILES.legacy, diffMod
   let weakRun = 0
   let weakRunLine = -1
   const flushWeakRun = () => {
-    if (weakRun >= 2) push(finding("changelog-marker", weakRunLine, [lines[weakRunLine - 1] ?? ""]))
+    if (weakRun >= 2) push(finding("changelog-marker", weakRunLine, [lines[weakRunLine - 1] ?? ""], "weak-marker-pair"))
     weakRun = 0
     weakRunLine = -1
   }
@@ -182,6 +219,7 @@ export function detectCommentSlop(addedLines, profile = PROFILES.legacy, diffMod
     const line = lines[i] ?? ""
     const cls = classifyEach(line)
     const rawLine = rawLines[i] ?? ""
+    if (!cls.comment && !cls.doc && line.trim() !== "") codeLines++
     if (rawLine !== "") {
       if (zeroWidthHit(rawLine, i)) push(finding("vend/zero-width-chars", i + 1, [rawLine]))
       if (BIDI.test(rawLine)) push(finding("vend/bidi-controls", i + 1, [rawLine]))
@@ -193,7 +231,7 @@ export function detectCommentSlop(addedLines, profile = PROFILES.legacy, diffMod
       }
     }
     if (cls.literal === true) continue
-    if (SUPPRESS_ANY.test(line)) continue
+    if (SUPPRESS_ANY.test(line) && directiveInComment(line, profile)) continue
     if (cls.comment || cls.doc) {
       const weak = testLine(line, i, cls.doc)
       if (weak > 0) {
@@ -213,16 +251,19 @@ export function detectCommentSlop(addedLines, profile = PROFILES.legacy, diffMod
           (prevCls === null || (!prevCls.comment && !prevCls.doc)) &&
           isObviousComment(stripCommentMarker(line.trim()), lines[j] ?? "")
         ) {
-          push(finding("vend/obvious-comment", i + 1, [line]))
+          obvious.push(finding("vend/obvious-comment", i + 1, [line]))
         }
       }
     } else {
       flushWeakRun()
       const inline = inlineComment(line, profile)
-      if (inline !== null && testLine(inline, i, false) >= 2) push(finding("changelog-marker", i + 1, [inline]))
+      if (inline !== null && testLine(inline, i, false) >= 2) push(finding("changelog-marker", i + 1, [inline], "inline-weak-marker-pair"))
     }
   }
   flushWeakRun()
+  if (obvious.length > 0 && codeLines > 0 && obvious.length / codeLines >= OBVIOUS_DENSITY) {
+    for (const v of obvious) push(v)
+  }
   return violations
 }
 export function multisetDiff(oldText, newText) {

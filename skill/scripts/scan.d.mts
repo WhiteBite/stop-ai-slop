@@ -5,6 +5,7 @@ export interface Violation {
   lineNo: number
   lines: string[]
   severity: Severity
+  reason?: string
 }
 
 export interface FileViolation extends Violation {

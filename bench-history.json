@@ -1,13 +1,13 @@
 {
   "PowerShell/PowerShell": {
     "changelog-marker": 26,
-    "long-comment": 1737,
+    "long-comment": 1458,
     "multi-line-comment": 7515,
     "vend/cjk-noise": 2,
     "vend/file-summary-header": 11,
     "vend/generic-todo": 237,
     "vend/markdown-in-comment": 174,
-    "vend/obvious-comment": 5485,
+    "vend/obvious-comment": 2302,
     "vend/section-divider": 244,
     "vend/step-numbered": 137,
     "vend/this-function-opener": 564
@@ -17,18 +17,18 @@
     "vend/cjk-noise": 1,
     "vend/file-summary-header": 1,
     "vend/markdown-in-comment": 3,
-    "vend/obvious-comment": 98,
+    "vend/obvious-comment": 93,
     "vend/step-numbered": 3,
     "vend/this-function-opener": 3
   },
   "gin-gonic/gin": {
     "long-comment": 10,
-    "multi-line-comment": 265,
+    "multi-line-comment": 138,
     "vend/cjk-noise": 2,
     "vend/file-summary-header": 2,
     "vend/generic-todo": 7,
     "vend/markdown-in-comment": 10,
-    "vend/obvious-comment": 230,
+    "vend/obvious-comment": 160,
     "vend/step-numbered": 1,
     "vend/this-function-opener": 4
   },
@@ -37,26 +37,26 @@
     "multi-line-comment": 203,
     "vend/file-summary-header": 5,
     "vend/markdown-in-comment": 4,
-    "vend/obvious-comment": 70,
+    "vend/obvious-comment": 24,
     "vend/this-function-opener": 4
   },
   "rack/rack": {
-    "long-comment": 13,
+    "long-comment": 11,
     "multi-line-comment": 256,
     "vend/file-summary-header": 3,
     "vend/generic-todo": 1,
-    "vend/obvious-comment": 72,
+    "vend/obvious-comment": 26,
     "vend/step-numbered": 1,
     "vend/this-function-opener": 5
   },
   "redis/redis": {
     "changelog-marker": 23,
-    "long-comment": 131,
+    "long-comment": 118,
     "multi-line-comment": 8876,
     "vend/file-summary-header": 171,
     "vend/generic-todo": 26,
     "vend/markdown-in-comment": 410,
-    "vend/obvious-comment": 3631,
+    "vend/obvious-comment": 2468,
     "vend/section-divider": 598,
     "vend/step-numbered": 319,
     "vend/this-function-opener": 326
@@ -68,7 +68,7 @@
     "vend/file-summary-header": 83,
     "vend/generic-todo": 51,
     "vend/markdown-in-comment": 121,
-    "vend/obvious-comment": 722,
+    "vend/obvious-comment": 438,
     "vend/section-divider": 2,
     "vend/step-numbered": 12,
     "vend/this-function-opener": 649
@@ -78,7 +78,7 @@
     "multi-line-comment": 534,
     "vend/file-summary-header": 10,
     "vend/generic-todo": 11,
-    "vend/obvious-comment": 437,
+    "vend/obvious-comment": 226,
     "vend/step-numbered": 42,
     "vend/this-function-opener": 1,
     "vend/zero-width-chars": 1

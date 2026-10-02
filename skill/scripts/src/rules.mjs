@@ -179,6 +179,22 @@ export const RULES = [
     },
   },
   {
+    id: "vend/ai-plan-narration",
+    severity: "warning",
+    message: "комментарий пересказывает рабочий процесс агента (ссылки на план/спеку/задачу, подтверждение инструкций)",
+    why: "Ссылки на план, ТЗ или промпт и подтверждения «как было запрошено» — метаданные сессии, а не свойство кода: после закрытия задачи референт исчезает, и комментарий превращается в шум. Источник требования — тикет или имя теста.",
+    instead: "убрать; неочевидное требование — тикетом в TODO или одной строкой WHY",
+    write: "// таймаут 30 с, т.к. вендор не отвечает быстрее",
+    ignoreWhen: "дословная цитата внешней спеки, где формулировка зафиксирована",
+    en: {
+      message: "a comment narrates the agent's own work process (plan/spec/task references, instruction acknowledgements)",
+      why: "References to the plan, the spec or the prompt and «as requested» acknowledgements are session metadata, not a property of the code: once the task closes the referent is gone and the comment turns into noise. The source of a requirement is a ticket or the test name.",
+      instead: "remove it; a non-obvious requirement — as a TODO ticket or one line of WHY",
+      write: "// 30s timeout because the vendor never answers faster",
+      ignoreWhen: "a verbatim quote from an external spec where the wording is fixed",
+    },
+  },
+  {
     id: "vend/self-suppression",
     severity: "warning",
     message: "директива подавления без списка правил пришла вместе с подавляемым кодом",

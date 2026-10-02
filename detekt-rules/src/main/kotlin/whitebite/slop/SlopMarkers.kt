@@ -54,6 +54,11 @@ internal object SlopMarkers {
         ignoreCase = true,
     )
 
+    val AI_PLAN_NARRATION = Pat.of(
+        """\bper(?U:\s+)the(?U:\s+)(?:spec|task|ticket|prompt|plan)\b|\bstep(?U:\s+)\d+(?U:\s+)of(?U:\s+)the(?U:\s+)plan\b|^as(?U:\s+)(?:instructed|requested)\b|^the(?U:\s+)user(?U:\s+)asked\b|\bas(?U:\s+)per(?U:\s+)requirements?\b|(?<![а-яё])(?:согласно(?U:\s+)тз|по(?U:\s+)плану|шаг(?U:\s+)\d+(?U:\s+)плана|как(?U:\s+)было(?U:\s+)запрошено|пользователь(?U:\s+)попросил|согласно(?U:\s+)спецификации)(?![а-яё])|(?<![a-zäöüß])(?:gemäß(?U:\s+)(?:spec|plan)|wie(?U:\s+)angewiesen|laut(?U:\s+)anforderungen?)(?![a-zäöüß])|(?<![a-zéèêàùç])(?:selon(?U:\s+)(?:la(?U:\s+)spec|le(?U:\s+)plan)|comme(?U:\s+)demandé(?:e|s|es)?)(?![a-zéèêàùç])|(?<![a-záéíóúñ])(?:conforme(?U:\s+)a(?U:\s+)la(?U:\s+)especificación|como(?U:\s+)se(?U:\s+)indicó|según(?U:\s+)el(?U:\s+)plan)(?![a-záéíóúñ])""",
+        ignoreCase = true,
+    )
+
     val TODO_WORD = Pat.of("""\btodo\b""", ignoreCase = true)
     val TICKET_REF = Pat.of("""[A-Z]+-\d+""")
     val ISSUE_LINK = Pat.of("""https?://(?U:\S+)|#\d+""")

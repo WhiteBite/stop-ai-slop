@@ -17,6 +17,7 @@
 | `vend/generic-todo` | `StopAiSlopGenericTodo` | Style (warning) |
 | `vend/cross-file-ref` | `StopAiSlopCrossFileRef` | Style (warning) |
 | `vend/obvious-comment` | `StopAiSlopObviousComment` | Style (warning) |
+| `vend/ai-plan-narration` | `StopAiSlopAiPlanNarration` | Style (warning) |
 | `vend/cjk-noise` | `StopAiSlopCjkNoise` | Style (warning) |
 | `vend/zero-width-chars` | `StopAiSlopZeroWidthChars` | Defect (error) |
 | `vend/bidi-controls` | `StopAiSlopBidiControls` | Defect (error) |
@@ -31,7 +32,7 @@
 
 - Директивы подавления `stop-ai-slop-ignore-next-line [ids]`, `-ignore-line [ids]`, `-ignore-file [ids]`, хвост `-- reason`. Пустой список правил глушит всё на цели.
 - Лицензионная шапка (`isLicenseRun`) освобождает `multi-line-comment` и `vend/file-summary-header`.
-- Doc-блоки: `changelog-marker` и `vend/this-function-opener` срабатывают и внутри; `step-numbered`, `markdown-in-comment`, `long-comment`, `cross-file-ref`, `obvious-comment` — нет; `multi-line-comment` doc-блоки не видит вовсе.
+- Doc-блоки: `changelog-marker`, `vend/this-function-opener` и `vend/ai-plan-narration` срабатывают и внутри; `step-numbered`, `markdown-in-comment`, `long-comment`, `cross-file-ref`, `obvious-comment` — нет; `multi-line-comment` doc-блоки не видит вовсе.
 - Сгенерированные файлы (`GEN_NAME_SAFE`, `GEN_HEADER_STRICT`, пара `GEN_HEADER_LAX`) освобождены от slop-правил, но три security-правила (`vend/zero-width-chars`, `vend/bidi-controls`, `vend/cjk-noise`) срабатывают и там: отравленный codegen — supply-chain сигнал.
 - Невидимые символы вырезаются из текста перед матчингом маркеров, а Unicode-правила работают по сырой строке.
 

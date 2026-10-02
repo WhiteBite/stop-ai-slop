@@ -5,6 +5,7 @@ import { packageVersion } from "./version.mjs"
 export function sortedFindings(findings) {
   return [...findings].sort((a, b) => (a.rel === b.rel ? a.lineNo - b.lineNo : a.rel < b.rel ? -1 : 1))
 }
+const withReason = (msg, f) => (f.reason === undefined ? msg : `${msg} (${f.reason})`)
 export function toolVersion() {
   try {
     return packageVersion()
@@ -17,7 +18,7 @@ export function toRdjson(findings) {
   const out = {
     source: { name: "stop-ai-slop", url: "https://github.com/WhiteBite/stop-ai-slop" },
     diagnostics: sorted.map((f) => ({
-      message: RULE_BY_ID.get(f.rule).message,
+      message: withReason(RULE_BY_ID.get(f.rule).message, f),
       location: { path: f.rel, range: { start: { line: f.lineNo } } },
       code: { value: f.rule },
       ruleId: f.rule,
@@ -50,7 +51,7 @@ export function toSarif(findings) {
           results: sortedFindings(findings).map((f) => ({
             ruleId: f.rule,
             level: f.severity,
-            message: { text: RULE_BY_ID.get(f.rule).message },
+            message: { text: withReason(RULE_BY_ID.get(f.rule).message, f) },
             locations: [
               {
                 physicalLocation: {
@@ -70,7 +71,7 @@ export function toSarif(findings) {
 export function findingsToText(findings, strict = false) {
   const lines = []
   for (const f of sortedFindings(findings)) {
-    lines.push(`${f.rel}:${f.lineNo} ${f.rule} [${f.severity}] ${rt(f.rule, "message")}`)
+    lines.push(`${f.rel}:${f.lineNo} ${f.rule} [${f.severity}] ${withReason(rt(f.rule, "message"), f)}`)
     lines.push(`  instead: ${rt(f.rule, "instead")}`)
   }
   const errors = findings.filter((f) => f.severity === "error").length

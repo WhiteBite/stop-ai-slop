@@ -100,7 +100,7 @@ node skill/scripts/scan.mjs --baseline-prune    # remove baseline entries with n
 node skill/scripts/scan.mjs --help              # help for all flags
 ```
 
-Suppression directives: `// stop-ai-slop-ignore-next-line [rule-id]` (next line), `// stop-ai-slop-ignore-line [rule-id]` (current line), `// stop-ai-slop-ignore-file` (whole file); after `--` give a reason.
+Suppression directives: `// stop-ai-slop-ignore-next-line [rule-id]` (next line), `// stop-ai-slop-ignore-line [rule-id]` (current line), `// stop-ai-slop-ignore-file` (whole file); after `--` give a reason. Directives are honored only in real comment segments — the same text inside a string literal does not suppress anything.
 
 Exit 1 — there are error findings outside the baseline; otherwise 0. Exit 2 — a usage or git error (bad flag, nonexistent ref).
 
@@ -463,7 +463,8 @@ Comment syntax comes from a language profile, not a single shared list: `#` is a
 
 | Profile | Line comment | Block / doc | Examples |
 | --- | --- | --- | --- |
-| c-family | `//` | `/* */`, `/** */`, `{/* */}` | ts, js, kt, java, go, rs, cs, c, cpp, swift, dart, scala, mts, cts, sol, v, sv, qml, styl, res |
+| c-family | `//` | `/* */`, `/** */`, `{/* */}` | ts, js, kt, java, rs, cs, c, cpp, swift, dart, scala, mts, cts, sol, v, sv, qml, styl, res |
+| go | `//` | `/* */`, `/** */`, `{/* */}` | go (doc-comment convention: a `//` run above a declaration whose first word names it is exempt from multi-line/header) |
 | css | `//`, `/*` | `/* */` | css, scss, less |
 | py | `#` | `"""` / `'''` | py, pyi, vy |
 | hash | `#` | — | rb, sh, yaml, toml, ex, raku, awk, go.mod, go.sum, Dockerfile, Makefile, .gitignore |
@@ -508,15 +509,16 @@ Comment syntax comes from a language profile, not a single shared list: `#` is a
 | `vend/generic-todo` | warning | a TODO without a ticket link (any case: todo, Todo, TODO) |
 | `vend/cross-file-ref` | warning | a pointer to another file/line in a comment (handler.py:147) |
 | `vend/obvious-comment` | warning | a single-line comment restates the code line beneath it |
+| `vend/ai-plan-narration` | warning | a comment narrates the agent's own work process (plan/spec/task references, instruction acknowledgements) |
 | `vend/self-suppression` | warning | a suppression directive without a rule list arrived together with the code it suppresses |
 | `vend/cjk-noise` | warning | CJK characters glued to Latin letters or digits in the code part of a line (a generation artifact) |
 | `vend/zero-width-chars` | error | an invisible zero-width character (U+200B, U+200C, U+200D, U+2060, U+FEFF or an escape form) |
 | `vend/bidi-controls` | error | BiDi controls (U+202A-U+202E, U+2066-U+2069) on any line, and directional marks (U+200E, U+200F) in code |
 <!-- stop-ai-slop:rules:end -->
 
-Error rules do not apply to doc-blocks (JSDoc `/** … */`, Python docstrings, and `///` doc-comment lines — dartdoc, rustdoc, C# XML doc): contract documentation for classes and functions may be any length. Inside doc-blocks, changelog markers (error) and signature restatement "This function…" (warning) are still caught.
+Error rules do not apply to doc-blocks (JSDoc `/** … */`, Python docstrings, and `///` doc-comment lines — dartdoc, rustdoc, C# XML doc): contract documentation for classes and functions may be any length. Inside doc-blocks, changelog markers (error) and signature restatement "This function…" (warning) are still caught. A `long-comment` line whose text carries a why-marker (`because`, `since`, `otherwise`, `workaround`, `to avoid`, `by design`, `trade-off`, `e.g.` — plus RU/DE/FR/ES equivalents) is not flagged: a long single-line why-comment is legitimate, a multi-line narrative is not.
 
-Text rules (`step-numbered`, `markdown-in-comment`, `this-function-opener`, `cross-file-ref`) are matched on the text after the comment marker is stripped, so they work in every profile — `# Шаг 3` in yaml and `-- Step 3` in sql are caught identically. `step-numbered`, `this-function-opener` and `changelog-marker` understand RU + EN + DE + FR + ES ("Шаг N", "Schritt N", "Étape N", "Diese Funktion", "au lieu de", "ya no", etc.); other natural languages are not covered. Structural rules (multi-line, divider, header, todo) do not depend on the wording language. `step-numbered` and `markdown-in-comment` do not fire inside doc-blocks.
+Text rules (`step-numbered`, `markdown-in-comment`, `this-function-opener`, `cross-file-ref`) are matched on the text after the comment marker is stripped, so they work in every profile — `# Шаг 3` in yaml and `-- Step 3` in sql are caught identically. `step-numbered`, `this-function-opener` and `changelog-marker` understand RU + EN + DE + FR + ES ("Шаг N", "Schritt N", "Étape N", "Diese Funktion", "au lieu de", "ya no", etc.); other natural languages are not covered. Structural rules (multi-line, divider, header, todo) do not depend on the wording language. `step-numbered` and `markdown-in-comment` do not fire inside doc-blocks. `vend/obvious-comment` is additionally gated by a per-file density filter: a file's obvious-comment findings are dropped unless they make up at least 2% of its non-empty, non-comment lines — hand-written files carry a few terse comments, while generated files narrate every few lines.
 
 Full rationale per rule (Why / Instead of / Write / Ignore it when, from the same `RULES` table):
 
@@ -532,7 +534,7 @@ The detector sees inline comments after code (`const x = 1 // was`), block comme
 
 **Generated files are exempt from the slop rules** in every mode (full scan, diff, write-time gate) — detection layers, user signals and knobs are in [Generated code](#generated-code). A file whose first 8 KB contain a NUL byte is treated as binary and skipped (UTF-16 with a BOM is decoded first, so it is not mistaken for binary). YAML block scalars (`key: |`, `- >`) are string content, not comments: their lines are never flagged.
 
-License headers are exempt from the multi-line rule, and a shebang line never merges with the comment line that follows it. Inline comments are detected by the profile markers (`//`, `#`, `--`, `%`, `;`, `!`) except py/fs floor division (`//`). A directory argument that lies outside the current repository is walked directly (the git listing only covers the repo itself).
+License headers are exempt from the multi-line rule, and a shebang line never merges with the comment line that follows it. In `.go` files, a run of 2+ `//` comment lines directly above a `func`/`type`/`const`/`var` declaration (methods included) whose first word names the declared identifier is a Go doc comment — exempt from `multi-line-comment` and `vend/file-summary-header` like a doc-block; the other rules still apply. Inline comments are detected by the profile markers (`//`, `#`, `--`, `%`, `;`, `!`) except py/fs floor division (`//`). A directory argument that lies outside the current repository is walked directly (the git listing only covers the repo itself).
 
 ## Generated code
 
@@ -569,7 +571,7 @@ Facts from the competitors' READMEs, GitHub metadata and npm download counts, ch
 
 | Tool | What it scans | Languages / natural languages | Blocks at write | Gate model | Custom rules | Runtime | Traction |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| **stop-ai-slop** | comments in code, 15 rules | 160 extensions, 26 file names, 33 profiles / RU, EN, DE, FR, ES; messages RU or EN (`--lang`) | yes — OpenCode plugin, Claude Code, Codex, Gemini, Qwen, Devin hooks | policy: rule → exit 1; errors vs warnings | RULES table in one file; severity remap; `--explain` | Node >= 18, zero deps, one .mjs scanner | 449 dl/mo |
+| **stop-ai-slop** | comments in code, 16 rules | 160 extensions, 26 file names, 34 profiles / RU, EN, DE, FR, ES; messages RU or EN (`--lang`) | yes — OpenCode plugin, Claude Code, Codex, Gemini, Qwen, Devin hooks | policy: rule → exit 1; errors vs warnings | RULES table in one file; severity remap; `--explain` | Node >= 18, zero deps, one .mjs scanner | 449 dl/mo |
 | [windbag](https://github.com/scale-venture-partners/windbag) | change-narration comments, 6 rules (HISTORY_NARRATION, HEDGE_LANGUAGE, TICKET_ID, CROSS_FILE_REF, VERBOSE_COMMENT, OBVIOUS_COMMENT) | Python, JS/TS, Terraform, Rust, Go, Java, SQL (dbt/SQLMesh), YAML/HTML/MD / EN | Claude Code PostToolUse hook; pre-commit; no OpenCode | error rules fail the check, warn rules report | none documented | Rust binary shipped as a PyPI wheel | 25★ |
 | [aislop](https://github.com/scanaislop/aislop) | code slop: 50+ rules — narrative comments, swallowed exceptions, `as any`, dead code, hallucinated imports | 10 targets (TS, JS, Expo/RN, Python, Go, Rust, Ruby, PHP, C#, C/C++) / EN | hooks for 10 agents (Claude, Cursor, Gemini, Pi, Codex, Windsurf, Cline, Kilocode, Antigravity, Copilot); no OpenCode | score 0–100, failBelow; CI mode; SARIF; MCP server | per-rule severity; new rules only in their repo | npm + optional engines (biome, ruff, oxlint); PyPI; Homebrew | 655★, 47k dl/mo |
 | [slop-scan](https://github.com/modem-dev/slop-scan) | AI-associated code patterns; hotspots; repo comparison | JS/TS / EN | no | score + normalized metrics (per KLOC, per function) | config and plugins | npm | 319★, 35k dl/mo |

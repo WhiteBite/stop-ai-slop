@@ -10,6 +10,7 @@ export const PYDOC_SQ = { openRe: /^[rbf]?'''/, close: "'''" }
 export const PROFILES = {
   legacy: P(["//", "#", "/*", "*"], [["/*", "*/"], ["{/*", "*/}"]], [JSDOC, TRIPLE_SLASH_DOC, PYDOC_DQ], ["*/"]),
   cfamily: P(["//", "/*", "*"], [["/*", "*/"], ["{/*", "*/}"]], [JSDOC, TRIPLE_SLASH_DOC], ["*/"]),
+  golang: P(["//", "/*", "*"], [["/*", "*/"], ["{/*", "*/}"]], [JSDOC, TRIPLE_SLASH_DOC], ["*/"], [], { goDoc: true }),
   css: P(["//", "/*", "*"], [["/*", "*/"]], [], ["*/"]),
   py: P(["#"], [], [PYDOC_DQ, PYDOC_SQ]),
   php: P(["//", "#", "/*", "*"], [["/*", "*/"]], [JSDOC], ["*/"]),
@@ -45,8 +46,9 @@ export const PROFILES = {
 export const PROSE_PROFILES = new Set([PROFILES.markup, PROFILES.mdxblock, PROFILES.rst, PROFILES.adoc])
 export const EXT_PROFILE = {
   ".ts": "cfamily", ".tsx": "cfamily", ".js": "cfamily", ".jsx": "cfamily", ".mjs": "cfamily", ".cjs": "cfamily",
-  ".kt": "cfamily", ".kts": "cfamily", ".java": "cfamily", ".go": "cfamily", ".rs": "cfamily", ".cs": "cfamily",
+  ".kt": "cfamily", ".kts": "cfamily", ".java": "cfamily", ".rs": "cfamily", ".cs": "cfamily",
   ".c": "cfamily", ".h": "cfamily", ".cc": "cfamily", ".cpp": "cfamily", ".hh": "cfamily", ".hpp": "cfamily",
+  ".go": "golang",
   ".swift": "cfamily", ".dart": "cfamily", ".zig": "cfamily", ".scala": "cfamily", ".sc": "cfamily",
   ".groovy": "cfamily", ".gradle": "cfamily", ".proto": "cfamily", ".jsonc": "cfamily",
   ".mts": "cfamily", ".cts": "cfamily", ".sol": "cfamily", ".d": "cfamily", ".v": "cfamily", ".sv": "cfamily",
@@ -185,10 +187,10 @@ export function stripCommentMarker(line) {
     .replace(/(?:"""|''')$/, "")
 }
 
-export function isDividerLine(trimmed) {
-  if (DIVIDER_CHARS.test(trimmed)) return true
+export function dividerReason(trimmed) {
+  if (DIVIDER_CHARS.test(trimmed)) return "bare-line"
   const inner = stripCommentMarker(trimmed).trim()
-  return inner.length >= 6 && DIVIDER_CHARS.test(inner)
+  return inner.length >= 6 && DIVIDER_CHARS.test(inner) ? "comment-marked" : null
 }
 export const INLINE_SAFE_PREFIXES = new Set(["//", "#", "--", "%", ";", "!"])
 

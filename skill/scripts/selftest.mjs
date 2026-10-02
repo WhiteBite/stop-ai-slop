@@ -54,6 +54,11 @@ export async function cmdSelfTest() {
     writeFileSync(join(dir, "md.ts"), "// **bold** note\nconst x = 1\n")
     writeFileSync(join(dir, "md-table.ts"), "// | col a | col b |\nconst x = 1\n")
     writeFileSync(join(dir, "md-pipe.ts"), "// |flag| принимает значение\nconst x = 1\n")
+    writeFileSync(join(dir, "md-list.ts"), "// - item one\nconst x = 1\n")
+    writeFileSync(join(dir, "step-bare.ts"), "// 3. normalize the payload\nconst x = 1\n")
+    writeFileSync(join(dir, "div-bare.ts"), "/*\n ----------\n */\nconst x = 1\n")
+    writeFileSync(join(dir, "plan-ref.ts"), "// per the spec the timeout is 30 seconds\nconst x = 1\n")
+    writeFileSync(join(dir, "plan-ack.ts"), "// as instructed the timeout is 30 seconds\nconst x = 1\n")
     writeFileSync(join(dir, "opener.ts"), "// This function normalizes the payload\nconst x = 1\n")
     writeFileSync(join(dir, "todo.ts"), "// TODO fix this later\nconst x = 1\n")
     writeFileSync(join(dir, "xref.ts"), "// see handler.py:147 for the details\nconst x = 1\n")
@@ -1292,6 +1297,80 @@ export async function cmdSelfTest() {
     )
     const badFormat = runCli(["scan", ".", "--format", "yaml"], dir)
     check("format: неизвестный формат [exit 2]", badFormat.status === 2, `exit ${badFormat.status}: ${badFormat.out}`)
+    const PROBLEM_MATCHER = /^(.+):(\d+)\s+(\S+)\s+\[(error|warning)\]\s+(.+)$/
+    const reasonCases = [
+      { rel: "transition-before-this.ts", rule: "changelog-marker", reason: "strong-marker", exit: 1 },
+      { rel: "ru-bad.ts", rule: "changelog-marker", reason: "weak-marker-pair", exit: 1 },
+      { rel: "inline.ts", rule: "changelog-marker", reason: "inline-weak-marker-pair", exit: 1 },
+      { rel: "step.ts", rule: "vend/step-numbered", reason: "step-word", exit: 0 },
+      { rel: "step-bare.ts", rule: "vend/step-numbered", reason: "bare-number", exit: 0 },
+      { rel: "div.ts", rule: "vend/section-divider", reason: "comment-marked", exit: 0 },
+      { rel: "div-bare.ts", rule: "vend/section-divider", reason: "bare-line", exit: 1 },
+      { rel: "md.ts", rule: "vend/markdown-in-comment", reason: "bold", exit: 0 },
+      { rel: "md-list.ts", rule: "vend/markdown-in-comment", reason: "list", exit: 0 },
+      { rel: "md-table.ts", rule: "vend/markdown-in-comment", reason: "table", exit: 0 },
+      { rel: "plan-ref.ts", rule: "vend/ai-plan-narration", reason: "plan-reference", exit: 0 },
+      { rel: "plan-ack.ts", rule: "vend/ai-plan-narration", reason: "instruction-ack", exit: 0 },
+    ]
+    for (const { rel, rule, reason, exit } of reasonCases) {
+      const res = runCli(["scan", rel], dir)
+      const hit = res.out.split("\n").find((l) => l.includes(`${rule} [`))
+      check(
+        `reason: ${rule} (${reason}) в text-выводе, строка матчится под problem-matcher`,
+        res.status === exit && hit !== undefined && hit.endsWith(`(${reason})`) && PROBLEM_MATCHER.test(hit),
+        `exit ${res.status}: ${res.out.slice(0, 200)}`,
+      )
+    }
+    const noReason = runCli(["scan", "todo.ts"], dir)
+    const noReasonLine = noReason.out.split("\n").find((l) => l.includes("vend/generic-todo ["))
+    check(
+      "reason: single-trigger правило без reason-суффикса",
+      noReason.status === 0 && noReasonLine === "todo.ts:1 vend/generic-todo [warning] TODO без ссылки на тикет",
+      `exit ${noReason.status}: ${noReason.out.slice(0, 200)}`,
+    )
+    const reasonJson = runCli(["scan", "transition-before-this.ts", "--format", "json"], dir)
+    let reasonJsonParsed = null
+    try {
+      reasonJsonParsed = JSON.parse(reasonJson.out)
+    } catch {
+      reasonJsonParsed = null
+    }
+    check(
+      "reason: rdjson diagnostic message несёт reason [exit 1]",
+      reasonJson.status === 1 &&
+        reasonJsonParsed !== null &&
+        reasonJsonParsed.diagnostics.some((d) => d.ruleId === "changelog-marker" && d.message.endsWith("(strong-marker)")),
+      `exit ${reasonJson.status}: ${reasonJson.out.slice(0, 200)}`,
+    )
+    const plainJson = runCli(["scan", "todo.ts", "--format", "json"], dir)
+    let plainJsonParsed = null
+    try {
+      plainJsonParsed = JSON.parse(plainJson.out)
+    } catch {
+      plainJsonParsed = null
+    }
+    check(
+      "reason: rdjson у single-trigger правила без reason [exit 0]",
+      plainJson.status === 0 &&
+        plainJsonParsed !== null &&
+        plainJsonParsed.diagnostics.length === 1 &&
+        plainJsonParsed.diagnostics[0].message === "TODO без ссылки на тикет",
+      `exit ${plainJson.status}: ${plainJson.out.slice(0, 200)}`,
+    )
+    const reasonSarif = runCli(["scan", "transition-before-this.ts", "--format", "sarif"], dir)
+    let reasonSarifParsed = null
+    try {
+      reasonSarifParsed = JSON.parse(reasonSarif.out)
+    } catch {
+      reasonSarifParsed = null
+    }
+    check(
+      "reason: sarif result message.text несёт reason [exit 1]",
+      reasonSarif.status === 1 &&
+        reasonSarifParsed !== null &&
+        reasonSarifParsed.runs[0].results.some((r) => r.ruleId === "changelog-marker" && r.message.text.endsWith("(strong-marker)")),
+      `exit ${reasonSarif.status}: ${reasonSarif.out.slice(0, 200)}`,
+    )
     const cfgDir = mkdtempSync(join(tmpdir(), "slop-gate-cfg-"))
     try {
       writeFileSync(join(cfgDir, "a.ts"), "// первая строка блока\n// вторая строка блока\nconst x = 1\n")
