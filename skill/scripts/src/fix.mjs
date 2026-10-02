@@ -157,7 +157,10 @@ export function cmdFix(paths, { dryRun = false, strict = false } = {}) {
     const profile = profileFor(file) ?? PROFILES.legacy
     const rel = toRel(root, file)
     const generated = isGeneratedFile(rel, text, genCtx)
-    const visible = applyRuleConfig(detectCommentSlop(lines, profile, false, null, options), config)
+    const visible = applyRuleConfig(
+      detectCommentSlop(lines, profile, false, null, options).map((v) => ({ rel, ...v })),
+      config,
+    )
     const findings = generated ? visible.filter((f) => SECURITY_RULES.has(f.rule)) : visible
     if (findings.length === 0) continue
     const plan = planFixes(lines, findings, profile)
@@ -171,7 +174,10 @@ export function cmdFix(paths, { dryRun = false, strict = false } = {}) {
     else writeFileSync(file, newLines.join(eol))
     fixedOps += ops
     fixedFiles++
-    const rest = applyRuleConfig(detectCommentSlop(newLines, profile, false, null, options), config)
+    const rest = applyRuleConfig(
+      detectCommentSlop(newLines, profile, false, null, options).map((v) => ({ rel, ...v })),
+      config,
+    )
     for (const f of generated ? rest.filter((f) => SECURITY_RULES.has(f.rule)) : rest) {
       remaining.push({ rel, ...f })
     }

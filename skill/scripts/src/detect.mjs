@@ -1,9 +1,9 @@
-import { readFileSync } from "node:fs"
 import { RULE_BY_ID } from "./rules.mjs"
 import {
   AI_PLAN_ACK,
   AI_PLAN_REFERENCE,
   AI_VOCAB_TOKENS,
+  ADVISORY_REF,
   BIDI,
   BIDI_MARK,
   CHANGELOG_STRONG,
@@ -28,6 +28,7 @@ import {
   isCrossFileRef,
   isLicenseRun,
   isObviousComment,
+  isResearchCitation,
   rulesOfTail,
   weakMarkerHits,
   zeroWidthHit,
@@ -88,13 +89,9 @@ export function collectSuppressions(lines, diffMode = false, profile = PROFILES.
   })
   return { file, perLine, selfSuppress }
 }
-export function decodeText(buf) {
-  if (buf.length >= 2 && buf[0] === 0xff && buf[1] === 0xfe) return new TextDecoder("utf-16le").decode(buf.subarray(2))
-  if (buf.length >= 2 && buf[0] === 0xfe && buf[1] === 0xff) return new TextDecoder("utf-16be").decode(buf.subarray(2))
-  return buf.toString("utf8")
-}
 export function detectCommentSlop(addedLines, profile = PROFILES.legacy, diffMode = false, fileSuppress = null, options = null) {
   const maxCommentLength = options?.maxLength ?? MAX_COMMENT_LENGTH
+  const ticketRe = typeof options?.ticketPattern === "string" && options.ticketPattern !== "" ? new RegExp(options.ticketPattern) : null
   const rawLines = addedLines.map((l) => l ?? "")
   const lines = rawLines.map((l) => l.replace(STRIP_INVISIBLE, ""))
   const suppress = collectSuppressions(lines, diffMode, profile)
@@ -180,7 +177,11 @@ export function detectCommentSlop(addedLines, profile = PROFILES.legacy, diffMod
       push(finding("vend/ai-plan-narration", i + 1, [raw], planReference ? "plan-reference" : "instruction-ack"))
     }
     if (TODO_WORD.test(t) && !TICKET_REF.test(t) && !ISSUE_LINK.test(t)) push(finding("vend/generic-todo", i + 1, [raw]))
+    if (ticketRe !== null && !doc && ticketRe.test(stripped) && !TODO_WORD.test(t) && !ISSUE_LINK.test(t) && !ADVISORY_REF.test(t)) {
+      push(finding("vend/ticket-ref", i + 1, [raw]))
+    }
     if (!doc && isCrossFileRef(stripped)) push(finding("vend/cross-file-ref", i + 1, [raw]))
+    if (!doc && isResearchCitation(stripped)) push(finding("vend/research-citation", i + 1, [raw]))
     return weakMarkerHits(raw)
   }
   const goDocRun = (runLines, nextLine) => {
@@ -297,10 +298,4 @@ export function isCodePath(filePath, extraSkippedSegments = []) {
   if (filePath.split(/[\\/]/).some((segment) => skipped.has(segment))) return false
   return profileFor(filePath) !== null
 }
-export function readDisk(filePath) {
-  try {
-    return decodeText(readFileSync(filePath))
-  } catch (error) {
-    return error instanceof Error && "code" in error && error.code === "ENOENT" ? null : undefined
-  }
-}
+

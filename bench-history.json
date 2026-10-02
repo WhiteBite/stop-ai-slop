@@ -1,7 +1,7 @@
 {
   "PowerShell/PowerShell": {
     "changelog-marker": 26,
-    "long-comment": 1458,
+    "long-comment": 1456,
     "multi-line-comment": 7515,
     "vend/cjk-noise": 2,
     "vend/file-summary-header": 11,
@@ -57,6 +57,7 @@
     "vend/generic-todo": 31,
     "vend/markdown-in-comment": 410,
     "vend/obvious-comment": 2468,
+    "vend/research-citation": 3,
     "vend/section-divider": 598,
     "vend/step-numbered": 319,
     "vend/this-function-opener": 326

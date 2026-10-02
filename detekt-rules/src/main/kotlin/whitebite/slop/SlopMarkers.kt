@@ -60,9 +60,21 @@ internal object SlopMarkers {
     )
 
     val TODO_WORD = Pat.of("""\b(?:todo|fixme|xxx)\b""", ignoreCase = true)
+
+    val AI_VOCAB_TOKENS = Pat.of(
+        """\b(?:additionally|boasts|bolstered|crucial|delve|emphasizing|enduring|garner|intricate|intricacies|interplay|meticulously|meticulous|pivotal|tapestry|testament|vibrant|fostering|showcasing)\b""",
+        ignoreCase = true,
+    )
+
     val TICKET_REF = Pat.of("""[A-Z]+-\d+""")
     val ISSUE_LINK = Pat.of("""https?://(?U:\S+)|#\d+""")
     val LONG_LINK = Pat.of("""(?U)https?://\S{30,}""")
+
+    val CITATION_AUTHOR_YEAR = Pat.of(
+        """\([A-Z][\w'’-]*(?:,(?U:\s*)\d{4}|(?U:\s+)et(?U:\s+)al\.?,?(?U:\s*)\d{4})\)|\([А-ЯЁ][а-яё-]*(?:,(?U:\s*)\d{4}|(?U:\s+)и(?U:\s+)др\.?,?(?U:\s*)\d{4})\)""",
+    )
+
+    val CITATION_ARXIV = Pat.of("""\barXiv:(?U:\s*)\d{4}\.\d{4,5}(?:v\d+)?\b""", ignoreCase = true)
 
     val CROSS_FILE_REF = Pat.of("""(?<![\w@:./\\-])((?:[\w.-]+[/\\])*)([\w-]+)\.([A-Za-z]{1,5}):(\d+)""")
 
@@ -168,6 +180,8 @@ internal object SlopMarkers {
         val ext = (m.group(3) ?: "").lowercase()
         return path.isNotEmpty() || ext in CODE_REF_EXT
     }
+
+    fun isResearchCitation(text: String): Boolean = CITATION_AUTHOR_YEAR.find(text) || CITATION_ARXIV.find(text)
 
     fun weakMarkerHits(text: String): Int = CHANGELOG_WEAK.count(text)
 

@@ -25,16 +25,37 @@
       "type": "boolean",
       "description": "true отключает эксемпт сгенерированных файлов: сгенерированный код линтуется как обычный."
     },
+    "ticketPattern": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Regex-источник тикет-паттерна для правила vend/ticket-ref (например \"\\bKRY-\\d+\\b\"); без ключа правило неактивно."
+    },
     "rules": {
       "type": "object",
       "additionalProperties": false,
       "patternProperties": {
-        "^(multi-line-comment|changelog-marker|long-comment|vend/step-numbered|vend/section-divider|vend/markdown-in-comment|vend/this-function-opener|vend/file-summary-header|vend/generic-todo|vend/cross-file-ref|vend/obvious-comment|vend/ai-plan-narration|vend/ai-vocab-density|vend/self-suppression|vend/cjk-noise|vend/zero-width-chars|vend/bidi-controls)$": {
+        "^(multi-line-comment|changelog-marker|long-comment|vend/step-numbered|vend/section-divider|vend/markdown-in-comment|vend/this-function-opener|vend/file-summary-header|vend/generic-todo|vend/ticket-ref|vend/cross-file-ref|vend/obvious-comment|vend/ai-plan-narration|vend/ai-vocab-density|vend/research-citation|vend/self-suppression|vend/cjk-noise|vend/zero-width-chars|vend/bidi-controls)$": {
           "type": "string",
           "enum": ["error", "warning", "off"]
         }
       },
       "description": "Переопределение severity по id правила: error, warning или off (правило отключено)."
+    },
+    "overrides": {
+      "type": "array",
+      "description": "Пер-path переопределения severity: список записей {paths: [шаблоны], rules: {rule-id: severity}}; поздние записи бьют ранние, оверрайд бьёт глобальную секцию rules.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "paths": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Шаблоны путей: без * — префикс (семантика excludePaths), с * / ** — глоб (* не пересекает /, ** пересекает)."
+          },
+          "rules": { "$ref": "#/properties/rules" }
+        }
+      }
     }
   }
 }

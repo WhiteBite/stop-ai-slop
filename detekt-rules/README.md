@@ -18,6 +18,8 @@
 | `vend/cross-file-ref` | `StopAiSlopCrossFileRef` | Style (warning) |
 | `vend/obvious-comment` | `StopAiSlopObviousComment` | Style (warning) |
 | `vend/ai-plan-narration` | `StopAiSlopAiPlanNarration` | Style (warning) |
+| `vend/ai-vocab-density` | `StopAiSlopAiVocabDensity` | Style (warning) |
+| `vend/research-citation` | `StopAiSlopResearchCitation` | Style (warning) |
 | `vend/cjk-noise` | `StopAiSlopCjkNoise` | Style (warning) |
 | `vend/zero-width-chars` | `StopAiSlopZeroWidthChars` | Defect (error) |
 | `vend/bidi-controls` | `StopAiSlopBidiControls` | Defect (error) |
@@ -28,7 +30,7 @@
 
 `vend/self-suppression` не портирован: правило живёт только в diff-режиме — ему нужен дифф добавленных строк (директива пришла в одной правке с кодом, который глушит), а в whole-file PSI-правиле это бессмысленно. Запись об исключении лежит в `rule-catalog.json`.
 
-`vend/ai-vocab-density` не портирован: экспериментальное правило, валидируется бенчем на JS-стороне; Kotlin-порт (класс `StopAiSlopAiVocabDensity`) отложен до подтверждения. Запись об исключении лежит в `rule-catalog.json`.
+`vend/ticket-ref` не портирован: правило затворено конфигом — ему нужен `ticketPattern` в `.stop-ai-slop.yaml`, а у detekt-порта нет per-repo конфигурации. Запись об исключении лежит в `rule-catalog.json`.
 
 ## Сквозная семантика
 

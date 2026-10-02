@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>stop-ai-slop playground</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+      }
+      body {
+        font-family: system-ui, sans-serif;
+        margin: 2rem auto;
+        max-width: 62rem;
+        padding: 0 1rem;
+        line-height: 1.45;
+      }
+      h1 {
+        font-size: 1.4rem;
+      }
+      textarea {
+        width: 100%;
+        box-sizing: border-box;
+        min-height: 15rem;
+        font-family: ui-monospace, Consolas, monospace;
+        font-size: 0.9rem;
+        padding: 0.6rem;
+      }
+      .bar {
+        display: flex;
+        gap: 0.75rem;
+        align-items: center;
+        flex-wrap: wrap;
+        margin: 0.75rem 0;
+      }
+      button,
+      select {
+        font: inherit;
+        padding: 0.3rem 0.8rem;
+        cursor: pointer;
+      }
+      fieldset {
+        border: 1px solid #8884;
+        padding: 0.2rem 0.6rem;
+      }
+      fieldset label {
+        margin-right: 0.5rem;
+        cursor: pointer;
+      }
+      ul {
+        list-style: none;
+        padding: 0;
+        font-family: ui-monospace, Consolas, monospace;
+        font-size: 0.85rem;
+      }
+      li {
+        padding: 0.15rem 0;
+      }
+      li.error {
+        color: #c62828;
+      }
+      li.warning {
+        color: #b26a00;
+      }
+      #summary {
+        margin-top: 0.5rem;
+        font-weight: 600;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>stop-ai-slop playground</h1>
+    <textarea id="code" spellcheck="false"></textarea>
+    <div class="bar">
+      <button id="scan" type="button">scan</button>
+      <button id="sample-slop" type="button">slop sample</button>
+      <button id="sample-clean" type="button">clean sample</button>
+      <select id="ext">
+        <option value=".ts" selected>.ts</option>
+        <option value=".py">.py</option>
+        <option value=".go">.go</option>
+        <option value=".yaml">.yaml</option>
+        <option value=".rs">.rs</option>
+        <option value=".sql">.sql</option>
+      </select>
+      <fieldset>
+        <label><input type="radio" name="lang" value="ru" checked> RU</label>
+        <label><input type="radio" name="lang" value="en"> EN</label>
+      </fieldset>
+    </div>
+    <ul id="findings"></ul>
+    <div id="summary"></div>
+    <script type="module" src="./src/main.js"></script>
+  </body>
+</html>

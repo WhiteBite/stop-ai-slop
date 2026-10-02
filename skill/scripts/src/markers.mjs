@@ -26,7 +26,12 @@ export const TODO_WORD = /\b(?:todo|fixme|xxx)\b/i
 export const AI_VOCAB_TOKENS =
   /\b(?:additionally|boasts|bolstered|crucial|delve|emphasizing|enduring|garner|intricate|intricacies|interplay|meticulously|meticulous|pivotal|tapestry|testament|vibrant|fostering|showcasing)\b/gi
 export const TICKET_REF = /[A-Z]+-\d+/
+export const CITATION_AUTHOR_YEAR =
+  /\([A-Z][\w'’-]*(?:,\s*\d{4}|\s+et\s+al\.?,?\s*\d{4})\)|\([А-ЯЁ][а-яё-]*(?:,\s*\d{4}|\s+и\s+др\.?,?\s*\d{4})\)/
+export const CITATION_ARXIV = /\barXiv:\s*\d{4}\.\d{4,5}(?:v\d+)?\b/i
+export const isResearchCitation = (text) => CITATION_AUTHOR_YEAR.test(text) || CITATION_ARXIV.test(text)
 export const ISSUE_LINK = /https?:\/\/\S+|#\d+/
+export const ADVISORY_REF = /\b(?:CVE|GHSA)-/i
 export const LONG_LINK = /https?:\/\/\S{30,}/
 export const CROSS_FILE_REF = /(?<![\w@:./\\-])((?:[\w.-]+[\/\\])*)([\w-]+)\.([A-Za-z]{1,5}):(\d+)/
 export const CODE_REF_EXT = new Set(

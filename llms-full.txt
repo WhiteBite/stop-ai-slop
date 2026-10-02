@@ -521,10 +521,12 @@ Comment syntax comes from a language profile, not a single shared list: `#` is a
 | `vend/this-function-opener` | warning | a comment starts with "This function/…", «Эта функция/…», «Diese Funktion…», «Cette fonction…» or «Esta función…» |
 | `vend/file-summary-header` | warning | a 2+ line summary-header comment at the top of a file |
 | `vend/generic-todo` | warning | a TODO/FIXME/XXX without a ticket link (any case) |
+| `vend/ticket-ref` | warning | a bare ticket reference in a comment — the change context belongs in the commit message or PR, not the code (inert until `ticketPattern` is set in `.stop-ai-slop.yaml`) |
 | `vend/cross-file-ref` | warning | a pointer to another file/line in a comment (handler.py:147) |
 | `vend/obvious-comment` | warning | a single-line comment restates the code line beneath it |
 | `vend/ai-plan-narration` | warning | a comment narrates the agent's own work process (plan/spec/task references, instruction acknowledgements) |
 | `vend/ai-vocab-density` | warning | 3+ distinct AI-vocabulary words (delve, pivotal, tapestry...) in the file's comments |
+| `vend/research-citation` | warning | a research citation in a comment — code is not a bibliography |
 | `vend/self-suppression` | warning | a suppression directive without a rule list arrived together with the code it suppresses |
 | `vend/cjk-noise` | warning | CJK characters glued to Latin letters or digits in the code part of a line (a generation artifact) |
 | `vend/zero-width-chars` | error | an invisible zero-width character (U+200B, U+200C, U+200D, U+2060, U+FEFF or an escape form) |
@@ -611,7 +613,7 @@ SaaS review bots: [CodeRabbit](https://coderabbit.ai) ships a named "Slop Detect
 
 - **Only comments.** Code-level slop — swallowed exceptions, `as any`, dead code, hallucinated imports, reward-hacked tests — is out of scope: aislop (50+ rules, 10 language targets), dmmulroy/anti-slop, AI-SLOP-Detector, grain and dotnet-slopwatch cover it.
 - **No prose scanning.** Commit messages, PR descriptions and docs are ai-slop-linter's territory (its commitlint rule and commit-msg hook gate those at commit time).
-- **Line-based extraction, not grammars.** windbag reads comments through real grammars: a `#` inside a quoted YAML scalar stays data, `.sql` is parsed as Jinja templates (dbt/SQLMesh), fenced Markdown blocks are skipped. Our quote-parity heuristic can miss an inline comment inside a template literal — a documented limitation.
+- **Line-based extraction, not grammars.** windbag reads comments through real grammars: a `#` inside a quoted YAML scalar stays data, `.sql` is parsed as Jinja templates (dbt/SQLMesh), fenced Markdown blocks are skipped. Our inline detection tracks template literals with `${}` interpolation in the JS/TS family profiles, but stays line-local: a line that starts inside an open multi-line template literal cannot be tracked without file state — a documented limitation.
 - **Comment length is an absolute limit.** Our `long-comment` is 120 characters; windbag's VERBOSE_COMMENT measures the comment against the code it documents. (After the 2026-09-29 comparison we adopted two of windbag's rules as `vend/cross-file-ref` and `vend/obvious-comment`; the relative-length rule remains theirs.)
 - **No semantic matching.** gptlint (LLM) and almcc/slop-linter (Jev model) judge meaning and catch paraphrased slop; our markers are dictionaries in RU+EN+DE+FR+ES — no ZH/JA phrase detection.
 - **No IDE extension.** AI-SLOP-Detector ships a VS Code extension with inline findings and a status-bar score; our IDE story is a tasks.json problem matcher plus an IDEA File Watcher template.

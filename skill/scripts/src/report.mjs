@@ -128,6 +128,13 @@ export function explainText(ruleId) {
   ].join("\n")
 }
 
+export function cmdPolicy() {
+  const lines = [T("gatePolicy")]
+  for (const r of RULES) lines.push(`${r.id} [${r.severity}] ${rt(r.id, "message")}`)
+  console.log(lines.join("\n"))
+  return 0
+}
+
 export function cmdExplain(ruleId) {
   const text = explainText(ruleId)
   if (text === null) {

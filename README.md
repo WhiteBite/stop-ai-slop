@@ -20,6 +20,15 @@ npx stop-ai-slop --install        # writes the pre-commit hook + npm scripts int
 
 `--install` is the only command that modifies your repo: it appends a marked block to `.git/hooks/pre-commit` (idempotent, never clobbers an existing hook) and adds the `stop-ai-slop` / `stop-ai-slop:all` npm scripts. The hook embeds the absolute path to the scanner as of install time — after moving or re-cloning the scanner, run `--install` again.
 
+### Homebrew
+
+```
+brew tap WhiteBite/stop-ai-slop https://github.com/WhiteBite/stop-ai-slop
+brew install stop-ai-slop
+```
+
+The formula wraps the npm package (this repository doubles as its own tap — the formula lives in `Formula/stop-ai-slop.rb`) and pulls in Homebrew's `node`, which satisfies the Node >= 18 requirement.
+
 ## Who is it for
 
 Teams and solo developers whose code is written partly or mostly by AI coding agents (OpenCode, Claude Code, Cursor, Codex, Copilot, Gemini CLI) and who want a comment policy enforced mechanically — at the write, at the commit, in CI — instead of relying on review discipline.
@@ -157,7 +166,7 @@ For bulk semantic cleanup (the not-auto-fixed rules), the intended flow is: `--f
 
 ## Configuration
 
-An optional `.stop-ai-slop.yaml` in the repository root (same place as the baseline: the git root, or the scan directory outside a repo). Read by the `scan`, `--staged`, `--diff` and `--pre-tool` modes and by the OpenCode write-time plugin, which resolves it from the edited file's git root (falling back to the file's directory outside a repo). The parser is a zero-dep YAML subset: `key: value` scalars, lists via `- `, a `rules:` section with two-space indent, `#` comments and blank lines skipped, values may be quoted. Unknown keys are ignored; an invalid severity is exit 2 with the file name and line number.
+An optional `.stop-ai-slop.yaml` in the repository root (same place as the baseline: the git root, or the scan directory outside a repo). Read by the `scan`, `--staged`, `--diff` and `--pre-tool` modes and by the OpenCode write-time plugin, which resolves it from the edited file's git root (falling back to the file's directory outside a repo). The parser is a zero-dep YAML subset: `key: value` scalars, lists via `- `, a `rules:` section with two-space indent, an `overrides:` list of `{paths, rules}` entries, `#` comments and blank lines skipped, values may be quoted. Unknown keys are ignored; an invalid severity is exit 2 with the file name and line number.
 
 | Key | Meaning |
 | --- | --- |
@@ -166,6 +175,8 @@ An optional `.stop-ai-slop.yaml` in the repository root (same place as the basel
 | `generatedPaths` | list of relative path prefixes treated as generated (same prefix semantics as `excludePaths`); see [Generated code](#generated-code) |
 | `scanGenerated` | `true` disables the generated-file exemption — generated code is linted like any other file |
 | `rules` | severity override per rule id: `error`, `warning` or `off` (rule disabled) |
+| `overrides` | list of per-path severity overrides, each `{paths: [patterns], rules: {rule-id: severity}}`; a pattern without `*` is a path prefix (same semantics as `excludePaths`), `*` matches any characters except `/`, `**` matches any characters including `/`; for a matching file the last matching entry wins, and an override beats the global `rules` remap |
+| `ticketPattern` | regex source enabling `vend/ticket-ref` (e.g. `'\bKRY-\d+\b'`); without the key the rule is inert — a bare ticket reference in a comment is flagged, while TODO lines, tracker links and CVE-/GHSA- advisories are exempt |
 
 ```yaml
 maxCommentLength: 100
@@ -175,9 +186,15 @@ excludePaths:
 rules:
   multi-line-comment: off
   vend/step-numbered: error
+overrides:
+  - paths:
+      - "*.yaml"
+      - ".github/**/*.yml"
+    rules:
+      multi-line-comment: warning
 ```
 
-Severity remap is applied after detection and before baseline filtering and exit-code computation; the baseline matches on the finding fingerprint (rule id + trimmed text; on `rel:line` for old v1 baselines) regardless of severity, so changing a severity in the config neither resurrects nor masks baselined findings.
+Severity remap is applied after detection and before baseline filtering and exit-code computation; per-path `overrides` are applied on top of the global `rules` remap — for a matching file the last matching entry wins, and `off` removes the finding. The baseline matches on the finding fingerprint (rule id + trimmed text; on `rel:line` for old v1 baselines) regardless of severity, so changing a severity in the config neither resurrects nor masks baselined findings.
 
 ### Config JSON Schema
 
@@ -259,6 +276,14 @@ The plugin already carries the hook (`.claude-plugin/stop-ai-slop/hooks/hooks.js
 
 The alternative decision form via `hookSpecificOutput.permissionDecision` (deny) exists, but this hook uses exit 2 + stderr to surface multi-line findings.
 
+The plugin also ships a SessionStart hook (no matcher — startup, resume and clear) running `scan.mjs --policy`, which states the one-line comment policy and the per-rule summary up front in the session context, so most edits never trip the gate.
+
+For agent-driven repair, the `scan`, `--staged`, `--diff` and `--stdin-path` modes accept `--fix-suggestions`: after the normal output the scanner prints one extra line, `fix-suggestions: <single-line JSON array>`, listing the exact edits `--fix` would apply — one `{"file","line","rule","kind","from","to"}` entry per mechanically fixable finding (`kind` is `delete-line`, `replace-line` or `delete-run`; findings that need a human rewrite, like `long-comment`, get no entry). With `--format json` or `--format sarif` the line goes to stderr, so stdout stays machine-parseable.
+
+```
+fix-suggestions: [{"file":"src/a.ts","line":3,"rule":"changelog-marker","kind":"delete-line","from":"// this fixes the cache miss","to":null}]
+```
+
 ## Agent hook integrations
 
 ### `--pre-tool` generalization
@@ -309,7 +334,9 @@ Files owned by us are overwritten; shared-name files WITHOUT our first-line mark
 
 ### VS Code
 
-A `tasks.json` task with a problem matcher to highlight findings in the Problems panel:
+The extension in `editors/vscode/` is the primary path: copy or link that directory into `~/.vscode/extensions/whitebite.stop-ai-slop-0.1.0/`, reload the window, and set `stopAiSlop.command` to your scanner invocation (default `npx stop-ai-slop`). Findings land in the Problems panel on save and via the `stop-ai-slop: Scan the current file` / `Scan the workspace` commands; see `editors/vscode/README.md`.
+
+The zero-install alternative is a `tasks.json` task with a problem matcher to highlight findings in the Problems panel:
 
 ```json
 {
@@ -387,7 +414,7 @@ The action fetches the base ref itself, so a standard shallow checkout is enough
 
 Bootstrap, once: the first publish of a new package needs interactive confirmation — `npm publish` in a terminal: npm either asks for an OTP (if 2FA is on) or offers browser-approve ("Authenticate your account at …"), which is enough without an OTP and without 2FA; the third path is a granular token with bypass-2FA in `~/.npmrc`. Right after it: npmjs.com → package Settings → Trusted publishing → add `WhiteBite/stop-ai-slop` and the `publish.yml` workflow; if that form requires enabling 2FA, that is the only place it is mandatory for fully automatic tags.
 
-After that, deploy is tag-driven: bump the version in `package.json` + add a CHANGELOG entry, commit, `git tag vX.Y.Z && git push origin main --tags`. The `.github/workflows/publish.yml` workflow (trigger `push: tags: v*`) runs the self-test, skips the publish if that version is already in the registry (tag arrival order does not matter), and publishes via OIDC with provenance. Node 24 in the workflow is required: OIDC publishing needs npm CLI >= 11.5.1.
+After that, deploy is tag-driven: bump the version in `package.json` + add a CHANGELOG entry, commit, `git tag vX.Y.Z && git push origin main --tags`. The `.github/workflows/publish.yml` workflow (trigger `push: tags: v*`) runs the self-test, skips the publish if that version is already in the registry (tag arrival order does not matter), and publishes via OIDC with provenance. Node 24 in the workflow is required: OIDC publishing needs npm CLI >= 11.5.1. After a release, update `Formula/stop-ai-slop.rb`: point `url` at the new version's npm tarball and recompute `sha256` — the tarball hash changes with every version.
 
 The same workflow also creates the GitHub Release for the tag (notes taken from the matching `CHANGELOG.md` section, skipped when the release already exists) and mirrors the package to GitHub Packages as `@whitebite/stop-ai-slop` (the GitHub npm registry only accepts scoped names; the mirror is skipped when that version is already there). Consumers of the mirror configure the registry per scope:
 
@@ -510,10 +537,12 @@ Comment syntax comes from a language profile, not a single shared list: `#` is a
 | `vend/this-function-opener` | warning | a comment starts with "This function/…", «Эта функция/…», «Diese Funktion…», «Cette fonction…» or «Esta función…» |
 | `vend/file-summary-header` | warning | a 2+ line summary-header comment at the top of a file |
 | `vend/generic-todo` | warning | a TODO/FIXME/XXX without a ticket link (any case) |
+| `vend/ticket-ref` | warning | a bare ticket reference in a comment — the change context belongs in the commit message or PR, not the code |
 | `vend/cross-file-ref` | warning | a pointer to another file/line in a comment (handler.py:147) |
 | `vend/obvious-comment` | warning | a single-line comment restates the code line beneath it |
 | `vend/ai-plan-narration` | warning | a comment narrates the agent's own work process (plan/spec/task references, instruction acknowledgements) |
 | `vend/ai-vocab-density` | warning | 3+ distinct AI-vocabulary words (delve, pivotal, tapestry...) in the file's comments |
+| `vend/research-citation` | warning | a research citation in a comment — code is not a bibliography |
 | `vend/self-suppression` | warning | a suppression directive without a rule list arrived together with the code it suppresses |
 | `vend/cjk-noise` | warning | CJK characters glued to Latin letters or digits in the code part of a line (a generation artifact) |
 | `vend/zero-width-chars` | error | an invisible zero-width character (U+200B, U+200C, U+200D, U+2060, U+FEFF or an escape form) |
@@ -567,6 +596,16 @@ The first run needs network and git: each repo is fetched once (`git init` + `gi
 
 Refreshing the cohort: edit `BENCH_COHORT` (repo + pinned SHA), re-run `--bench-write`, and review the resulting `bench-history.json` delta in the PR — every count increase must be explainable as a true positive, otherwise the rule change is a false-positive regression.
 
+## Playground
+
+A zero-backend page that runs the real detector (`skill/scripts/src/detect.mjs`) in the browser: Vite bundles the actual modules, nothing is vendored. The built page is committed at `playground/dist/index.html` and works offline, including opened straight from disk (`file://`).
+
+```
+cd playground && npm install && npm run build
+```
+
+Then open `playground/dist/index.html`. The playground is a devDependency-isolated demo: it is not part of the shipped npm package (the `files` list does not include `playground/`). GitHub Pages deployment is a future step.
+
 ## Comparison with alternatives
 
 Facts from the competitors' READMEs, GitHub metadata and npm download counts, checked 2026-09-29. Traction = GitHub stars and npm downloads per month on the check date.
@@ -600,11 +639,11 @@ SaaS review bots: [CodeRabbit](https://coderabbit.ai) ships a named "Slop Detect
 
 - **Only comments.** Code-level slop — swallowed exceptions, `as any`, dead code, hallucinated imports, reward-hacked tests — is out of scope: aislop (50+ rules, 10 language targets), dmmulroy/anti-slop, AI-SLOP-Detector, grain and dotnet-slopwatch cover it.
 - **No prose scanning.** Commit messages, PR descriptions and docs are ai-slop-linter's territory (its commitlint rule and commit-msg hook gate those at commit time).
-- **Line-based extraction, not grammars.** windbag reads comments through real grammars: a `#` inside a quoted YAML scalar stays data, `.sql` is parsed as Jinja templates (dbt/SQLMesh), fenced Markdown blocks are skipped. Our quote-parity heuristic can miss an inline comment inside a template literal — a documented limitation.
+- **Line-based extraction, not grammars.** windbag reads comments through real grammars: a `#` inside a quoted YAML scalar stays data, `.sql` is parsed as Jinja templates (dbt/SQLMesh), fenced Markdown blocks are skipped. Our inline detection tracks template literals with `${}` interpolation in the JS/TS family profiles, but stays line-local: a line that starts inside an open multi-line template literal cannot be tracked without file state — a documented limitation.
 - **Comment length is an absolute limit.** Our `long-comment` is 120 characters; windbag's VERBOSE_COMMENT measures the comment against the code it documents. (After the 2026-09-29 comparison we adopted two of windbag's rules as `vend/cross-file-ref` and `vend/obvious-comment`; the relative-length rule remains theirs.)
 - **No semantic matching.** gptlint (LLM) and almcc/slop-linter (Jev model) judge meaning and catch paraphrased slop; our markers are dictionaries in RU+EN+DE+FR+ES — no ZH/JA phrase detection.
 - **No IDE extension.** AI-SLOP-Detector ships a VS Code extension with inline findings and a status-bar score; our IDE story is a tasks.json problem matcher plus an IDEA File Watcher template.
-- **Adoption and distribution.** aislop: 655 stars, 47k downloads/month, npm + PyPI + Homebrew, score badges, `aislop agent` repair sessions driving Codex/Claude/OpenCode worktrees. slop-scan: 35k downloads/month. stop-ai-slop: 449 downloads/month, npm + a GitHub Packages mirror, no Homebrew formula.
+- **Adoption and distribution.** aislop: 655 stars, 47k downloads/month, npm + PyPI + Homebrew, score badges, `aislop agent` repair sessions driving Codex/Claude/OpenCode worktrees. slop-scan: 35k downloads/month. stop-ai-slop: 449 downloads/month, npm + a GitHub Packages mirror + a Homebrew formula (this repository as its own tap).
 
 ### What only stop-ai-slop has
 

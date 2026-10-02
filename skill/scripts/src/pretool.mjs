@@ -6,6 +6,7 @@ import { addedFromToolArgs, configFindings, extractPatchDeltas, loadConfigCached
 import { gitToplevel, readScannable } from "./git.mjs"
 import { loadBaseline, maskBaselined } from "./baseline.mjs"
 import { failsGate, printFindings } from "./report.mjs"
+import { printFixSuggestions } from "./fixsuggest.mjs"
 import { T, rt } from "./i18n.mjs"
 
 function loadConfigOrNull(root) {
@@ -16,7 +17,7 @@ function loadConfigOrNull(root) {
   }
 }
 
-export function cmdStdinPath() {
+export function cmdStdinPath(fixSuggestions = false) {
   const payload = readFileSync(0, "utf8")
   let filePath = null
   try {
@@ -36,6 +37,7 @@ export function cmdStdinPath() {
   const baseline = loadBaseline(root)
   const fresh = maskBaselined(baseline, findings)
   printFindings(fresh)
+  if (fixSuggestions) printFixSuggestions(root, fresh, "text")
   return failsGate(fresh, false) ? 1 : 0
 }
 export const PRE_TOOL_READ_ONLY = /read|view|grep|search|glob|list|ls|bash|shell|exec|run|fetch|web|think|todo|plan/

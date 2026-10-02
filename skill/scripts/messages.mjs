@@ -129,11 +129,13 @@ export const HELP_RU = [
   "",
   "Диагностика:",
   "  --explain <rule-id> обоснование правила",
+  "  --policy            политика комментариев + сводка всех правил (для SessionStart-хука агента)",
   "  --audit [N]         последние N записей аудит-лога решений гейта",
   "  --doctor            диагностика окружения: node, git, pre-commit hook, конфиг, baseline",
   "  --self-test         саботаж-тест детектора",
   "",
   "Флаги: --strict (warning тоже блокируют), --annotations (::error/::warning workflow-команды GitHub Actions в text-выводе), --format <text|json|sarif> (формат вывода), --lang <ru|en> (язык сообщений), --help",
+  "       --fix-suggestions  после обычного вывода режимов scan/--staged/--diff/--stdin-path печатает строку fix-suggestions: <JSON-массив правок, которые применил бы --fix>; при --format json/sarif строка уходит в stderr",
   "Коды выхода: 0 — чисто; 1 — гейт сработал; 2 — ошибка использования или git",
 ]
 
@@ -167,11 +169,13 @@ export const HELP_EN = [
   "",
   "Diagnostics:",
   "  --explain <rule-id> rule rationale",
+  "  --policy            the comment policy + a summary of every rule (for an agent SessionStart hook)",
   "  --audit [N]         last N entries of the gate decision audit log",
   "  --doctor            environment diagnostics: node, git, pre-commit hook, config, baseline",
   "  --self-test         detector sabotage test",
   "",
   "Flags: --strict (warnings also block), --annotations (::error/::warning GitHub Actions workflow commands in text output), --format <text|json|sarif> (output format), --lang <ru|en> (message language), --help",
+  "       --fix-suggestions  after the normal output of scan/--staged/--diff/--stdin-path, print one fix-suggestions: <JSON array of the edits --fix would apply> line; with --format json/sarif the line goes to stderr",
   "Exit codes: 0 — clean; 1 — gate fired; 2 — usage or git error",
 ]
 

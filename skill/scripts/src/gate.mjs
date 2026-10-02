@@ -1,7 +1,8 @@
 import { dirname, resolve } from "node:path"
 import { SECURITY_RULES } from "./rules.mjs"
 import { T, rt } from "./i18n.mjs"
-import { detectCommentSlop, isCodePath, multisetDiff, readDisk } from "./detect.mjs"
+import { detectCommentSlop, isCodePath, multisetDiff } from "./detect.mjs"
+import { readDisk } from "./diskio.mjs"
 import { genContext, isGeneratedFile } from "./generated.mjs"
 import { profileFor } from "./profiles.mjs"
 import { applyRuleConfig, configOptions, loadConfig } from "./config.mjs"
@@ -37,12 +38,13 @@ export function configFindings(root, filePath, lines, diffMode, config) {
   const cfg = config === undefined ? (root === null ? null : loadConfigCached(root)) : config
   const detected = detectCommentSlop(lines, profileFor(filePath) ?? undefined, diffMode, null, configOptions(cfg))
   if (root === null) return applyRuleConfig(detected, cfg)
+  const rel = toRel(root, resolve(filePath))
   const disk = readDisk(filePath)
   const text = typeof disk === "string" ? disk : lines.join("\n")
-  const visible = isGeneratedFile(toRel(root, resolve(filePath)), text, genContext(root, cfg))
+  const visible = isGeneratedFile(rel, text, genContext(root, cfg))
     ? detected.filter((f) => SECURITY_RULES.has(f.rule))
     : detected
-  return applyRuleConfig(visible, cfg)
+  return applyRuleConfig(visible.map((f) => ({ rel, ...f })), cfg)
 }
 
 export function addedFromToolArgs(tool, args, opts) {

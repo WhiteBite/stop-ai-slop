@@ -4,11 +4,13 @@ import { isAbsolute, join, resolve } from "node:path"
 import { SECURITY_RULES } from "./rules.mjs"
 import { isExcludedPath, toRel } from "./paths.mjs"
 import { CLI_SKIPPED_SEGMENTS, PROFILES, profileFor } from "./profiles.mjs"
-import { decodeText, detectCommentSlop, fileSuppressIds, isCodePath, readDisk } from "./detect.mjs"
+import { detectCommentSlop, fileSuppressIds, isCodePath } from "./detect.mjs"
+import { decodeText, readDisk } from "./diskio.mjs"
 import { isGeneratedFile } from "./generated.mjs"
 import { applyRuleConfig, configOptions } from "./config.mjs"
 import { loadBaseline, maskBaselined } from "./baseline.mjs"
 import { failsGate, printFindings } from "./report.mjs"
+import { printFixSuggestions } from "./fixsuggest.mjs"
 import { T } from "./i18n.mjs"
 
 export function gitListedFiles(root) {
@@ -178,7 +180,7 @@ export function consecutiveRuns(lines) {
   return runs
 }
 
-export function runDiffGate(diffText, root, strict, format = "text", config = null, genCtx = null, annotations = false) {
+export function runDiffGate(diffText, root, strict, format = "text", config = null, genCtx = null, annotations = false, fixSuggestions = false) {
   const findings = []
   const excludePaths = config?.excludePaths ?? []
   const options = configOptions(config)
@@ -203,6 +205,7 @@ export function runDiffGate(diffText, root, strict, format = "text", config = nu
   const baseline = loadBaseline(root)
   const fresh = maskBaselined(baseline, applyRuleConfig(findings, config))
   printFindings(fresh, format, strict, annotations)
+  if (fixSuggestions) printFixSuggestions(root, fresh, format)
   return failsGate(fresh, strict) ? 1 : 0
 }
 export function gitDiffRef(ref, root) {

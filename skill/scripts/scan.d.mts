@@ -45,7 +45,7 @@ export declare function detectCommentSlop(
   profile?: CommentProfile,
   diffMode?: boolean,
   fileSuppress?: Set<string> | null,
-  options?: { maxLength?: number } | null,
+  options?: { maxLength?: number; ticketPattern?: string } | null,
 ): Violation[]
 export declare function multisetDiff(oldText: string, newText: string): string[]
 export declare function isCodePath(filePath: string, extraSkippedSegments?: string[]): boolean
@@ -83,15 +83,21 @@ export declare function collectFiles(paths: string[], root: string, excludePaths
 export declare function scanFiles(
   files: string[],
   root: string,
-  options?: { maxLength?: number } | null,
+  options?: { maxLength?: number; ticketPattern?: string } | null,
   genCtx?: GeneratedContext | null,
 ): FileViolation[]
+export interface OverrideEntry {
+  paths: string[]
+  rules: Map<string, string>
+}
 export interface SlopConfig {
   maxCommentLength: number | null
   excludePaths: string[]
   generatedPaths: string[]
   scanGenerated: boolean | null
   rules: Map<string, string>
+  overrides: OverrideEntry[]
+  ticketPattern: string | null
 }
 export declare const CONFIG_KEYS: string[]
 export declare function loadConfig(root: string): SlopConfig | null

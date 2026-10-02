@@ -22,6 +22,8 @@ class StopAiSlopProvider : RuleSetProvider {
             StopAiSlopCrossFileRef(config),
             StopAiSlopObviousComment(config),
             StopAiSlopAiPlanNarration(config),
+            StopAiSlopAiVocabDensity(config),
+            StopAiSlopResearchCitation(config),
             StopAiSlopCjkNoise(config),
             StopAiSlopZeroWidthChars(config),
             StopAiSlopBidiControls(config),

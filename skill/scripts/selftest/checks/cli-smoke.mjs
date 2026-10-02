@@ -36,6 +36,7 @@ const MODES = [
   { name: "baseline-prune", args: ["--baseline-prune"], input: null, expect: 0 },
   { name: "explain", args: ["--explain", "changelog-marker"], input: null, expect: 0 },
   { name: "explain-bare-id", args: ["--explain", "step-numbered"], input: null, expect: 0 },
+  { name: "policy", args: ["--policy"], input: null, expect: 0 },
   { name: "help", args: ["--help"], input: null, expect: 0 },
   { name: "audit", args: ["--audit"], input: null, expect: 0 },
   { name: "install", args: ["--install"], input: null, expect: 0 },

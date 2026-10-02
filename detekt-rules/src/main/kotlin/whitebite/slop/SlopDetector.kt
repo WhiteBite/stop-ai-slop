@@ -17,6 +17,8 @@ private class LineModel(
 )
 
 internal object SlopDetector {
+    private const val AI_VOCAB_MIN = 3
+
     private val cache = Collections.synchronizedMap(WeakHashMap<KtFile, List<SlopHit>>())
 
     fun detect(root: KtFile): List<SlopHit> {
@@ -81,6 +83,7 @@ internal object SlopDetector {
                 push("vend/generic-todo", i, inline)
             }
             if (!doc && SlopMarkers.isCrossFileRef(body)) push("vend/cross-file-ref", i, inline)
+            if (!doc && SlopMarkers.isResearchCitation(body)) push("vend/research-citation", i, inline)
             return SlopMarkers.weakMarkerHits(text0)
         }
 
@@ -90,6 +93,16 @@ internal object SlopDetector {
             if (weakRun >= 2) push("changelog-marker", weakRunLine)
             weakRun = 0
             weakRunLine = -1
+        }
+
+        val aiVocab = LinkedHashSet<String>()
+        var aiVocabLine = -1
+        fun aiVocabHit(text: String, i: Int) {
+            val m = SlopMarkers.AI_VOCAB_TOKENS.raw.matcher(text)
+            while (m.find()) {
+                if (aiVocabLine == -1) aiVocabLine = i
+                aiVocab += m.group().lowercase()
+            }
         }
 
         for (i in stripped.indices) {
@@ -108,6 +121,7 @@ internal object SlopDetector {
             if (SlopMarkers.SUPPRESS_ANY.find(stripped[i])) continue
             if (model.comment[i] || model.doc[i]) {
                 val weak = testLine(stripped[i], i, model.doc[i], false)
+                if (!model.doc[i]) aiVocabHit(stripped[i], i)
                 if (weak > 0) {
                     weakRun += weak
                     if (weakRunLine == -1) weakRunLine = i
@@ -126,9 +140,11 @@ internal object SlopDetector {
                 flushWeakRun()
                 val inline = model.inlineText[i]
                 if (inline != null && testLine(inline, i, false, true) >= 2) push("changelog-marker", i, true)
+                if (inline != null) aiVocabHit(inline, i)
             }
         }
         flushWeakRun()
+        if (aiVocab.size >= AI_VOCAB_MIN) push("vend/ai-vocab-density", aiVocabLine)
 
         var runStart = -1
         for (i in 0..stripped.size) {

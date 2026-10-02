@@ -1,0 +1,42 @@
+{
+  "publisher": "whitebite",
+  "name": "stop-ai-slop",
+  "displayName": "stop-ai-slop",
+  "description": "Zero-dependency comment linter and gate that blocks AI-generated comment slop before it lands in your codebase.",
+  "version": "0.1.0",
+  "engines": {
+    "vscode": "^1.75.0"
+  },
+  "categories": [
+    "Linters"
+  ],
+  "main": "./extension.js",
+  "activationEvents": [
+    "onCommand:stopAiSlop.scanFile",
+    "onCommand:stopAiSlop.scanWorkspace"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "stopAiSlop.scanFile",
+        "title": "Scan the current file",
+        "category": "stop-ai-slop"
+      },
+      {
+        "command": "stopAiSlop.scanWorkspace",
+        "title": "Scan the workspace",
+        "category": "stop-ai-slop"
+      }
+    ],
+    "configuration": {
+      "title": "stop-ai-slop",
+      "properties": {
+        "stopAiSlop.command": {
+          "type": "string",
+          "default": "npx stop-ai-slop",
+          "description": "Scanner invocation: npx or an absolute path to the stop-ai-slop bin. Split on whitespace and executed without a shell."
+        }
+      }
+    }
+  }
+}

@@ -19,6 +19,8 @@ const KOTLIN_RULE = {
   "vend/cross-file-ref": "StopAiSlopCrossFileRef",
   "vend/obvious-comment": "StopAiSlopObviousComment",
   "vend/ai-plan-narration": "StopAiSlopAiPlanNarration",
+  "vend/ai-vocab-density": "StopAiSlopAiVocabDensity",
+  "vend/research-citation": "StopAiSlopResearchCitation",
   "vend/cjk-noise": "StopAiSlopCjkNoise",
   "vend/zero-width-chars": "StopAiSlopZeroWidthChars",
   "vend/bidi-controls": "StopAiSlopBidiControls",
@@ -31,8 +33,8 @@ const EXCLUDED = [
       "diff-mode-only: it needs the added-lines diff (a directive arriving in the same diff as the code it suppresses) and is meaningless in a whole-file PSI rule",
   },
   {
-    id: "vend/ai-vocab-density",
-    reason: "experimental: JS-side bench validation, Kotlin port deferred",
+    id: "vend/ticket-ref",
+    reason: "config-gated: requires ticketPattern in .stop-ai-slop.yaml; the detekt port has no per-repo config",
   },
 ]
 

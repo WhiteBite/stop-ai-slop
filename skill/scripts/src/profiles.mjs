@@ -1,4 +1,3 @@
-import { extname } from "node:path"
 import { DIVIDER_CHARS } from "./markers.mjs"
 
 export const P = (prefixes, blocks = [], doc = [], suffixes = [], regexPrefixes = [], flags = {}) => ({ prefixes, blocks, doc, suffixes, regexPrefixes, ...flags })
@@ -9,8 +8,8 @@ export const PYDOC_DQ = { openRe: /^[rbf]?"""/, close: '"""' }
 export const PYDOC_SQ = { openRe: /^[rbf]?'''/, close: "'''" }
 export const PROFILES = {
   legacy: P(["//", "#", "/*", "*"], [["/*", "*/"], ["{/*", "*/}"]], [JSDOC, TRIPLE_SLASH_DOC, PYDOC_DQ], ["*/"]),
-  cfamily: P(["//", "/*", "*"], [["/*", "*/"], ["{/*", "*/}"]], [JSDOC, TRIPLE_SLASH_DOC], ["*/"]),
-  golang: P(["//", "/*", "*"], [["/*", "*/"], ["{/*", "*/}"]], [JSDOC, TRIPLE_SLASH_DOC], ["*/"], [], { goDoc: true }),
+  cfamily: P(["//", "/*", "*"], [["/*", "*/"], ["{/*", "*/}"]], [JSDOC, TRIPLE_SLASH_DOC], ["*/"], [], { templates: true }),
+  golang: P(["//", "/*", "*"], [["/*", "*/"], ["{/*", "*/}"]], [JSDOC, TRIPLE_SLASH_DOC], ["*/"], [], { goDoc: true, templates: true }),
   css: P(["//", "/*", "*"], [["/*", "*/"]], [], ["*/"]),
   py: P(["#"], [], [PYDOC_DQ, PYDOC_SQ]),
   php: P(["//", "#", "/*", "*"], [["/*", "*/"]], [JSDOC], ["*/"]),
@@ -35,7 +34,7 @@ export const PROFILES = {
   ini: P([";", "#"]),
   properties: P(["#", "!"]),
   rst: P([".."]),
-  vue: P(["//", "/*", "*", "<!--"], [["/*", "*/"], ["{/*", "*/}"], ["<!--", "-->"]], [JSDOC], ["*/"]),
+  vue: P(["//", "/*", "*", "<!--"], [["/*", "*/"], ["{/*", "*/}"], ["<!--", "-->"]], [JSDOC], ["*/"], [], { templates: true }),
   dash: P(["--"]),
   hashblock: P(["#", "/*", "*"], [["/*", "*/"]], [], ["*/"]),
   coffee: P(["#"], [["###", "###"]]),
@@ -112,11 +111,16 @@ export const FILENAME_PROFILE = {
   ".editorconfig": "ini",
 }
 
+const extOf = (base) => {
+  const rest = base.replace(/^\.+/, "")
+  const dot = rest.lastIndexOf(".")
+  return dot === -1 ? "" : rest.slice(dot)
+}
 export function profileFor(filePath) {
   const base = filePath.split(/[\\/]/).pop()?.toLowerCase() ?? ""
   const exact = FILENAME_PROFILE[base]
   if (exact !== undefined) return PROFILES[exact] ?? null
-  const byExt = EXT_PROFILE[extname(filePath).toLowerCase()]
+  const byExt = EXT_PROFILE[extOf(base)]
   if (byExt !== undefined) return PROFILES[byExt] ?? null
   for (const [name, profile] of Object.entries(FILENAME_PROFILE)) {
     if (base.startsWith(name + ".")) return PROFILES[profile] ?? null
@@ -194,11 +198,44 @@ export function dividerReason(trimmed) {
 }
 export const INLINE_SAFE_PREFIXES = new Set(["//", "#", "--", "%", ";", "!"])
 
+// маркер валиден при пустом стеке строк; ${ } — интерполяция кода; line-local: многострочный template не виден
+function templateMarkerAt(line, markers) {
+  const stack = []
+  let i = 0
+  while (i < line.length) {
+    const top = stack[stack.length - 1]
+    if (top === "'" || top === '"' || top === "`") {
+      if (line[i] === "\\") i += 2
+      else if (line[i] === top) {
+        stack.pop()
+        i++
+      } else if (top === "`" && line[i] === "$" && line[i + 1] === "{") {
+        stack.push("{")
+        i += 2
+      } else i++
+      continue
+    }
+    if (top === "{") {
+      if (line[i] === "'" || line[i] === '"' || line[i] === "`") stack.push(line[i])
+      else if (line[i] === "{") stack.push("{")
+      else if (line[i] === "}") stack.pop()
+      i++
+      continue
+    }
+    const hit = markers.find((m) => line.startsWith(m, i))
+    if (hit !== undefined) return i > 0 ? { idx: i, marker: hit } : null
+    if (line[i] === "'" || line[i] === '"' || line[i] === "`") stack.push(line[i])
+    i++
+  }
+  return null
+}
+
 export function inlineMarkerAt(line, profile) {
   const markers = profile.prefixes
     .filter((p) => INLINE_SAFE_PREFIXES.has(p))
     .filter((p) => !(p === "//" && (profile === PROFILES.py || profile === PROFILES.pascal)))
     .map((p) => (p === "#" ? " #" : p))
+  if (profile.templates === true) return templateMarkerAt(line, markers)
   for (const marker of markers) {
     const idx = line.indexOf(marker)
     if (idx <= 0) continue

@@ -5,7 +5,8 @@ import { gitDiffRef, gitStagedDiff, gitToplevel, collectFiles, runDiffGate, scan
 import { applyRuleConfig, configOptions, loadConfig } from "./config.mjs"
 import { genContext } from "./generated.mjs"
 import { baselineKey, fingerprint, loadBaseline, maskBaselined, writeBaselineFile } from "./baseline.mjs"
-import { cmdExplain, failsGate, printFindings } from "./report.mjs"
+import { cmdExplain, cmdPolicy, failsGate, printFindings } from "./report.mjs"
+import { printFixSuggestions } from "./fixsuggest.mjs"
 import { currentLang, resolveLang, setLang, T } from "./i18n.mjs"
 import { cmdInstall, cmdInstallHooks, cmdInstallRules } from "./install.mjs"
 import { cmdFix } from "./fix.mjs"
@@ -15,7 +16,7 @@ import { cmdPreTool, cmdStdinPath } from "./pretool.mjs"
 import { cmdBench } from "./bench.mjs"
 import { cmdDoctor } from "./doctor.mjs"
 
-export function cmdScan(paths, { writeBaseline = false, strict = false, prune = false, format = "text", annotations = false } = {}) {
+export function cmdScan(paths, { writeBaseline = false, strict = false, prune = false, format = "text", annotations = false, fixSuggestions = false } = {}) {
   const root = gitToplevel(process.cwd())
   let config
   try {
@@ -54,9 +55,10 @@ export function cmdScan(paths, { writeBaseline = false, strict = false, prune = 
   const baseline = loadBaseline(root)
   const fresh = maskBaselined(baseline, findings)
   printFindings(fresh, format, strict, annotations)
+  if (fixSuggestions) printFixSuggestions(root, fresh, format)
   return failsGate(fresh, strict) ? 1 : 0
 }
-export function cmdStaged(strict = false, format = "text", annotations = false) {
+export function cmdStaged(strict = false, format = "text", annotations = false, fixSuggestions = false) {
   const root = gitToplevel(process.cwd())
   let config
   try {
@@ -76,9 +78,9 @@ export function cmdStaged(strict = false, format = "text", annotations = false) 
     console.log(T("notGitStaged"))
     return 0
   }
-  return runDiffGate(diff, root, strict, format, config, genContext(root, config), annotations)
+  return runDiffGate(diff, root, strict, format, config, genContext(root, config), annotations, fixSuggestions)
 }
-export function cmdDiff(ref, strict = false, format = "text", annotations = false) {
+export function cmdDiff(ref, strict = false, format = "text", annotations = false, fixSuggestions = false) {
   const root = gitToplevel(process.cwd())
   let config
   try {
@@ -98,11 +100,12 @@ export function cmdDiff(ref, strict = false, format = "text", annotations = fals
     console.log(T("notGitDiff"))
     return 0
   }
-  return runDiffGate(diff, root, strict, format, config, genContext(root, config), annotations)
+  return runDiffGate(diff, root, strict, format, config, genContext(root, config), annotations, fixSuggestions)
 }
 export const KNOWN_FLAGS = new Set([
   "--self-test",
   "--explain",
+  "--policy",
   "--strict",
   "--annotations",
   "--doctor",
@@ -112,6 +115,7 @@ export const KNOWN_FLAGS = new Set([
   "--staged",
   "--diff",
   "--fix",
+  "--fix-suggestions",
   "--dry-run",
   "--baseline-write",
   "--baseline-prune",
@@ -153,19 +157,20 @@ export const MODES = [
   ["--install-hooks", () => cmdInstallHooks()],
   ["--install-rules", () => cmdInstallRules()],
   ["--fix", (argv, { strict }) => cmdFix(positionalPaths(argv), { dryRun: argv.includes("--dry-run"), strict })],
-  ["--staged", (argv, { strict, format, annotations }) => cmdStaged(strict, format, annotations)],
+  ["--staged", (argv, { strict, format, annotations, fixSuggestions }) => cmdStaged(strict, format, annotations, fixSuggestions)],
   [
     "--diff",
-    (argv, { strict, format, annotations }) => {
+    (argv, { strict, format, annotations, fixSuggestions }) => {
       const ref = argv[argv.indexOf("--diff") + 1]
       if (ref === undefined || ref.startsWith("--")) {
         console.error("slop-gate: --diff требует ref (например, main)")
         return 2
       }
-      return cmdDiff(ref, strict, format, annotations)
+      return cmdDiff(ref, strict, format, annotations, fixSuggestions)
     },
   ],
   ["--help", () => cmdUsage()],
+  ["--policy", () => cmdPolicy()],
   ["--doctor", () => cmdDoctor()],
   [
     "--audit",
@@ -177,7 +182,7 @@ export const MODES = [
   ["--baseline-prune", (argv) => cmdScan(positionalPaths(argv), { prune: true })],
   ["--bench-write", () => cmdBench(true)],
   ["--bench", () => cmdBench(false)],
-  ["--stdin-path", () => cmdStdinPath()],
+  ["--stdin-path", (argv) => cmdStdinPath(argv.includes("--fix-suggestions"))],
   ["--mcp", () => cmdMcp()],
   ["--pre-tool", () => cmdPreTool()],
 ]
@@ -203,17 +208,18 @@ export function main(argv) {
   }
   const strict = argv.includes("--strict")
   const annotations = argv.includes("--annotations")
+  const fixSuggestions = argv.includes("--fix-suggestions")
   const parsed = parseFormat(argv)
   if (parsed === null) return 2
   const { format } = parsed
   argv = parsed.rest
   for (const [flag, run] of MODES) {
-    if (argv.includes(flag)) return run(argv, { strict, format, annotations })
+    if (argv.includes(flag)) return run(argv, { strict, format, annotations, fixSuggestions })
   }
   const unknown = argv.filter((a) => a.startsWith("--") && !KNOWN_FLAGS.has(a) && a !== "--lang")
   if (unknown.length > 0) {
     console.error(T("unknownFlag", unknown[0]))
     return 2
   }
-  return cmdScan(positionalPaths(argv), { writeBaseline: argv.includes("--baseline-write"), strict, format, annotations })
+  return cmdScan(positionalPaths(argv), { writeBaseline: argv.includes("--baseline-write"), strict, format, annotations, fixSuggestions })
 }

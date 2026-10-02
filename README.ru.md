@@ -20,6 +20,15 @@ npx stop-ai-slop --install        # пишет pre-commit hook + npm scripts в 
 
 `--install` — единственная команда, которая меняет ваше репо: дописывает блок с маркером в `.git/hooks/pre-commit` (идемпотентно, чужой хук не затирает) и добавляет npm-скрипты `stop-ai-slop` / `stop-ai-slop:all`. Хук вшивает абсолютный путь к сканеру на момент установки — после переноса или ре-клона сканера запустите `--install` снова.
 
+### Homebrew
+
+```
+brew tap WhiteBite/stop-ai-slop https://github.com/WhiteBite/stop-ai-slop
+brew install stop-ai-slop
+```
+
+Формула оборачивает npm-пакет (этот репозиторий — собственный tap: формула лежит в `Formula/stop-ai-slop.rb`) и подтягивает `node` из Homebrew, который удовлетворяет требованию Node >= 18.
+
 ## Кому это нужно
 
 Команды и одиночные разработчики, чей код частично или в основном пишут AI-агенты (OpenCode, Claude Code, Cursor, Codex, Copilot, Gemini CLI), и которым политика комментариев нужна механически — в момент записи, на коммите, в CI, — а не на дисциплине ревью.
@@ -157,7 +166,7 @@ node skill/scripts/scan.mjs --fix             # записать правки, �
 
 ## Конфиг
 
-Необязательный файл `.stop-ai-slop.yaml` в корне репозитория (там же, где baseline: корень git, а вне репо — каталог сканирования). Читается режимами `scan`, `--staged`, `--diff` и write-time плагином OpenCode, который резолвит его из git-корня редактируемого файла (вне репо — из каталога файла). Парсер — zero-dep подмножество YAML: скаляры `ключ: значение`, списки через `- `, секция `rules:` с двухпробельным отступом, `#`-комментарии и пустые строки пропускаются, значения могут быть в кавычках. Неизвестные ключи игнорируются; недопустимое severity — exit 2 с именем файла и номером строки.
+Необязательный файл `.stop-ai-slop.yaml` в корне репозитория (там же, где baseline: корень git, а вне репо — каталог сканирования). Читается режимами `scan`, `--staged`, `--diff` и write-time плагином OpenCode, который резолвит его из git-корня редактируемого файла (вне репо — из каталога файла). Парсер — zero-dep подмножество YAML: скаляры `ключ: значение`, списки через `- `, секция `rules:` с двухпробельным отступом, список `overrides:` из записей `{paths, rules}`, `#`-комментарии и пустые строки пропускаются, значения могут быть в кавычках. Неизвестные ключи игнорируются; недопустимое severity — exit 2 с именем файла и номером строки.
 
 | Ключ | Семантика |
 | --- | --- |
@@ -166,6 +175,8 @@ node skill/scripts/scan.mjs --fix             # записать правки, �
 | `generatedPaths` | список относительных путей-префиксов, считаемых сгенерированными (та же префиксная семантика, что у `excludePaths`); см. [Сгенерированный код](#сгенерированный-код) |
 | `scanGenerated` | `true` отключает эксемпт сгенерированных файлов — они линтуются как обычные |
 | `rules` | override severity по id правила: `error`, `warning` или `off` (правило отключено) |
+| `overrides` | пер-path переопределения severity, запись `{paths: [шаблоны], rules: {rule-id: severity}}`; шаблон без `*` — префикс пути (семантика `excludePaths`), `*` матчит любые символы кроме `/`, `**` — включая `/`; для матчащего файла побеждает последняя матчащая запись, оверрайд бьёт глобальную секцию `rules` |
+| `ticketPattern` | regex-источник, включающий `vend/ticket-ref` (например `'\bKRY-\d+\b'`); без ключа правило неактивно — флагается тикет-ссылка в комментарии без TODO, а TODO-строки, ссылки на трекер и CVE-/GHSA- advisory не флагаются |
 
 ```yaml
 maxCommentLength: 100
@@ -175,9 +186,15 @@ excludePaths:
 rules:
   multi-line-comment: off
   vend/step-numbered: error
+overrides:
+  - paths:
+      - "*.yaml"
+      - ".github/**/*.yml"
+    rules:
+      multi-line-comment: warning
 ```
 
-Remap severity применяется после детекции и до фильтрации baseline и подсчёта exit-кода; baseline матчится по `rel:line` независимо от severity, поэтому смена severity в конфиге не воскрешает и не маскирует baselined-находки.
+Remap severity применяется после детекции и до фильтрации baseline и подсчёта exit-кода; пер-path `overrides` применяются поверх глобальной секции `rules` — для матчащего файла побеждает последняя матчащая запись, `off` снимает находку. Baseline матчится по `rel:line` независимо от severity, поэтому смена severity в конфиге не воскрешает и не маскирует baselined-находки.
 
 ### Schema JSON конфигурации
 
@@ -259,6 +276,14 @@ npx stop-ai-slop --mcp
 
 Альтернативная форма принятия решений через `hookSpecificOutput.permissionDecision` (deny) существует, но данный хук использует exit 2 + stderr для многострочного вывода находок.
 
+Плагин также несёт SessionStart-хук (без matcher — startup, resume и clear), запускающий `scan.mjs --policy`: он заранее печатает в контекст сессии политику однострочного комментария и сводку правил, поэтому большинство правок вообще не задевают гейт.
+
+Для агентского ремонта режимы `scan`, `--staged`, `--diff` и `--stdin-path` принимают `--fix-suggestions`: после обычного вывода сканер печатает одну дополнительную строку `fix-suggestions: <однострочный JSON-массив>` с точными правками, которые применил бы `--fix`, — одна запись `{"file","line","rule","kind","from","to"}` на каждую механически чинимую находку (`kind` — `delete-line`, `replace-line` или `delete-run`; находки, требующие ручной переписки вроде `long-comment`, записи не получают). С `--format json` или `--format sarif` строка уходит в stderr, чтобы stdout оставался машиночитаемым.
+
+```
+fix-suggestions: [{"file":"src/a.ts","line":3,"rule":"changelog-marker","kind":"delete-line","from":"// this fixes the cache miss","to":null}]
+```
+
 ## Хук-интеграции с агентами
 
 ### Обобщение `--pre-tool`
@@ -309,7 +334,9 @@ npx stop-ai-slop --mcp
 
 ### VS Code
 
-Задача `tasks.json` с problem matcher для подсветки находок в панели Problems:
+Основной путь — расширение из `editors/vscode/`: скопируйте или слинкуйте этот каталог в `~/.vscode/extensions/whitebite.stop-ai-slop-0.1.0/`, перезагрузите окно и задайте `stopAiSlop.command` — вызов сканера (по умолчанию `npx stop-ai-slop`). Находки попадают в панель Problems при сохранении и по командам `stop-ai-slop: Scan the current file` / `Scan the workspace`; подробности в `editors/vscode/README.md`.
+
+Альтернатива без установки — задача `tasks.json` с problem matcher для подсветки находок в панели Problems:
 
 ```json
 {
@@ -387,7 +414,7 @@ Action сам подтягивает базовый реф, поэтому ст�
 
 Бутстрап, один раз: первая публикация нового пакета требует интерактивное подтверждение — `npm publish` в терминале: npm либо запросит OTP (если 2FA включена), либо предложит browser-approve («Authenticate your account at …»), которого достаточно без OTP и без 2FA; третий путь — granular-токен с bypass-2FA в `~/.npmrc`. Сразу после неё: npmjs.com → Settings пакета → Trusted publishing → добавить `WhiteBite/stop-ai-slop` и workflow `publish.yml`; если эта форма потребует включить 2FA — это единственное место, где она обязательна для полностью автоматических тегов.
 
-Дальше деплой идёт по тегам: bump версии в `package.json` + запись в CHANGELOG, коммит, `git tag vX.Y.Z && git push origin main --tags`. Воркфлоу `.github/workflows/publish.yml` (триггер `push: tags: v*`) прогоняет self-test, пропускает публикацию, если эта версия уже в реестре (порядок прилёта тегов не важен), и публикует через OIDC с provenance. Node 24 в воркфлоу обязателен: OIDC-публикация требует npm CLI ≥ 11.5.1.
+Дальше деплой идёт по тегам: bump версии в `package.json` + запись в CHANGELOG, коммит, `git tag vX.Y.Z && git push origin main --tags`. Воркфлоу `.github/workflows/publish.yml` (триггер `push: tags: v*`) прогоняет self-test, пропускает публикацию, если эта версия уже в реестре (порядок прилёта тегов не важен), и публикует через OIDC с provenance. Node 24 в воркфлоу обязателен: OIDC-публикация требует npm CLI ≥ 11.5.1. После релиза обновите `Formula/stop-ai-slop.rb`: `url` на tarball новой версии и пересчитанный `sha256` — хэш tarball меняется с каждой версией.
 
 Тот же воркфлоу создаёт GitHub Release для тега (ноты берутся из соответствующей секции `CHANGELOG.md`, пропускается, если release уже существует) и зеркалирует пакет в GitHub Packages как `@whitebite/stop-ai-slop` (npm-реестр GitHub принимает только scoped-имена; зеркало пропускается, если эта версия уже там). Потребители зеркала настраивают реестр по скоупу:
 
@@ -510,10 +537,12 @@ node skill/scripts/scan.mjs --audit 50     # последние 50
 | `vend/this-function-opener` | warning | комментарий начинается с «This function/…», «Эта функция/…», «Diese Funktion…», «Cette fonction…» или «Esta función…» |
 | `vend/file-summary-header` | warning | шапка-резюме из 2+ строк комментария в начале файла |
 | `vend/generic-todo` | warning | TODO/FIXME/XXX без ссылки на тикет |
+| `vend/ticket-ref` | warning | тикет-ссылка в комментарии без TODO — контекст правки живёт в коммите/PR, не в коде |
 | `vend/cross-file-ref` | warning | указатель на другой файл/строку в комментарии (handler.py:147) |
 | `vend/obvious-comment` | warning | комментарий пересказывает строку кода под ним |
 | `vend/ai-plan-narration` | warning | комментарий пересказывает рабочий процесс агента (ссылки на план/спеку/задачу, подтверждение инструкций) |
 | `vend/ai-vocab-density` | warning | 3+ разных слов из ИИ-канона (delve, pivotal, tapestry...) в комментариях файла |
+| `vend/research-citation` | warning | научная ссылка в комментарии — код не место для библиографии |
 | `vend/self-suppression` | warning | директива подавления без списка правил пришла вместе с подавляемым кодом |
 | `vend/cjk-noise` | warning | CJK-иероглифы склеены с латиницей или цифрами в коде (артефакт генерации) |
 | `vend/zero-width-chars` | error | невидимый символ нулевой ширины (U+200B, U+200C, U+200D, U+2060, U+FEFF или escape-форма) |
@@ -565,6 +594,16 @@ node skill/scripts/scan.mjs --bench-write   # перезаписать bench-his
 
 Обновление когорты: правите `BENCH_COHORT` (репо + пин SHA), перезапускаете `--bench-write`, ревьюите дельту `bench-history.json` в PR — рост счётчика обязан объясняться истинными срабатываниями, иначе правка правила это регрессия ложняков.
 
+## Playground
+
+Статическая страница без бэкенда, которая запускает настоящий детектор (`skill/scripts/src/detect.mjs`) в браузере: Vite собирает реальные модули, ничего не копируется. Собранная страница закоммичена как `playground/dist/index.html` и работает офлайн, в том числе при открытии прямо с диска (`file://`).
+
+```
+cd playground && npm install && npm run build
+```
+
+Затем откройте `playground/dist/index.html`. Песочница изолирована в devDependencies и не входит в npm-пакет (`playground/` отсутствует в списке `files`). Деплой на GitHub Pages — следующий шаг.
+
 ## Сравнение с аналогами
 
 Факты из README конкурентов, метаданных GitHub и счётчиков загрузок npm, проверено 2026-09-29. Трекшн = звёзды GitHub и загрузки npm за месяц на дату проверки.
@@ -598,11 +637,11 @@ SaaS-ревью-боты: [CodeRabbit](https://coderabbit.ai) имеет име�
 
 - **Только комментарии.** Кодовый слоп — проглоченные исключения, `as any`, мёртвый код, галлюцинированные импорты, reward-hacked-тесты — вне охвата: его закрывают aislop (50+ правил, 10 таргетов), dmmulroy/anti-slop, AI-SLOP-Detector, grain и dotnet-slopwatch.
 - **Не сканирует прозу.** Сообщения коммитов, описания PR и доки — территория ai-slop-linter (его правило commitlint и commit-msg-хук гейтят их в момент коммита).
-- **Построчное извлечение, не грамматики.** windbag читает комментарии через настоящие грамматики: `#` внутри кавычного YAML-скаляра остаётся данными, `.sql` парсится как Jinja-шаблоны (dbt/SQLMesh), fenced-блоки в Markdown пропускаются. Наша эвристика quote-parity может не увидеть inline-комментарий внутри template literal — задокументированное ограничение.
+- **Построчное извлечение, не грамматики.** windbag читает комментарии через настоящие грамматики: `#` внутри кавычного YAML-скаляра остаётся данными, `.sql` парсится как Jinja-шаблоны (dbt/SQLMesh), fenced-блоки в Markdown пропускаются. Наш inline-детектор отслеживает template literals с `${}`-интерполяцией в JS/TS-профилях, но остаётся построчным: строка, начинающаяся внутри незакрытого многострочного template literal, не отслеживается без состояния файла — задокументированное ограничение.
 - **Длина комментария — абсолютный лимит.** Наш `long-comment` — 120 символов; VERBOSE_COMMENT у windbag меряет комментарий относительно кода под ним. (После сравнения 2026-09-29 мы переняли два правила windbag как `vend/cross-file-ref` и `vend/obvious-comment`; правило относительной длины остаётся их козырем.)
 - **Нет семантического матчинга.** gptlint (LLM) и almcc/slop-linter (модель Jev) оценивают смысл и ловят перефразированный слоп; наши маркеры — словари на RU+EN+DE+FR+ES, фразовых словарей ZH/JA нет.
 - **Нет IDE-расширения.** AI-SLOP-Detector поставляет расширение VS Code с инлайн-находками и скором в статус-баре; наш IDE-сюжет — problem matcher в tasks.json плюс шаблон File Watcher для IDEA.
-- **Проникновение и дистрибуция.** aislop: 655 звёзд, 47k загрузок/мес, npm + PyPI + Homebrew, скор-бейджи, ремонтные сессии `aislop agent`, рулящие Codex/Claude/OpenCode. slop-scan: 35k загрузок/мес. stop-ai-slop: 449 загрузок/мес, npm + зеркало GitHub Packages, формулы Homebrew нет.
+- **Проникновение и дистрибуция.** aislop: 655 звёзд, 47k загрузок/мес, npm + PyPI + Homebrew, скор-бейджи, ремонтные сессии `aislop agent`, рулящие Codex/Claude/OpenCode. slop-scan: 35k загрузок/мес. stop-ai-slop: 449 загрузок/мес, npm + зеркало GitHub Packages + формула Homebrew (этот репозиторий как собственный tap).
 
 ### Что есть только у stop-ai-slop
 
