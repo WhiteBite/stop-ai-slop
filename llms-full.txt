@@ -86,7 +86,7 @@ Error rules block (exit 1; the write-time gate throws). Warning rules teach: the
 
 ## Enforcement points
 
-1. **OpenCode write-time plugin** — `plugin/comment-gate.ts` intercepts `write`/`edit`/`multiedit` and rejects an edit that has error findings at the moment of the write. Mounted into `~/.config/opencode/plugins/` via a re-export stub. The default export `{ id: "stop-ai-slop", server: CommentGate, setup }` serves both APIs: OpenCode 1.18.29+ calls `server()` (v1 hook `tool.execute.before`), OpenCode 2.x calls `setup()` (registers `ctx.tool.hook("execute.before")`, the only V2 hook that may reject a call); the legacy named export `CommentGate` keeps old stubs on older 1.x working. OpenCode displays local plugins by their stub file name — name the stub `stop-ai-slop.ts` instead of `comment-gate.ts` if you want that label.
+1. **OpenCode write-time plugin** — `plugin/comment-gate.ts` intercepts `write`/`edit`/`multiedit` and rejects an edit that has error findings at the moment of the write, applying the `.stop-ai-slop.yaml` of the edited file's repository root (resolved from the file, not `process.cwd()`, so a file in repo B is judged by repo B's policy even when OpenCode runs from repo A). Mounted into `~/.config/opencode/plugins/` via a re-export stub. The default export `{ id: "stop-ai-slop", server: CommentGate, setup }` serves both APIs: OpenCode 1.18.29+ calls `server()` (v1 hook `tool.execute.before`), OpenCode 2.x calls `setup()` (registers `ctx.tool.hook("execute.before")`, the only V2 hook that may reject a call); the legacy named export `CommentGate` keeps old stubs on older 1.x working. OpenCode displays local plugins by their stub file name — name the stub `stop-ai-slop.ts` instead of `comment-gate.ts` if you want that label.
 2. **Pre-commit hook via `--install`** — one command weaves `node .../scan.mjs --staged` into `.git/hooks/pre-commit` (idempotent: appends a marked block without clobbering an existing hook) and adds the `stop-ai-slop` / `stop-ai-slop:all` npm scripts to package.json. The hook and npm scripts embed the absolute path to the scanner as of install time — after moving or re-cloning the scanner, run `--install` again.
 3. **Agent skill** — `skill/SKILL.md` (name: `stop-ai-slop`): the policy, the rule table, the run modes. Mounts into OpenCode and Claude Code.
 4. **Baseline for legacy** — 1) `--install`, 2) `--baseline-write` (records current findings), 3) commit the baseline, 4) from then on the gate sees only new findings. Baseline v2 stores each finding as a pair of lines — `relpath:line` plus `fp:<hash>`, the fingerprint being a SHA-256 hash (first 16 hex chars) of the rule id and the trimmed comment text — and matches by fingerprint, not by position: edits above a baselined line no longer resurrect legacy, while changed comment text surfaces as new slop. The same text pasted again is masked only up to the number of baselined occurrences, so a fresh copy of legacy slop still counts as new slop. Old v1 baselines (`relpath:line` lines only) keep masking by position until the next `--baseline-write`. `--baseline-prune` removes entries that have no live finding (in v2 the pair dies together); a repeated `--baseline-write` would also amnesty new slop — do not do that.
@@ -108,6 +108,7 @@ node skill/scripts/scan.mjs --install-hooks     # write agent hook configs (Code
 node skill/scripts/scan.mjs --install-rules     # generate agent instruction files from the RULES table (.cursor/rules/.windsurfrules/CONVENTIONS.md/.clinerules/.devin/rules/, marked block in .github/copilot-instructions.md)
 node skill/scripts/scan.mjs --baseline-write    # record current findings into the baseline
 node skill/scripts/scan.mjs --baseline-prune    # remove baseline entries with no live finding
+node skill/scripts/scan.mjs --doctor            # environment diagnostics: node, git, pre-commit hook path, config, baseline
 node skill/scripts/scan.mjs --help              # help for all flags
 ```
 
@@ -167,7 +168,7 @@ For bulk semantic cleanup (the not-auto-fixed rules), the intended flow is: `--f
 
 ## Configuration
 
-An optional `.stop-ai-slop.yaml` in the repository root (same place as the baseline: the git root, or the scan directory outside a repo). Read by the `scan`, `--staged`, `--diff` and `--pre-tool` modes; the OpenCode write-time plugin does not read the config and runs on defaults. The parser is a zero-dep YAML subset: `key: value` scalars, lists via `- `, a `rules:` section with two-space indent, `#` comments and blank lines skipped, values may be quoted. Unknown keys are ignored; an invalid severity is exit 2 with the file name and line number.
+An optional `.stop-ai-slop.yaml` in the repository root (same place as the baseline: the git root, or the scan directory outside a repo). Read by the `scan`, `--staged`, `--diff` and `--pre-tool` modes and by the OpenCode write-time plugin, which resolves it from the edited file's git root (falling back to the file's directory outside a repo). The parser is a zero-dep YAML subset: `key: value` scalars, lists via `- `, a `rules:` section with two-space indent, `#` comments and blank lines skipped, values may be quoted. Unknown keys are ignored; an invalid severity is exit 2 with the file name and line number.
 
 | Key | Meaning |
 | --- | --- |
@@ -194,7 +195,7 @@ Severity remap is applied after detection and before baseline filtering and exit
 `schema/stop-ai-slop.schema.json` (draft-07, shipped in the npm tarball). Modeline at top of `.stop-ai-slop.yaml`:
 
 ```yaml
-# yaml-language-server: $schema=https://raw.githubusercontent.com/WhiteBite/stop-ai-slop/v0.10.0/schema/stop-ai-slop.schema.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/WhiteBite/stop-ai-slop/v0.12.0/schema/stop-ai-slop.schema.json
 ```
 
 (or node_modules path `./node_modules/stop-ai-slop/schema/stop-ai-slop.schema.json`). Parity with the parser is enforced by a self-test gate (`schema-parity-config` / `schema-parity-rules`).
@@ -391,7 +392,7 @@ on: pull_request:
             base: ${{ github.base_ref }}
 ```
 
-The action fetches the base ref itself, so a standard shallow checkout is enough; `strict: "true"` enables warnings-as-errors; `format: "json"` or `format: "sarif"` switches the action output to a machine-readable format (see "Output formats"). The action does not run on push events (there is no `github.base_ref`) — use `pull_request` or pass `base` explicitly.
+The action fetches the base ref itself, so a standard shallow checkout is enough; `strict: "true"` enables warnings-as-errors; `format: "json"` or `format: "sarif"` switches the action output to a machine-readable format (see "Output formats"). The action does not run on push events (there is no `github.base_ref`) — use `pull_request` or pass `base` explicitly. The `annotations` input (default `"true"`) adds `--annotations` to the text-format scan: every finding is also emitted as a GitHub Actions workflow command (`::error file=<rel>,line=<n>::…` / `::warning …`) and shows up inline on the PR diff; with `format: "json"` or `"sarif"` the flag is a no-op.
 
 ## Publishing to npm
 
@@ -424,7 +425,7 @@ The cmd.exe equivalent is `mklink /J`; on Linux/macOS use `ln -s`. In any git re
 ```yaml
 repos:
   - repo: https://github.com/WhiteBite/stop-ai-slop
-    rev: v0.3.0
+    rev: v0.12.0
     hooks:
       - id: stop-ai-slop
 ```
@@ -466,6 +467,8 @@ node skill/scripts/scan.mjs --audit        # counters + last 20 entries
 node skill/scripts/scan.mjs --audit 50     # last 50
 ```
 
+`node skill/scripts/scan.mjs --doctor` diagnoses the environment in one pass — node version, git on PATH, the pre-commit hook and its embedded scanner path (the moved-scanner case above), the npm scripts, `.stop-ai-slop.yaml` validity, the baseline and the OpenCode plugin stub — and exits 1 naming the broken piece; `!` lines are informational and never fail.
+
 The plugin is loaded by the OpenCode process at session start: after editing `plugin/comment-gate.ts`, restart OpenCode, otherwise the old version runs (the audit log shows this immediately by the absence of new entries).
 
 ## Language profiles
@@ -506,29 +509,31 @@ Comment syntax comes from a language profile, not a single shared list: `#` is a
 
 ## Rules
 
+<!-- stop-ai-slop:rules:start -->
 | Rule | Severity | What it catches |
 | --- | --- | --- |
-| `multi-line-comment` | error | a comment spans 2+ consecutive lines (doc-blocks and `///` doc-comment runs exempt) |
-| `changelog-marker` | error | a comment restates the diff: a pair of weak markers (было/стало, вместо/теперь, previously/instead of, …) inside one comment run, or a strong marker (`this fixes`, `must take over`, `was X, now Y`, `broke, so`) on its own; a lone weak marker is ordinary prose and is not flagged |
-| `long-comment` | error | a comment line longer than 120 characters (doc-blocks, lines dominated by a long `http(s)` link, and lines whose text carries a why-marker — `because`, `since`, `otherwise`, `workaround`, `to avoid`, `by design`, `trade-off`, `e.g.`, RU/DE/FR/ES equivalents — are exempt) |
-| `vend/step-numbered` | warning | a numbered step in a comment (Step N / Шаг N / Schritt N / Étape N / Paso N / N., any language marker) |
+| `multi-line-comment` | error | a comment spans 2+ consecutive lines (doc-blocks and /// doc-comment runs exempt) |
+| `changelog-marker` | error | the comment retells the diff (a pair of changelog markers or a strong marker, ru/en/de/fr/es) |
+| `long-comment` | error | a comment line longer than 120 characters |
+| `vend/step-numbered` | warning | a numbered step in a comment (Step N / Шаг N / N., any language marker) |
 | `vend/section-divider` | warning | a divider line made of -=#* characters |
-| `vend/markdown-in-comment` | warning | markdown syntax inside a comment (**, -, \|); a table row needs at least three pipes (`\| a \| b \|`), a lone `\|flag\|` in prose is not flagged |
-| `vend/this-function-opener` | warning | a comment starts with "This function/class/method/component", "Эта функция/Этот класс", "Diese Funktion", "Cette fonction" or "Esta función" |
+| `vend/markdown-in-comment` | warning | markdown syntax inside a comment (**, -, \|) |
+| `vend/this-function-opener` | warning | a comment starts with "This function/…", «Эта функция/…», «Diese Funktion…», «Cette fonction…» or «Esta función…» |
 | `vend/file-summary-header` | warning | a 2+ line summary-header comment at the top of a file |
 | `vend/generic-todo` | warning | a TODO/FIXME/XXX without a ticket link (any case) |
-| `vend/cross-file-ref` | warning | a pointer to another file/line in a comment (`handler.py:147`, `src/util.py:30`); requires a path separator or a known code extension, so URLs with `#L12` anchors and host:port pairs are not flagged |
-| `vend/obvious-comment` | warning | a single-line comment that restates the code line beneath it (`// increment the counter` above `counter += 1`); code profiles only, a comment with a why (`т.к.`, `чтобы`, `must`, `only`, `intentionally`, units…) is not flagged; per-file density gate: findings are dropped unless they make up at least 2% of the file's non-empty, non-comment lines |
-| `vend/ai-plan-narration` | warning | a comment narrates the agent's own work process: plan/spec/task/prompt references and instruction acknowledgements ("per the spec", "as requested", "step 2 of the plan", «согласно ТЗ», «по плану», DE/FR/ES equivalents); a ticketed TODO is not flagged |
-| `vend/ai-vocab-density` | warning | 3+ distinct AI-vocabulary words (delve, pivotal, tapestry...) in the file's comments; one file-level finding at the first matching line; doc-blocks are not counted |
-| `vend/self-suppression` | warning | a suppression directive arrives in the same diff as the code it suppresses |
+| `vend/cross-file-ref` | warning | a pointer to another file/line in a comment (handler.py:147) |
+| `vend/obvious-comment` | warning | a single-line comment restates the code line beneath it |
+| `vend/ai-plan-narration` | warning | a comment narrates the agent's own work process (plan/spec/task references, instruction acknowledgements) |
+| `vend/ai-vocab-density` | warning | 3+ distinct AI-vocabulary words (delve, pivotal, tapestry...) in the file's comments |
+| `vend/self-suppression` | warning | a suppression directive without a rule list arrived together with the code it suppresses |
 | `vend/cjk-noise` | warning | CJK characters glued to Latin letters or digits in the code part of a line (a generation artifact) |
 | `vend/zero-width-chars` | error | an invisible zero-width character (U+200B, U+200C, U+200D, U+2060, U+FEFF or an escape form) |
-| `vend/bidi-controls` | error | BiDi controls (U+202A–U+202E, U+2066–U+2069 or an escape form) that override text direction |
+| `vend/bidi-controls` | error | BiDi controls (U+202A-U+202E, U+2066-U+2069) on any line, and directional marks (U+200E, U+200F) in code |
+<!-- stop-ai-slop:rules:end -->
 
-Error rules do not apply to doc-blocks (JSDoc `/** … */`, Python docstrings, and `///` doc-comment lines — dartdoc, rustdoc, C# XML doc): contract documentation for classes and functions may be any length. Inside doc-blocks, changelog markers (error) and signature restatement "This function…" (warning) are still caught.
+Error rules do not apply to doc-blocks (JSDoc `/** … */`, Python docstrings, and `///` doc-comment lines — dartdoc, rustdoc, C# XML doc): contract documentation for classes and functions may be any length. Inside doc-blocks, changelog markers (error) and signature restatement "This function…" (warning) are still caught. A `long-comment` line whose text carries a why-marker (`because`, `since`, `otherwise`, `workaround`, `to avoid`, `by design`, `trade-off`, `e.g.` — plus RU/DE/FR/ES equivalents) is not flagged: a long single-line why-comment is legitimate, a multi-line narrative is not.
 
-Text rules (`step-numbered`, `markdown-in-comment`, `this-function-opener`, `cross-file-ref`) are matched on the text after the comment marker is stripped, so they work in every profile — `# Шаг 3` in yaml and `-- Step 3` in sql are caught identically. `step-numbered`, `this-function-opener` and `changelog-marker` understand RU + EN + DE + FR + ES ("Шаг N", "Schritt N", "Étape N", "Diese Funktion", "au lieu de", "ya no", etc.); other natural languages are not covered. Structural rules (multi-line, divider, header, todo) do not depend on the wording language. `step-numbered` and `markdown-in-comment` do not fire inside doc-blocks.
+Text rules (`step-numbered`, `markdown-in-comment`, `this-function-opener`, `cross-file-ref`) are matched on the text after the comment marker is stripped, so they work in every profile — `# Шаг 3` in yaml and `-- Step 3` in sql are caught identically. `step-numbered`, `this-function-opener` and `changelog-marker` understand RU + EN + DE + FR + ES ("Шаг N", "Schritt N", "Étape N", "Diese Funktion", "au lieu de", "ya no", etc.); other natural languages are not covered. Structural rules (multi-line, divider, header, todo) do not depend on the wording language. `step-numbered` and `markdown-in-comment` do not fire inside doc-blocks. `vend/obvious-comment` is additionally gated by a per-file density filter: a file's obvious-comment findings are dropped unless they make up at least 2% of its non-empty, non-comment lines — hand-written files carry a few terse comments, while generated files narrate every few lines.
 
 Full rationale per rule (Why / Instead of / Write / Ignore it when, from the same `RULES` table):
 
@@ -538,7 +543,7 @@ node skill/scripts/scan.mjs --explain <rule-id>
 
 Rule ids and service labels are EN; messages and rationales are RU. The `vend/` prefix = rules vendored from external pattern catalogs.
 
-The detector sees inline comments after code (`const x = 1 // was`), block comments without a marker on middle lines, doc-blocks of any length (contract JSDoc/docstrings/`///`), UTF-16 files with a BOM; zero-width characters (U+200B–U+200F, U+FEFF) are stripped when matching markers and simultaneously flagged as findings on raw lines together with BiDi controls (U+202A–U+202E, U+2066–U+2069) — including escape forms in the source; a ZWJ inside emoji sequences and a BOM at position 0 are not flagged. CJK adjacency to Latin letters or digits is checked only in the code part of a line: Chinese comments and i18n strings without Latin adjacency are legitimate. In prose formats (`.md`/`.mdx`/`.html`/`.xml`/`.rst`/`.adoc`) CJK adjacency is not checked at all: mixed JP/CN prose with Latin brand names is normal there. Not scanned: languages without a profile (see the table above; `.m` is ambiguous), binary and office formats; `--staged` and `--diff` do not see untracked files. Warnings do not block the gate unless `--strict` is given. Non-ASCII file names are supported in diff modes.
+The detector sees inline comments after code (`const x = 1 // was`), block comments without a marker on middle lines, doc-blocks of any length (contract JSDoc/docstrings/`///`), UTF-16 files with a BOM; zero-width characters (U+200B–U+200F, U+FEFF) are stripped when matching markers; `vend/zero-width-chars` flags U+200B, U+200C, U+2060, U+FEFF and a non-emoji U+200D on raw lines, and `vend/bidi-controls` flags the BiDi overrides and isolates (U+202A–U+202E, U+2066–U+2069) on raw lines including inside comments, while the directional marks U+200E/U+200F are flagged only in the code part of a line — they are legitimate RTL typography in comments and prose. Escape forms in the source are flagged too; a ZWJ inside emoji sequences and a BOM at position 0 are not flagged. CJK adjacency to Latin letters or digits is checked only in the code part of a line: Chinese comments and i18n strings without Latin adjacency are legitimate. In prose formats (`.md`/`.mdx`/`.html`/`.xml`/`.rst`/`.adoc`) CJK adjacency is not checked at all: mixed JP/CN prose with Latin brand names is normal there. Not scanned: languages without a profile (see the table above; `.m` is ambiguous), binary and office formats; `--staged` and `--diff` do not see untracked files. Warnings do not block the gate unless `--strict` is given. Non-ASCII file names are supported in diff modes.
 
 **What the full scan walks.** Inside a git repository, `scan` enumerates files via `git ls-files --cached --others --exclude-standard`, so everything git-ignored is invisible: `__pycache__`, `.venv`, build outputs, vendored trees, downloaded toolchains, packaged runtimes, minified bundles, compiled `.dart.js`. Outside a repo it falls back to a directory walk. On top of that, hard-coded artifact directories are always skipped (`venv`, `build`, `.next`, `target`, `out`, `.gradle`, `Pods`, `__pycache__`, `.idea`, `.codegraph`, `site-packages`, `.dart_tool`, `coverage`, `.git`, `node_modules`, `dist`).
 
@@ -556,7 +561,7 @@ Generated files are exempt from the slop rules in every mode (full scan, diff, w
 
 Two user signals sit on top of the layers: a `.gitattributes` line with `linguist-generated` (the GitHub linguist convention) and the `generatedPaths` list in `.stop-ai-slop.yaml` (same prefix semantics as `excludePaths`).
 
-Semantics: on a generated file the slop rules are exempt, but the security rules `vend/zero-width-chars`, `vend/bidi-controls` and `vend/cjk-noise` still fire — poisoned codegen is a supply-chain signal, not a style issue. The write-time gate ignores generated files entirely (machine output is not the moment to teach style). Set `scanGenerated: true` in `.stop-ai-slop.yaml` to lint generated code like any other file.
+Semantics: on a generated file the slop rules are exempt, but the security rules `vend/zero-width-chars`, `vend/bidi-controls` and `vend/cjk-noise` still fire — poisoned codegen is a supply-chain signal, not a style issue. The write-time gate follows the same rule: generated files are exempt from the slop rules, but the security rules still fire on them. Set `scanGenerated: true` in `.stop-ai-slop.yaml` to lint generated code like any other file.
 
 ## Bench (FP regression cohort)
 
