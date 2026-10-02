@@ -14,6 +14,8 @@ import {
   writeMarkerBlock,
 } from "../vendor/harness-kit/src/index.mjs"
 
+export const SLOP_GATE_ID = "slop-gate"
+
 export function hooksDirFor(root) {
   const gitDir = join(root, ".git")
   if (!existsSync(gitDir)) return null
@@ -77,12 +79,12 @@ export function cmdInstall(strict = false) {
     return 0
   }
   const hookPath = join(hooksDir, "pre-commit")
-  const MARK = "# >>> slop-gate >>>"
-  const block = `${MARK}\nif [ ! -f "${abs}" ]; then\n  echo "slop-gate: сканер не найден: ${abs} — запустите --install заново" >&2\n  exit 2\nfi\n${stagedCmd}\n# <<< slop-gate <<<\n`
-  const result = writeMarkerBlock(hookPath, block, { variant: "shell-block", id: "slop-gate" })
+  const MARK = `# >>> ${SLOP_GATE_ID} >>>`
+  const block = `${MARK}\nif [ ! -f "${abs}" ]; then\n  echo "slop-gate: сканер не найден: ${abs} — запустите --install заново" >&2\n  exit 2\nfi\n${stagedCmd}\n# <<< ${SLOP_GATE_ID} <<<\n`
+  const result = writeMarkerBlock(hookPath, block, { variant: "shell-block", id: SLOP_GATE_ID })
   if (result.action === "created") console.log("slop-gate: pre-commit hook создан")
   else if (result.action === "appended") console.log("slop-gate: pre-commit hook — добавлен блок после существующего содержимого")
-  else console.log("slop-gate: pre-commit hook — slop-gate блок обновлён")
+  else console.log(`slop-gate: pre-commit hook — ${SLOP_GATE_ID} блок обновлён`)
   return 0
 }
 

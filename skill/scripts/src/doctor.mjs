@@ -5,9 +5,9 @@ import { join } from "node:path"
 import { T } from "./i18n.mjs"
 import { loadConfig } from "./config.mjs"
 import { loadBaseline } from "./baseline.mjs"
-import { hooksDirFor } from "./install.mjs"
+import { hooksDirFor, SLOP_GATE_ID } from "./install.mjs"
 
-const HOOK_BLOCK_RE = /# >>> slop-gate >>>[\s\S]*?# <<< slop-gate <<<\r?\n?/
+const HOOK_BLOCK_RE = new RegExp(`# >>> ${SLOP_GATE_ID} >>>[\\s\\S]*?# <<< ${SLOP_GATE_ID} <<<\\r?\\n?`)
 const HOOK_INVOCATION_RE = /node\s+"([^"]+)"\s+--staged/
 
 export function cmdDoctor() {
