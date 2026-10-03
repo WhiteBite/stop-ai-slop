@@ -1,4 +1,3 @@
-import { execFileSync } from "node:child_process"
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import { dirname, join, resolve, sep } from "node:path"
 import { fileURLToPath } from "node:url"
@@ -10,6 +9,7 @@ import {
   mergeHooks,
   readJsonConfig,
   recordOwnership,
+  resolveHooksDir,
   writeJsonAtomic,
   writeMarkerBlock,
 } from "../vendor/harness-kit/src/index.mjs"
@@ -17,20 +17,7 @@ import {
 export const SLOP_GATE_ID = "slop-gate"
 
 export function hooksDirFor(root) {
-  const gitDir = join(root, ".git")
-  if (!existsSync(gitDir)) return null
-  let hooksDir = join(gitDir, "hooks")
-  try {
-    const configured = execFileSync("git", ["config", "core.hooksPath"], {
-      cwd: root,
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "pipe"],
-    }).trim()
-    if (configured !== "") hooksDir = resolve(root, configured)
-  } catch {
-    hooksDir = join(gitDir, "hooks")
-  }
-  return hooksDir
+  return resolveHooksDir(root)
 }
 
 export function cmdInstall(strict = false) {

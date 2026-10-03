@@ -6,8 +6,8 @@ import { T } from "./i18n.mjs"
 import { loadConfig } from "./config.mjs"
 import { loadBaseline } from "./baseline.mjs"
 import { hooksDirFor, SLOP_GATE_ID } from "./install.mjs"
+import { checkInstall, extractCliPath } from "../vendor/harness-kit/src/index.mjs"
 
-const HOOK_BLOCK_RE = new RegExp(`# >>> ${SLOP_GATE_ID} >>>[\\s\\S]*?# <<< ${SLOP_GATE_ID} <<<\\r?\\n?`)
 const HOOK_INVOCATION_RE = /node\s+"([^"]+)"\s+--staged/
 
 export function cmdDoctor() {
@@ -46,15 +46,27 @@ export function cmdDoctor() {
 
   if (toplevel !== null) {
     const hooksDir = hooksDirFor(root)
-    const hookPath = hooksDir === null ? null : join(hooksDir, "pre-commit")
-    const hookText = hookPath !== null && existsSync(hookPath) ? readFileSync(hookPath, "utf8") : null
-    if (hookText === null || !HOOK_BLOCK_RE.test(hookText)) {
+    if (hooksDir === null) {
       info(T("doctorHookAbsent"))
     } else {
-      const m = HOOK_INVOCATION_RE.exec(hookText)
-      if (m === null) bad(T("doctorHookUnparsed", hookPath))
-      else if (existsSync(m[1])) ok(T("doctorHookOk", m[1]))
-      else bad(T("doctorHookBroken", m[1]))
+      let scannerPath = null
+      const surface = {
+        id: "git",
+        kind: "marker-block",
+        path: join(hooksDir, "pre-commit"),
+        variant: "shell-block",
+        markerId: SLOP_GATE_ID,
+        extract: (text) => {
+          scannerPath = extractCliPath(text, HOOK_INVOCATION_RE)
+          return scannerPath
+        },
+      }
+      const [finding] = checkInstall(root, { surfaces: [surface] })
+      if (finding.status === "missing") info(T("doctorHookAbsent"))
+      else if (finding.status === "ok") ok(T("doctorHookOk", scannerPath))
+      else if (finding.status === "stale" && finding.detail === null) bad(T("doctorHookUnparsed", surface.path))
+      else if (finding.status === "broken") bad(T("doctorHookUnparsed", surface.path))
+      else bad(T("doctorHookBroken", finding.detail))
     }
   }
 
