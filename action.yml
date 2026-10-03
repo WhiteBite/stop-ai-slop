@@ -1,4 +1,4 @@
-name: stop-ai-slop
+name: stop-ai-slop-gate
 description: Comment-slop gate for pull requests — fails on slop comments in lines added versus a base ref
 
 inputs:
