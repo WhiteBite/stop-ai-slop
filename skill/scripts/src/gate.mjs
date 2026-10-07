@@ -1,7 +1,7 @@
 import { dirname, resolve } from "node:path"
 import { SECURITY_RULES } from "./rules.mjs"
 import { T, rt } from "./i18n.mjs"
-import { detectCommentSlop, isCodePath, multisetDiff } from "./detect.mjs"
+import { detectCommentSlop, isCodePath, multisetDiffLines } from "./detect.mjs"
 import { readDisk } from "./diskio.mjs"
 import { genContext, isGeneratedFile } from "./generated.mjs"
 import { profileFor } from "./profiles.mjs"
@@ -47,6 +47,14 @@ export function configFindings(root, filePath, lines, diffMode, config) {
   return applyRuleConfig(visible.map((f) => ({ rel, ...f })), cfg)
 }
 
+const countLines = (text) => text.replaceAll("\r\n", "\n").split("\n").length
+function lineOf(haystack, needle) {
+  const idx = haystack.indexOf(needle)
+  if (idx === -1) return null
+  let line = 1
+  for (let i = 0; i < idx; i++) if (haystack[i] === "\n") line++
+  return line
+}
 export function addedFromToolArgs(tool, args, opts) {
   const filePath = typeof args.filePath === "string" ? args.filePath : null
   if (filePath === null || !isCodePath(filePath)) return null
@@ -55,24 +63,40 @@ export function addedFromToolArgs(tool, args, opts) {
   if (tool === "write") {
     if (typeof args.content !== "string" || (opts?.keepGenerated !== true && isGeneratedFile(filePath, args.content, genExtra))) return null
     const disk = readDisk(filePath)
-    return {
-      filePath,
-      added: multisetDiff(disk ?? "", args.content),
-    }
+    return { filePath, ...multisetDiffLines(disk ?? "", args.content) }
   }
   if (tool === "edit") {
     if (typeof args.oldString !== "string" || typeof args.newString !== "string") return null
-    return { filePath, added: multisetDiff(args.oldString, args.newString) }
+    const { added, lineNos } = multisetDiffLines(args.oldString, args.newString)
+    const disk = readDisk(filePath)
+    const base = typeof disk === "string" ? lineOf(disk, args.oldString) : null
+    return { filePath, added, lineNos: base === null ? null : lineNos.map((n) => n + base - 1) }
   }
   if (!Array.isArray(args.edits)) return null
   const added = []
+  const lineNos = []
+  const disk = readDisk(filePath)
+  let shift = 0
+  let known = typeof disk === "string"
   for (const entry of args.edits) {
     if (typeof entry !== "object" || entry === null) continue
-    if (typeof entry.oldString === "string" && typeof entry.newString === "string") {
-      added.push(...multisetDiff(entry.oldString, entry.newString))
+    if (typeof entry.oldString !== "string" || typeof entry.newString !== "string") continue
+    const part = multisetDiffLines(entry.oldString, entry.newString)
+    added.push(...part.added)
+    const baseInDisk = known ? lineOf(disk, entry.oldString) : null
+    if (baseInDisk === null) {
+      known = false
+      continue
     }
+    for (const n of part.lineNos) lineNos.push(n + baseInDisk + shift - 1)
+    shift += countLines(entry.newString) - countLines(entry.oldString)
   }
-  return { filePath, added }
+  return { filePath, added, lineNos: known && lineNos.length === added.length ? lineNos : null }
+}
+// findings are indexed against the added-lines array; restore real file positions when known
+export function locateViolations(violations, lineNos) {
+  if (lineNos === null || lineNos === undefined) return violations
+  return violations.map((v) => ({ ...v, lineNo: lineNos[v.lineNo - 1] ?? v.lineNo }))
 }
 export const MUTATING_TOOLS = new Set(["edit", "write", "multiedit"])
 export function evaluateEdit(tool, args, opts) {
@@ -93,7 +117,10 @@ export function evaluateEdit(tool, args, opts) {
       message: null,
     }
   }
-  const violations = configFindings(root, extracted.filePath, extracted.added, true).filter((v) => v.severity === "error")
+  const violations = locateViolations(
+    configFindings(root, extracted.filePath, extracted.added, true).filter((v) => v.severity === "error"),
+    extracted.lineNos,
+  )
   const result = {
     tool,
     evaluated: true,

@@ -280,18 +280,26 @@ export function detectCommentSlop(addedLines, profile = PROFILES.legacy, diffMod
   if (aiVocab.size >= AI_VOCAB_MIN) push(finding("vend/ai-vocab-density", aiVocabLine, [lines[aiVocabLine - 1] ?? ""]))
   return violations
 }
-export function multisetDiff(oldText, newText) {
+export function multisetDiffLines(oldText, newText) {
   const remaining = new Map()
   for (const line of oldText.replaceAll("\r\n", "\n").split("\n")) {
     remaining.set(line, (remaining.get(line) ?? 0) + 1)
   }
   const added = []
-  for (const line of newText.replaceAll("\r\n", "\n").split("\n")) {
-    const count = remaining.get(line) ?? 0
-    if (count > 0) remaining.set(line, count - 1)
-    else added.push(line)
+  const lineNos = []
+  const newLines = newText.replaceAll("\r\n", "\n").split("\n")
+  for (let i = 0; i < newLines.length; i++) {
+    const count = remaining.get(newLines[i]) ?? 0
+    if (count > 0) remaining.set(newLines[i], count - 1)
+    else {
+      added.push(newLines[i])
+      lineNos.push(i + 1)
+    }
   }
-  return added
+  return { added, lineNos }
+}
+export function multisetDiff(oldText, newText) {
+  return multisetDiffLines(oldText, newText).added
 }
 export function isCodePath(filePath, extraSkippedSegments = []) {
   const skipped = extraSkippedSegments.length === 0 ? SKIPPED_SEGMENTS : new Set([...SKIPPED_SEGMENTS, ...extraSkippedSegments])

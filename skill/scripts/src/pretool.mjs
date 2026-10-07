@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from "node:fs"
 import { resolve } from "node:path"
 import { toRel } from "./paths.mjs"
 import { profileFor } from "./profiles.mjs"
-import { addedFromToolArgs, configFindings, extractPatchDeltas, loadConfigCached } from "./gate.mjs"
+import { addedFromToolArgs, configFindings, extractPatchDeltas, loadConfigCached, locateViolations } from "./gate.mjs"
 import { gitToplevel, readScannable } from "./git.mjs"
 import { loadBaseline, maskBaselined } from "./baseline.mjs"
 import { failsGate, printFindings } from "./report.mjs"
@@ -104,7 +104,10 @@ export function cmdPreTool() {
     { includeGenerated: config?.scanGenerated === true, keepGenerated: true },
   )
   if (extracted === null) return 0
-  const violations = configFindings(root, extracted.filePath, extracted.added, true, config).filter((v) => v.severity === "error")
+  const violations = locateViolations(
+    configFindings(root, extracted.filePath, extracted.added, true, config).filter((v) => v.severity === "error"),
+    extracted.lineNos,
+  )
   if (violations.length === 0) return 0
   for (const v of violations) {
     process.stderr.write(`slop-gate: ${v.rule} [${v.severity}] at ${extracted.filePath}:${v.lineNo}\n${v.lines.join("\n")}\ninstead: ${rt(v.rule, "instead")}\n`)

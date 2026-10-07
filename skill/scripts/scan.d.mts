@@ -59,7 +59,7 @@ export declare function addedFromToolArgs(
   tool: string,
   args: Record<string, unknown>,
   opts?: { includeGenerated?: boolean },
-): { filePath: string; added: string[] } | null
+): { filePath: string; added: string[]; lineNos: number[] | null } | null
 interface GateResultBase {
   tool: string
   evaluated: boolean

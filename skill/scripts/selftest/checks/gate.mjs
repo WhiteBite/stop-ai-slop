@@ -147,6 +147,18 @@ export default async function ({ check, runCli, selfPath }) {
         eeClean.blocked === false,
       JSON.stringify({ blocked: ee.blocked, genBlocked: eeGen.blocked, cleanBlocked: eeClean.blocked }),
     )
+
+    const posFile = join(cfgRoot, "pos.ts")
+    writeFileSync(posFile, "const a = 1\nconst b = 2\n// short\nconst c = 3\n")
+    const eePos = evaluateEdit("write", {
+      filePath: posFile,
+      content: "const a = 1\nconst b = 2\n// " + "q".repeat(60) + "\nconst c = 3\n",
+    })
+    check(
+      "cfg-surface evaluateEdit: lineNo — реальная строка файла, не индекс добавленной",
+      eePos.blocked === true && eePos.violations[0]?.lineNo === 3 && eePos.message.includes("pos.ts:3"),
+      JSON.stringify({ blocked: eePos.blocked, lineNo: eePos.violations[0]?.lineNo, message: eePos.message?.slice(0, 80) }),
+    )
   } finally {
     rmSync(cfgRoot, { recursive: true, force: true })
     rmSync(repoRoot, { recursive: true, force: true })
