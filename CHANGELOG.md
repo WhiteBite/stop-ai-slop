@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.14.0
+
+- фикс write-time гейта: находки нумеруются реальными строками файла, а не индексом в multiset-диффе добавленных строк — `addedFromToolArgs` возвращает `lineNos` (`write`/`edit`/`multiedit`), `locateViolations` маппит индекс на строку; раньше `sanitizer-config.yaml:1/:9/:11` указывали в код, а не в комментарий
+- сообщение write-time гейта: один `Policy:`-футер вместо копии политики на каждую находку; общий `formatFindings` для OpenCode-гейта и `--pre-tool` (Claude Code)
+- аудит: заблокированные записи несут `findings: [{rule, lineNo, text}]` — якоря для разбора false-positive и ловли регресса нумерации
+- правило `multi-line-comment`: 2-строчный комментарий с why-маркером (сжатый текст ≤ `maxCommentLength`) больше не флагается — закрыта асимметрия с `long-comment`; 3+ строки и наррация по-прежнему ловятся; `WHY_MARKERS` расширены `so that`/`in order to`/RU `чтобы`
+- новый профиль `gherkin` (`.feature`): `multi-line-comment` выключен — наррация сценариев нормальная форма; `changelog-marker`/`step-numbered`/`markdown-in-comment` продолжают работать
+- bench: `multi-line-comment` просел на всех 8 репо (−3…−291), `long-comment` −32/−1, роста нет — FP не выросли
+- self-test: +4 чека (why2/why3/spec/spec-slop)
+
 ## 0.13.0
 
 - новые правила: `vend/ticket-ref` (warning, конфиг-гейт: правило инертно, пока в `.stop-ai-slop.yaml` не задан `ticketPattern` — реальность паттерна типа `\bKRY-\d+\b` вместо generic `[A-Z]+-\d+`, который ловит RFC-3330/UTF-8/SHA-256; гварды TODO/ISSUE_LINK/CVE/GHSA, doc-блоки исключены) и `vend/research-citation` (warning: `(Cormen et al., 2009)`, `«(Иванов и др., 2023)»`, `arXiv:2407.12241`; bench: 3 допустимых warning на redis — провенанс HLL-математики)
