@@ -98,6 +98,12 @@ export function locateViolations(violations, lineNos) {
   if (lineNos === null || lineNos === undefined) return violations
   return violations.map((v) => ({ ...v, lineNo: lineNos[v.lineNo - 1] ?? v.lineNo }))
 }
+export function formatFindings(filePath, violations, prefix = "comment-gate") {
+  const blocks = violations.map(
+    (v) => `${prefix}: ${v.rule} [${v.severity}] at ${filePath}:${v.lineNo}\n${v.lines.join("\n")}\ninstead: ${rt(v.rule, "instead") ?? ""}`,
+  )
+  return `${blocks.join("\n\n")}\nPolicy: ${T("gatePolicy")}`
+}
 export const MUTATING_TOOLS = new Set(["edit", "write", "multiedit"])
 export function evaluateEdit(tool, args, opts) {
   if (typeof tool !== "string" || !MUTATING_TOOLS.has(tool)) {
@@ -130,16 +136,7 @@ export function evaluateEdit(tool, args, opts) {
     violations,
     message: null,
   }
-  if (violations.length > 0) {
-    result.message = violations
-      .map(
-        (v) =>
-          `comment-gate: ${v.rule} [${v.severity}] at ${extracted.filePath}:${v.lineNo}\n${v.lines.join("\n")}\ninstead: ${
-            rt(v.rule, "instead") ?? ""
-          }\nPolicy: ${T("gatePolicy")}`,
-      )
-      .join("\n\n")
-  }
+  if (violations.length > 0) result.message = formatFindings(extracted.filePath, violations)
   return result
 }
 export function extractPatchDeltas(patchText) {

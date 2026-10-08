@@ -2,12 +2,12 @@ import { existsSync, readFileSync } from "node:fs"
 import { resolve } from "node:path"
 import { toRel } from "./paths.mjs"
 import { profileFor } from "./profiles.mjs"
-import { addedFromToolArgs, configFindings, extractPatchDeltas, loadConfigCached, locateViolations } from "./gate.mjs"
+import { addedFromToolArgs, configFindings, extractPatchDeltas, formatFindings, loadConfigCached, locateViolations } from "./gate.mjs"
 import { gitToplevel, readScannable } from "./git.mjs"
 import { loadBaseline, maskBaselined } from "./baseline.mjs"
 import { failsGate, printFindings } from "./report.mjs"
 import { printFixSuggestions } from "./fixsuggest.mjs"
-import { T, rt } from "./i18n.mjs"
+import { T } from "./i18n.mjs"
 
 function loadConfigOrNull(root) {
   try {
@@ -52,10 +52,10 @@ export function preToolPatch(ti) {
   let blocked = false
   for (const { filePath, added } of deltas) {
     const violations = configFindings(root, filePath, added, true, config).filter((v) => v.severity === "error")
-    for (const v of violations) {
-      process.stderr.write(`slop-gate: ${v.rule} [${v.severity}] at ${filePath}:${v.lineNo}\n${v.lines.join("\n")}\ninstead: ${rt(v.rule, "instead")}\n`)
+    if (violations.length > 0) {
+      process.stderr.write(formatFindings(filePath, violations, "slop-gate") + "\n")
+      blocked = true
     }
-    if (violations.length > 0) blocked = true
   }
   return blocked ? 2 : 0
 }
@@ -109,8 +109,6 @@ export function cmdPreTool() {
     extracted.lineNos,
   )
   if (violations.length === 0) return 0
-  for (const v of violations) {
-    process.stderr.write(`slop-gate: ${v.rule} [${v.severity}] at ${extracted.filePath}:${v.lineNo}\n${v.lines.join("\n")}\ninstead: ${rt(v.rule, "instead")}\n`)
-  }
+  process.stderr.write(formatFindings(extracted.filePath, violations, "slop-gate") + "\n")
   return 2
 }
