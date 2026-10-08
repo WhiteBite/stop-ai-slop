@@ -14,8 +14,8 @@ export const PROFILES = {
   py: P(["#"], [], [PYDOC_DQ, PYDOC_SQ]),
   php: P(["//", "#", "/*", "*"], [["/*", "*/"]], [JSDOC], ["*/"]),
   hash: P(["#"]),
-  // Gherkin # blocks are spec prose: multi-line is normal, other slop rules stay on
-  gherkin: P(["#"], [], [], [], [], { noMultiLine: true }),
+  // Gherkin # blocks are spec prose: multi-line and header are normal, other rules stay on
+  gherkin: P(["#"], [], [], [], [], { noMultiLine: true, noSummaryHeader: true }),
   yaml: P(["#"], [], [], [], [], { blockScalars: true }),
   powershell: P(["#"], [["<#", "#>"]]),
   julia: P(["#"], [["#=", "=#"]]),

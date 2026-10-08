@@ -218,7 +218,7 @@ export function detectCommentSlop(addedLines, profile = PROFILES.legacy, diffMod
     if (!classifyHeader(line).comment || SUPPRESS_ANY.test(line) || (headerEnd === 0 && line.startsWith("#!"))) break
     headerEnd++
   }
-  if (headerEnd >= 2 && !isLicenseRun(lines.slice(0, headerEnd)) && !goDocRun(lines.slice(0, headerEnd), lines[headerEnd])) {
+  if (headerEnd >= 2 && profile.noSummaryHeader !== true && !isLicenseRun(lines.slice(0, headerEnd)) && !goDocRun(lines.slice(0, headerEnd), lines[headerEnd])) {
     push(finding("vend/file-summary-header", 1, lines.slice(0, headerEnd)))
   }
   const classifyEach = makeClassify()

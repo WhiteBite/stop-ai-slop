@@ -267,7 +267,7 @@ export async function cmdSelfTest() {
     check("sabotage: changelog-marker [error]", sabotageRules.includes("changelog-marker"), byRel("sabotage.ts"))
     check("why2: 2-строчный why с маркером не multi-line", !byRel("why2.ts").some((f) => f.rule === "multi-line-comment"), byRel("why2.ts"))
     check("why3: 3-строчный ран всё ещё multi-line", byRel("why3.ts").some((f) => f.rule === "multi-line-comment"), byRel("why3.ts"))
-    check("spec: .feature-ран не multi-line", !byRel("spec.feature").some((f) => f.rule === "multi-line-comment"), byRel("spec.feature"))
+    check("spec: .feature — ни multi-line, ни file-summary-header", !byRel("spec.feature").some((f) => f.rule === "multi-line-comment" || f.rule === "vend/file-summary-header"), byRel("spec.feature"))
     check("spec-slop: .feature changelog всё ещё ловится", byRel("spec-slop.feature").some((f) => f.rule === "changelog-marker"), byRel("spec-slop.feature"))
     check("legit: однострочный why-комментарий проходит", byRel("legit.ts").length === 0, byRel("legit.ts"))
     check("clean: код без комментариев проходит", byRel("clean.ts").length === 0, byRel("clean.ts"))

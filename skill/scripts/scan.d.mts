@@ -37,6 +37,7 @@ export interface CommentProfile {
   regexPrefixes: RegExp[]
   blockScalars?: boolean
   noMultiLine?: boolean
+  noSummaryHeader?: boolean
   templates?: boolean
   goDoc?: boolean
 }
