@@ -70,4 +70,25 @@ class StopAiSlopMultiLineCommentTest {
         val code = lines("/**", " * contract line", " * second contract line", " */", "", "fun f() {}")
         assertEquals(0, rule.lint(code).size)
     }
+
+    @Test
+    fun `two-line why with marker is clean`() {
+        val code = lines(
+            "// retry is safe because the upstream read is idempotent",
+            "// (see the adapter contract for the retry budget)",
+            "val x = 1",
+        )
+        assertEquals(0, rule.lint(code).size)
+    }
+
+    @Test
+    fun `three-line why run is still flagged`() {
+        val code = lines(
+            "// because the cache is cold",
+            "// the first call is slow",
+            "// and retries pile up",
+            "val x = 1",
+        )
+        assertEquals(1, rule.lint(code).size)
+    }
 }

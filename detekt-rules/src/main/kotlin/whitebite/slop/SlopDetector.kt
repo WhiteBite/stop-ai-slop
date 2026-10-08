@@ -61,11 +61,11 @@ internal object SlopDetector {
 
         fun testLine(text0: String, i: Int, doc: Boolean, inline: Boolean): Int {
             val t = text0.trim()
+            val body = SlopMarkers.stripCommentMarker(t)
             if (SlopMarkers.CHANGELOG_STRONG.find(text0)) push("changelog-marker", i, inline)
-            if (!doc && text0.length > SlopMarkers.MAX_COMMENT_LENGTH && !SlopMarkers.LONG_LINK.find(text0)) {
+            if (!doc && text0.length > SlopMarkers.MAX_COMMENT_LENGTH && !SlopMarkers.LONG_LINK.find(text0) && !SlopMarkers.WHY_MARKERS.find(body)) {
                 push("long-comment", i, inline)
             }
-            val body = SlopMarkers.stripCommentMarker(t)
             if (!doc && SlopMarkers.STEP_NUMBERED.find(body)) push("vend/step-numbered", i, inline)
             if (SlopMarkers.isDividerLine(t)) push("vend/section-divider", i, inline)
             if (!doc &&
@@ -153,7 +153,7 @@ internal object SlopDetector {
             if (!inRun && runStart != -1) {
                 if (i - runStart >= 2) {
                     val runLines = stripped.subList(runStart, i)
-                    if (!isLicenseRun(runLines)) push("multi-line-comment", runStart)
+                    if (!isLicenseRun(runLines) && !wrappedWhy(runLines)) push("multi-line-comment", runStart)
                 }
                 runStart = -1
             }
@@ -171,6 +171,12 @@ internal object SlopDetector {
             push("vend/file-summary-header", 0)
         }
         return hits
+    }
+
+    private fun wrappedWhy(runLines: List<String>): Boolean {
+        if (runLines.size != 2) return false
+        val text = runLines.joinToString(" ") { SlopMarkers.stripCommentMarker(it.trim()) }
+        return text.length <= SlopMarkers.MAX_COMMENT_LENGTH && SlopMarkers.WHY_MARKERS.find(text)
     }
 
     private fun buildModel(root: KtFile, text: String, src: SourceLines, n: Int): LineModel {

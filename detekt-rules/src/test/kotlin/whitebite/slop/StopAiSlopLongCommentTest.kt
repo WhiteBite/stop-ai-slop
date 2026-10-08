@@ -31,4 +31,10 @@ class StopAiSlopLongCommentTest {
         val code = lines("// see https://example.com/" + "a".repeat(40), "val x = 1")
         assertEquals(0, rule.lint(code).size)
     }
+
+    @Test
+    fun `long why line with marker is clean`() {
+        val code = lines("// " + "y".repeat(110) + " because the slot is freed below", "val x = 1")
+        assertEquals(0, rule.lint(code).size)
+    }
 }

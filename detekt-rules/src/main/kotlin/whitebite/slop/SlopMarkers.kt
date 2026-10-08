@@ -70,6 +70,11 @@ internal object SlopMarkers {
     val ISSUE_LINK = Pat.of("""https?://(?U:\S+)|#\d+""")
     val LONG_LINK = Pat.of("""(?U)https?://\S{30,}""")
 
+    val WHY_MARKERS = Pat.of(
+        """\bbecause\b|\bsince\b|\botherwise\b|\bworkarounds?\b|\bcaveats?\b|\bto(?U:\s+)avoid\b|\bby(?U:\s+)design\b|\bhowever\b|\btrade-?offs?\b|\bfails?(?U:\s+)when\b|\be\.g\.|\binvariants?\b|\bnote:|\bso(?U:\s+)that\b|\bin(?U:\s+)order(?U:\s+)to\b|(?<![а-яё])(?:потому(?U:\s+)что|иначе|воркэраунд|обход|чтобы|специально|напр\.)(?![а-яё])|(?<![a-zäöüß])(?:denn|sonst|um(?U:\s+)zu(?U:\s+)vermeiden)(?![a-zäöüß])|(?<![a-zéèêàùç])(?:car|sinon|contournement|pour(?U:\s+)éviter)(?![a-zéèêàùç])|(?<![a-záéíóúñ])(?:porque|si(?U:\s+)no|solución(?U:\s+)alternativa|para(?U:\s+)evitar)(?![a-záéíóúñ])""",
+        ignoreCase = true,
+    )
+
     val CITATION_AUTHOR_YEAR = Pat.of(
         """\([A-Z][\w'’-]*(?:,(?U:\s*)\d{4}|(?U:\s+)et(?U:\s+)al\.?,?(?U:\s*)\d{4})\)|\([А-ЯЁ][а-яё-]*(?:,(?U:\s*)\d{4}|(?U:\s+)и(?U:\s+)др\.?,?(?U:\s*)\d{4})\)""",
     )
