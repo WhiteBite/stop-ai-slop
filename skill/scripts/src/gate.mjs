@@ -99,9 +99,10 @@ export function locateViolations(violations, lineNos) {
   return violations.map((v) => ({ ...v, lineNo: lineNos[v.lineNo - 1] ?? v.lineNo }))
 }
 export function formatFindings(filePath, violations, prefix = "comment-gate") {
-  const blocks = violations.map(
-    (v) => `${prefix}: ${v.rule} [${v.severity}] at ${filePath}:${v.lineNo}\n${v.lines.join("\n")}\ninstead: ${rt(v.rule, "instead") ?? ""}`,
-  )
+  const blocks = violations.map((v) => {
+    const at = v.lineNo === null || v.lineNo === undefined ? filePath : `${filePath}:${v.lineNo}`
+    return `${prefix}: ${v.rule} [${v.severity}] at ${at}\n${v.lines.join("\n")}\ninstead: ${rt(v.rule, "instead") ?? ""}`
+  })
   return `${blocks.join("\n\n")}\nPolicy: ${T("gatePolicy")}`
 }
 export const MUTATING_TOOLS = new Set(["edit", "write", "multiedit"])

@@ -53,7 +53,8 @@ export function preToolPatch(ti) {
   for (const { filePath, added } of deltas) {
     const violations = configFindings(root, filePath, added, true, config).filter((v) => v.severity === "error")
     if (violations.length > 0) {
-      process.stderr.write(formatFindings(filePath, violations, "slop-gate") + "\n")
+      // V4A patches carry no line numbers, so an index would be a false anchor
+      process.stderr.write(formatFindings(filePath, violations.map((v) => ({ ...v, lineNo: null })), "slop-gate") + "\n")
       blocked = true
     }
   }
