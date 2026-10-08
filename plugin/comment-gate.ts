@@ -16,6 +16,7 @@ function guard(tool: string, args: Record<string, unknown>) {
     tool,
     filePath: result.filePath,
     rules: result.violations.map((v) => v.rule),
+    findings: result.violations.map((v) => ({ rule: v.rule, lineNo: v.lineNo, text: (v.lines[0] ?? "").slice(0, 120) })),
     added: result.addedCount,
   })
   throw new Error(result.message)
