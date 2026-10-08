@@ -8,7 +8,7 @@
   "license": "https://opensource.org/licenses/MIT",
   "keywords": "linter, ai-slop, comment-policy, code-comments, code-quality, pre-commit, git-hooks, static-analysis, ai-code, opencode, claude-code, cursor, mcp, mcp-server, code-review",
   "url": "https://github.com/WhiteBite/stop-ai-slop#readme",
-  "softwareVersion": "0.14.0",
+  "softwareVersion": "0.14.1",
   "codeRepository": "https://github.com/WhiteBite/stop-ai-slop",
   "author": "WhiteBite",
   "sameAs": [

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.14.1
+
+- detekt-порт: зеркалированы why-маркеры — `WHY_MARKERS` + эксемпт `long-comment` (закрыт пропущенный в 0.12 паритет) и 2-строчного `multi-line-comment`; добавлены тесты
+- `gherkin`: `vend/file-summary-header` выключен вместе с `multi-line-comment` — шапка спеки нормальная форма
+- `--pre-tool` apply_patch: якорь печатается без `:line` (V4A не несёт номеров строк) — ложная строка-индекс убрана
+
 ## 0.14.0
 
 - фикс write-time гейта: находки нумеруются реальными строками файла, а не индексом в multiset-диффе добавленных строк — `addedFromToolArgs` возвращает `lineNos` (`write`/`edit`/`multiedit`), `locateViolations` маппит индекс на строку; раньше `sanitizer-config.yaml:1/:9/:11` указывали в код, а не в комментарий
