@@ -14,6 +14,8 @@ export const PROFILES = {
   py: P(["#"], [], [PYDOC_DQ, PYDOC_SQ]),
   php: P(["//", "#", "/*", "*"], [["/*", "*/"]], [JSDOC], ["*/"]),
   hash: P(["#"]),
+  // Gherkin # blocks are spec prose: multi-line is normal, other slop rules stay on
+  gherkin: P(["#"], [], [], [], [], { noMultiLine: true }),
   yaml: P(["#"], [], [], [], [], { blockScalars: true }),
   powershell: P(["#"], [["<#", "#>"]]),
   julia: P(["#"], [["#=", "=#"]]),
@@ -73,7 +75,7 @@ export const EXT_PROFILE = {
   ".xsl": "markup", ".xslt": "markup",
   ".ml": "ocaml", ".mli": "ocaml", ".pas": "pascal", ".pp": "pascal", ".fs": "pascal", ".fsx": "pascal", ".fsi": "pascal",
   ".ini": "ini", ".inf": "ini", ".properties": "properties",
-  ".pyi": "py", ".feature": "hash", ".mod": "hash", ".sum": "hash", ".tmpl": "gotmpl",
+  ".pyi": "py", ".feature": "gherkin", ".mod": "hash", ".sum": "hash", ".tmpl": "gotmpl",
   ".plist": "markup", ".pbxproj": "markup", ".xib": "markup", ".storyboard": "markup", ".rst": "rst",
   ".vue": "vue", ".svelte": "vue", ".astro": "vue",
   ".vhd": "dash", ".vhdl": "dash", ".adb": "dash", ".ads": "dash",

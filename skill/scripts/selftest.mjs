@@ -83,6 +83,10 @@ export async function cmdSelfTest() {
     writeFileSync(join(dir, "obvious-block.ts"), "/* normalize the input */\nnormalizeInput(input)\n")
     writeFileSync(join(dir, "inline.ts"), "const x = 1 // было так, стало иначе\n")
     writeFileSync(join(dir, "block.ts"), "/* removeSource rewrites every row\nwith fresh uuids all vanish at once\nand incremental has no centroids left */\nconst x = 1\n")
+    writeFileSync(join(dir, "why2.ts"), "// retry is safe because the upstream read is idempotent\n// (see the adapter contract for the retry budget)\nconst x = 1\n")
+    writeFileSync(join(dir, "why3.ts"), "// because the cache is cold\n// the first call is slow\n// and retries pile up\nconst x = 1\n")
+    writeFileSync(join(dir, "spec.feature"), "# language: ru\n# Контекст сценария: док, инспектор и история чата\n# покрыты отдельными сценариями\n@tag\nФункционал: Chat\n  Сценарий: x\n    Допустим y\n")
+    writeFileSync(join(dir, "spec-slop.feature"), "# было так, стало иначе\n# removeSource rewrites rows\nФункционал: Chat\n")
     writeFileSync(join(dir, "docstring.py"), 'def f():\n    """This function normalizes the payload\n    and validates input\n    """\n    return 1\n')
     writeFileSync(join(dir, "zwsp.ts"), "// было, с" + CP(0x200b) + "тало иначе\nconst x = 1\n")
     writeFileSync(
@@ -142,7 +146,6 @@ export async function cmdSelfTest() {
       "e.erl": "% removeSource rewrites rows\n% with fresh uuids zones vanish\nmod(x) -> x.\n",
       Containerfile: "# removeSource rewrites rows\n# with fresh uuids zones vanish\nRUN true\n",
       "w.bzl": "# removeSource rewrites rows\n# with fresh uuids zones vanish\nx = 1\n",
-      "g.feature": "# removeSource rewrites rows\n# with fresh uuids zones vanish\nFeature: x\n",
       "go.mod": "# removeSource rewrites rows\n# with fresh uuids zones vanish\nmodule x\n",
       "doc.rst": ".. removeSource rewrites rows\n.. with fresh uuids zones vanish\nx\n",
       "Info.plist": "<!-- removeSource rewrites rows\nwith fresh uuids zones vanish\n-->\n<x/>\n",
@@ -262,6 +265,10 @@ export async function cmdSelfTest() {
     const sabotageRules = byRel("sabotage.ts").map((f) => f.rule)
     check("sabotage: multi-line-comment [error]", sabotageRules.includes("multi-line-comment"), byRel("sabotage.ts"))
     check("sabotage: changelog-marker [error]", sabotageRules.includes("changelog-marker"), byRel("sabotage.ts"))
+    check("why2: 2-строчный why с маркером не multi-line", !byRel("why2.ts").some((f) => f.rule === "multi-line-comment"), byRel("why2.ts"))
+    check("why3: 3-строчный ран всё ещё multi-line", byRel("why3.ts").some((f) => f.rule === "multi-line-comment"), byRel("why3.ts"))
+    check("spec: .feature-ран не multi-line", !byRel("spec.feature").some((f) => f.rule === "multi-line-comment"), byRel("spec.feature"))
+    check("spec-slop: .feature changelog всё ещё ловится", byRel("spec-slop.feature").some((f) => f.rule === "changelog-marker"), byRel("spec-slop.feature"))
     check("legit: однострочный why-комментарий проходит", byRel("legit.ts").length === 0, byRel("legit.ts"))
     check("clean: код без комментариев проходит", byRel("clean.ts").length === 0, byRel("clean.ts"))
     const step = byRel("step.ts")

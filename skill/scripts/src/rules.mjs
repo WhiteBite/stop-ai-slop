@@ -8,14 +8,15 @@ export const RULES = [
     instead:
       "сжать до одной строки WHY: инвариант/ограничение оставить, пересказ прежнего поведения удалить (он живёт в коммите), причину теста — в имя теста или тикет, контрактную документацию — в doc-блок",
     write: "// сбрасываем здесь, т.к. ниже освобождаем слот",
-    ignoreWhen: "doc-блок (JSDoc/docstring/`///` doc-комментарии) с контрактной документацией; легаси — через baseline",
+    ignoreWhen:
+      "doc-блок (JSDoc/docstring/`///` doc-комментарии) с контрактной документацией; короткий 2-строчный why с why-маркером (because/since/чтобы/…); легаси — через baseline",
     en: {
       message: "a comment spans 2+ consecutive lines (doc-blocks and /// doc-comment runs exempt)",
       why: "A multi-line comment is almost always a retelling of the code or the diff. Nobody rereads it a year later, and nobody notices when it drifts from the code.",
       instead:
         "compress to one line of WHY: keep the invariant/constraint, delete the retelling of the previous behavior (it lives in the commit), a test's provenance goes into the test name or a ticket, contract documentation into a doc-block",
       write: "// reset here because the slot is freed below",
-      ignoreWhen: "doc-block (JSDoc/docstring/`///` doc comments) with contract documentation; legacy — via baseline",
+      ignoreWhen: "doc-block (JSDoc/docstring/`///` doc comments) with contract documentation; a short 2-line why carrying a why-marker (because/since/…); legacy — via baseline",
     },
   },
   {

@@ -193,6 +193,11 @@ export function detectCommentSlop(addedLines, profile = PROFILES.legacy, diffMod
   }
   let runStart = -1
   const classifyRun = makeClassify()
+  const wrappedWhy = (runLines) => {
+    if (runLines.length !== 2) return false
+    const text = runLines.map((l) => stripCommentMarker(l.trim())).join(" ")
+    return text.length <= maxCommentLength && WHY_MARKERS.test(text)
+  }
   for (let i = 0; i <= lines.length; i++) {
     const cls = i < lines.length ? classifyRun(lines[i] ?? "") : null
     const inRun =
@@ -200,7 +205,7 @@ export function detectCommentSlop(addedLines, profile = PROFILES.legacy, diffMod
     if (inRun && runStart === -1) runStart = i
     if (!inRun && runStart !== -1) {
       const runLines = lines.slice(runStart, i)
-      if (i - runStart >= 2 && !isLicenseRun(runLines) && !goDocRun(runLines, lines[i])) {
+      if (i - runStart >= 2 && profile.noMultiLine !== true && !isLicenseRun(runLines) && !goDocRun(runLines, lines[i]) && !wrappedWhy(runLines)) {
         push(finding("multi-line-comment", runStart + 1, runLines))
       }
       runStart = -1

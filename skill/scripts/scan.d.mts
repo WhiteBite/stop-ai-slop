@@ -36,6 +36,9 @@ export interface CommentProfile {
   suffixes: string[]
   regexPrefixes: RegExp[]
   blockScalars?: boolean
+  noMultiLine?: boolean
+  templates?: boolean
+  goDoc?: boolean
 }
 
 export declare function isCommentLine(line: string, profile?: CommentProfile): boolean

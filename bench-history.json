@@ -1,8 +1,8 @@
 {
   "PowerShell/PowerShell": {
     "changelog-marker": 26,
-    "long-comment": 1456,
-    "multi-line-comment": 7515,
+    "long-comment": 1424,
+    "multi-line-comment": 7224,
     "vend/cjk-noise": 2,
     "vend/file-summary-header": 11,
     "vend/generic-todo": 249,
@@ -13,7 +13,7 @@
     "vend/this-function-opener": 564
   },
   "expressjs/express": {
-    "multi-line-comment": 84,
+    "multi-line-comment": 81,
     "vend/cjk-noise": 1,
     "vend/file-summary-header": 1,
     "vend/markdown-in-comment": 3,
@@ -23,7 +23,7 @@
   },
   "gin-gonic/gin": {
     "long-comment": 10,
-    "multi-line-comment": 138,
+    "multi-line-comment": 129,
     "vend/cjk-noise": 2,
     "vend/file-summary-header": 2,
     "vend/generic-todo": 7,
@@ -34,7 +34,7 @@
   },
   "pallets/flask": {
     "changelog-marker": 3,
-    "multi-line-comment": 203,
+    "multi-line-comment": 191,
     "vend/file-summary-header": 5,
     "vend/markdown-in-comment": 4,
     "vend/obvious-comment": 24,
@@ -42,7 +42,7 @@
   },
   "rack/rack": {
     "long-comment": 11,
-    "multi-line-comment": 256,
+    "multi-line-comment": 251,
     "vend/file-summary-header": 3,
     "vend/generic-todo": 5,
     "vend/obvious-comment": 25,
@@ -51,8 +51,8 @@
   },
   "redis/redis": {
     "changelog-marker": 23,
-    "long-comment": 118,
-    "multi-line-comment": 8876,
+    "long-comment": 117,
+    "multi-line-comment": 8625,
     "vend/file-summary-header": 171,
     "vend/generic-todo": 31,
     "vend/markdown-in-comment": 410,
@@ -65,7 +65,7 @@
   "tokio-rs/tokio": {
     "changelog-marker": 10,
     "long-comment": 1,
-    "multi-line-comment": 1346,
+    "multi-line-comment": 1282,
     "vend/file-summary-header": 83,
     "vend/generic-todo": 54,
     "vend/markdown-in-comment": 121,
@@ -76,7 +76,7 @@
   },
   "vuejs/vue": {
     "long-comment": 2,
-    "multi-line-comment": 534,
+    "multi-line-comment": 505,
     "vend/file-summary-header": 10,
     "vend/generic-todo": 15,
     "vend/obvious-comment": 226,

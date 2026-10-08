@@ -52,7 +52,7 @@ export const OBVIOUS_STOPWORDS = new Set(
 export const OBVIOUS_WHY =
   /because|since|otherwise|unless|until|so that|in case|workaround|invariant|constraint|intentionally|deliberately|required|\bmust\b|\bshould\b|\bcannot\b|\bavoid\b|\bonly\b|\butc\b|\bgmt\b|\bms\b|millisecond|second|т\.?\s*к\.|так как|потому что|чтобы|иначе|если|пока|должн|нужно|надо|обязательн|нельзя|воркэраунд|инвариант|ограничен|осторожн|намеренн|специальн|требует|только|миллисекунд|секунд/i
 export const WHY_MARKERS =
-  /\bbecause\b|\bsince\b|\botherwise\b|\bworkarounds?\b|\bcaveats?\b|\bto\s+avoid\b|\bby\s+design\b|\bhowever\b|\btrade-?offs?\b|\bfails?\s+when\b|\be\.g\.|\binvariants?\b|\bnote:|(?<![а-яё])(?:потому\s+что|иначе|воркэраунд|обход|чтобы\s+избежать|специально|напр\.)(?![а-яё])|(?<![a-zäöüß])(?:denn|sonst|um\s+zu\s+vermeiden)(?![a-zäöüß])|(?<![a-zéèêàùç])(?:car|sinon|contournement|pour\s+éviter)(?![a-zéèêàùç])|(?<![a-záéíóúñ])(?:porque|si\s+no|solución\s+alternativa|para\s+evitar)(?![a-záéíóúñ])/i
+  /\bbecause\b|\bsince\b|\botherwise\b|\bworkarounds?\b|\bcaveats?\b|\bto\s+avoid\b|\bby\s+design\b|\bhowever\b|\btrade-?offs?\b|\bfails?\s+when\b|\be\.g\.|\binvariants?\b|\bnote:|\bso\s+that\b|\bin\s+order\s+to\b|(?<![а-яё])(?:потому\s+что|иначе|воркэраунд|обход|чтобы|специально|напр\.)(?![а-яё])|(?<![a-zäöüß])(?:denn|sonst|um\s+zu\s+vermeiden)(?![a-zäöüß])|(?<![a-zéèêàùç])(?:car|sinon|contournement|pour\s+éviter)(?![a-zéèêàùç])|(?<![a-záéíóúñ])(?:porque|si\s+no|solución\s+alternativa|para\s+evitar)(?![a-záéíóúñ])/i
 export const OBVIOUS_WORD_SPLIT = /[^a-zа-яё0-9]+/
 export const camelSplit = (line) => line.replace(/([a-z0-9])(?=[A-Z])/g, "$1 ")
 export const commentContentWords = (text) =>

@@ -498,6 +498,7 @@ Comment syntax comes from a language profile, not a single shared list: `#` is a
 | css | `//`, `/*` | `/* */` | css, scss, less |
 | py | `#` | `"""` / `'''` | py, pyi, vy |
 | hash | `#` | — | rb, sh, yaml, toml, ex, raku, awk, go.mod, go.sum, Dockerfile, Makefile, .gitignore |
+| gherkin | `#` | — | feature (Gherkin: multi-line exempt, the other slop rules stay on) |
 | hashblock | `#`, `/*` | `/* */` | nix, hcl, tf, tfvars |
 | powershell | `#` | `<# #>` | ps1, psm1 |
 | julia | `#` | `#= =#` | jl |
@@ -549,7 +550,7 @@ Comment syntax comes from a language profile, not a single shared list: `#` is a
 | `vend/bidi-controls` | error | BiDi controls (U+202A-U+202E, U+2066-U+2069) on any line, and directional marks (U+200E, U+200F) in code |
 <!-- stop-ai-slop:rules:end -->
 
-Error rules do not apply to doc-blocks (JSDoc `/** … */`, Python docstrings, and `///` doc-comment lines — dartdoc, rustdoc, C# XML doc): contract documentation for classes and functions may be any length. Inside doc-blocks, changelog markers (error) and signature restatement "This function…" (warning) are still caught. A `long-comment` line whose text carries a why-marker (`because`, `since`, `otherwise`, `workaround`, `to avoid`, `by design`, `trade-off`, `e.g.` — plus RU/DE/FR/ES equivalents) is not flagged: a long single-line why-comment is legitimate, a multi-line narrative is not.
+Error rules do not apply to doc-blocks (JSDoc `/** … */`, Python docstrings, and `///` doc-comment lines — dartdoc, rustdoc, C# XML doc): contract documentation for classes and functions may be any length. Inside doc-blocks, changelog markers (error) and signature restatement "This function…" (warning) are still caught. A `long-comment` line whose text carries a why-marker (`because`, `since`, `otherwise`, `workaround`, `to avoid`, `by design`, `trade-off`, `e.g.` — plus RU/DE/FR/ES equivalents) is not flagged: a long single-line why-comment is legitimate, a multi-line narrative is not. The same why-marker exempts a 2-line comment run (a wrapped why that would fit one line); 3+ lines are still flagged. Gherkin `.feature` specs exempt `multi-line-comment` entirely — scenario narration there is a normal form — while the other slop rules (`changelog-marker`, `step-numbered`, `markdown-in-comment`) keep firing.
 
 Text rules (`step-numbered`, `markdown-in-comment`, `this-function-opener`, `cross-file-ref`) are matched on the text after the comment marker is stripped, so they work in every profile — `# Шаг 3` in yaml and `-- Step 3` in sql are caught identically. `step-numbered`, `this-function-opener` and `changelog-marker` understand RU + EN + DE + FR + ES ("Шаг N", "Schritt N", "Étape N", "Diese Funktion", "au lieu de", "ya no", etc.); other natural languages are not covered. Structural rules (multi-line, divider, header, todo) do not depend on the wording language. `step-numbered` and `markdown-in-comment` do not fire inside doc-blocks. `vend/obvious-comment` is additionally gated by a per-file density filter: a file's obvious-comment findings are dropped unless they make up at least 2% of its non-empty, non-comment lines — hand-written files carry a few terse comments, while generated files narrate every few lines.
 
