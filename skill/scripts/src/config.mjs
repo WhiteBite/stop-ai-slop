@@ -48,7 +48,10 @@ export function loadConfig(root) {
         if (sev !== "off" && sev !== "warning" && sev !== "error") {
           throw new Error(`slop-gate: ${path}:${i + 1}: недопустимое severity "${sev}" (ожидается off, warning или error)`)
         }
-        if (RULE_BY_ID.has(id)) config.rules.set(id, sev)
+        if (!RULE_BY_ID.has(id)) {
+          throw new Error(`slop-gate: ${path}:${i + 1}: неизвестное правило "${id}"`)
+        }
+        config.rules.set(id, sev)
       }
       continue
     }
@@ -84,7 +87,10 @@ export function loadConfig(root) {
             if (value !== "off" && value !== "warning" && value !== "error") {
               throw new Error(`slop-gate: ${path}:${i + 1}: недопустимое severity "${value}" (ожидается off, warning или error)`)
             }
-            if (RULE_BY_ID.has(key)) entry.rules.set(key, value)
+            if (!RULE_BY_ID.has(key)) {
+              throw new Error(`slop-gate: ${path}:${i + 1}: неизвестное правило "${key}"`)
+            }
+            entry.rules.set(key, value)
           }
         }
       }

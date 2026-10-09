@@ -115,6 +115,45 @@ export default async function ({ check, runCli, selfPath }) {
       `exit ${bad.status}: ${bad.out.slice(0, 300)}`,
     )
 
+    const bogusRules = scenario(
+      "bogus-rules",
+      { "slop.yaml": SLOP_YAML },
+      'rules:\n  bogus-rule: off\n',
+    )
+    check(
+      "ovr-bogus-rule: неизвестный id в rules: → exit 2 с файлом, строкой и id",
+      bogusRules.status === 2 &&
+        bogusRules.out.includes(".stop-ai-slop.yaml:2") &&
+        bogusRules.out.includes("bogus-rule") &&
+        bogusRules.out.includes("неизвестное правило"),
+      `exit ${bogusRules.status}: ${bogusRules.out.slice(0, 300)}`,
+    )
+
+    const bogusOverride = scenario(
+      "bogus-override",
+      { "slop.yaml": SLOP_YAML },
+      'overrides:\n  - paths:\n      - "*.yaml"\n    rules:\n      bogus-rule: error\n',
+    )
+    check(
+      "ovr-bogus-override: неизвестный id в override rules: → exit 2 с файлом, строкой и id",
+      bogusOverride.status === 2 &&
+        bogusOverride.out.includes(".stop-ai-slop.yaml:5") &&
+        bogusOverride.out.includes("bogus-rule") &&
+        bogusOverride.out.includes("неизвестное правило"),
+      `exit ${bogusOverride.status}: ${bogusOverride.out.slice(0, 300)}`,
+    )
+
+    const validMixed = scenario(
+      "valid-mixed",
+      { "slop.yaml": SLOP_YAML },
+      'rules:\n  multi-line-comment: warning\n  long-comment: off\n',
+    )
+    check(
+      "ovr-valid-mixed: валидный конфиг с известными id грузится [warning, exit 0]",
+      validMixed.status === 0 && validMixed.out.includes("slop.yaml:1 multi-line-comment [warning]"),
+      `exit ${validMixed.status}: ${validMixed.out.slice(0, 300)}`,
+    )
+
     const preTool = (payload, cwd) => {
       try {
         return {
