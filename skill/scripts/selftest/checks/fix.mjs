@@ -101,6 +101,36 @@ export default async function ({ check, runCli }) {
       untouchedFixed.split("\n")[1] === untouchedLine && !untouchedFixed.includes(ZWB),
       JSON.stringify(untouchedFixed),
     )
+
+    const crlf = join(work, "crlf.ts")
+    writeFileSync(crlf, "const a = 1\r\nconst b = 2 // было так, стало иначе\r\n// ----------\r\nconst c = 3\r\n")
+    runCli(["--fix", crlf], work)
+    const crlfFixed = readFileSync(crlf, "utf8")
+    check(
+      "fix-crlf: --fix on a CRLF file keeps CRLF on every line, no mixed EOL, trailing EOL kept",
+      crlfFixed === "const a = 1\r\nconst b = 2\r\nconst c = 3\r\n",
+      JSON.stringify(crlfFixed),
+    )
+
+    const crlfNoTrail = join(work, "crlf-no-trail.ts")
+    writeFileSync(crlfNoTrail, "const a = 1\r\n// ----------\r\nconst c = 3")
+    runCli(["--fix", crlfNoTrail], work)
+    const crlfNoTrailFixed = readFileSync(crlfNoTrail, "utf8")
+    check(
+      "fix-crlf-no-trail: a CRLF file without a trailing EOL stays without one",
+      crlfNoTrailFixed === "const a = 1\r\nconst c = 3",
+      JSON.stringify(crlfNoTrailFixed),
+    )
+
+    const obvious = join(work, "obvious.ts")
+    writeFileSync(obvious, "// validate the token\nvalidateToken(token)\n")
+    runCli(["--fix", obvious], work)
+    const obviousFixed = readFileSync(obvious, "utf8")
+    check(
+      "fix-obvious-comment: a full-line obvious comment is deleted by --fix",
+      obviousFixed === "validateToken(token)\n",
+      JSON.stringify(obviousFixed),
+    )
   } finally {
     rmSync(work, { recursive: true, force: true })
   }
