@@ -4,6 +4,7 @@ import { tmpdir } from "node:os"
 import { dirname, join, resolve } from "node:path"
 import { fileURLToPath, pathToFileURL } from "node:url"
 import { RULES, RULE_BY_ID, KNOWN_FLAGS, CONFIG_KEYS, resolveLang, profileFor, detectCommentSlop, addedFromToolArgs, appendAudit, loadConfig, scanFiles, collectFiles, loadGitattributesGenerated, readDisk, benchDelta } from "./scan.mjs"
+import { PROFILES } from "./src/profiles.mjs"
 
 const CP = (...cps) => String.fromCodePoint(...cps)
 const BS = CP(0x5c)
@@ -11,12 +12,21 @@ const BS = CP(0x5c)
 export async function cmdSelfTest() {
   const dir = mkdtempSync(join(tmpdir(), "slop-gate-"))
   let failures = 0
+  let skips = 0
   const checkNames = []
+  const skipNames = []
     const check = (name, ok, detail) => {
+      if (ok === true && typeof detail === "string" && detail.startsWith("skip:")) {
+        console.log(`SKIP ${name} — ${detail.slice(5).trim()}`)
+        skipNames.push(name)
+        skips++
+        return
+      }
       console.log(`${ok ? "PASS" : "FAIL"} ${name}${ok ? "" : " — " + JSON.stringify(detail)}`)
       checkNames.push(name)
       if (!ok) failures++
     }
+    const skip = (name, reason) => check(name, true, `skip: ${reason}`)
     const selfPath = resolve(dirname(fileURLToPath(import.meta.url)), "scan.mjs")
     const runCli = (args, cwd, env) => {
       const mergedEnv = { ...(env ?? process.env) }
@@ -568,8 +578,12 @@ export async function cmdSelfTest() {
       !byRel("doc-md.ts").some((f) => f.rule === "vend/markdown-in-comment"),
       byRel("doc-md.ts"),
     )
-    check("profileFor: build.gradle → cfamily", profileFor("build.gradle") === profileFor("x.ts"))
-    check("profileFor: bare BUILD → hash", profileFor("BUILD") === profileFor("x.sh"))
+    const gradleProfile = profileFor("build.gradle")
+    const buildProfile = profileFor("BUILD")
+    const unknownProfile = profileFor("x.unknownext")
+    check("profileFor: build.gradle → cfamily (по расширению, не по префиксу build.)", gradleProfile === PROFILES.cfamily, JSON.stringify(gradleProfile?.prefixes ?? null))
+    check("profileFor: bare BUILD → hash (точное имя файла)", buildProfile === PROFILES.hash, JSON.stringify(buildProfile?.prefixes ?? null))
+    check("profileFor: неизвестное расширение → null", unknownProfile === null, JSON.stringify(unknownProfile?.prefixes ?? null))
     check(
       "gradle-by-ext: build.gradle ловит //-слоп [error]",
       byRel("build.gradle").some((f) => f.rule === "multi-line-comment" && f.severity === "error"),
@@ -812,8 +826,12 @@ export async function cmdSelfTest() {
       })
       runCli(["--install"], hookDir)
       runCli(["--install"], hookDir)
-      const hookMode = statSync(join(hookDir, ".git", "hooks", "pre-commit")).mode
-      check("install: pre-commit hook исполняемый на POSIX", process.platform === "win32" || (hookMode & 0o111) !== 0, hookMode.toString(8))
+      if (process.platform === "win32") {
+        skip("install: pre-commit hook исполняемый на POSIX", "win32 не хранит POSIX exec-бит; git запускает hook через sh")
+      } else {
+        const hookMode = statSync(join(hookDir, ".git", "hooks", "pre-commit")).mode
+        check("install: pre-commit hook исполняемый на POSIX", (hookMode & 0o111) !== 0, hookMode.toString(8))
+      }
     } finally {
       rmSync(hookDir, { recursive: true, force: true })
     }
@@ -1159,9 +1177,9 @@ export async function cmdSelfTest() {
     try {
       execFileSync(process.execPath, [selfPath, "--stdin-path"], { input: stdinPayload, stdio: "pipe" })
     } catch (error) {
-      stdinBlocked = error.status === 1
+      stdinBlocked = error.status === 2 && String(error.stderr ?? "").includes("multi-line-comment")
     }
-    check("hook: --stdin-path блокирует slop-файл из payload [exit 1]", stdinBlocked)
+    check("hook: --stdin-path блокирует slop-файл из payload, находки в stderr [exit 2]", stdinBlocked)
     let stdinCleanOk = true
     try {
       execFileSync(process.execPath, [selfPath, "--stdin-path"], {
@@ -1702,19 +1720,19 @@ export async function cmdSelfTest() {
       benchHelp.out.slice(0, 200),
     )
     const selfRoot = resolve(dirname(selfPath), "../..")
+    const pluginJson = join(selfRoot, ".claude-plugin", "plugin.json")
+    let releaseOk = false
+    let releaseDetail = ""
     try {
-      const pkgRaw = readFileSync(join(selfRoot, "package.json"), "utf8")
-      const pluginJson = join(selfRoot, ".claude-plugin", "stop-ai-slop", "plugin.json")
-      if (!existsSync(pluginJson)) {
-        check("release-sync: skip — no plugin metadata", true, "skip: no plugin metadata")
-      } else {
-        const pkgVer = JSON.parse(pkgRaw).version
-        const pluginVer = JSON.parse(readFileSync(pluginJson, "utf8")).version
-        check("release-sync: package.json == plugin.json", pkgVer === pluginVer, `${pkgVer} vs ${pluginVer}`)
-      }
-    } catch {
-      check("release-sync: skip — unreadable metadata", true, "skip: unreadable metadata")
+      if (!existsSync(pluginJson)) throw new Error(`plugin metadata missing: ${pluginJson}`)
+      const pkgVer = JSON.parse(readFileSync(join(selfRoot, "package.json"), "utf8")).version
+      const pluginVer = JSON.parse(readFileSync(pluginJson, "utf8")).version
+      releaseOk = pkgVer === pluginVer
+      releaseDetail = `${pkgVer} vs ${pluginVer}`
+    } catch (error) {
+      releaseDetail = String(error?.message ?? error)
     }
+    check("release-sync: package.json == plugin.json (missing/unreadable = FAIL)", releaseOk, releaseDetail)
     let schema = null
     let schemaError = null
     try {
@@ -1774,7 +1792,7 @@ export async function cmdSelfTest() {
     const nodeMajor = Number(process.versions.node.split(".")[0])
     const nodeMinor = Number(process.versions.node.split(".")[1])
     if (nodeMajor < 22 || (nodeMajor === 22 && nodeMinor < 6)) {
-      check("plugin-v2-shape: skip — node < 22.6", true, "skip: node < 22.6")
+      skip("plugin-v2-shape: dual export + v2 tool hook gate", "node < 22.6 — нет type stripping для .ts-импорта")
     } else {
       const v2Fixture = join(dir, "plugin-v2-check.mjs")
       const pluginUrl = pathToFileURL(join(selfRoot, "plugin", "comment-gate.ts")).href
@@ -1868,7 +1886,7 @@ try {
       for (const entry of readdirSync(checksDir).sort()) {
         if (!entry.endsWith(".mjs")) continue
         const mod = await import(pathToFileURL(join(checksDir, entry)).href)
-        await mod.default({ check, runCli, selfPath, selfRoot, dir })
+        await mod.default({ check, runCli, selfPath, selfRoot, dir, skip })
       }
     }
   } finally {
@@ -1876,8 +1894,9 @@ try {
   }
   const jsonPath = process.env.STOP_AI_SLOP_SELFTEST_JSON
   if (jsonPath !== undefined && jsonPath !== "") {
-    writeFileSync(jsonPath, JSON.stringify({ total: checkNames.length, failures, names: checkNames }) + "\n")
+    writeFileSync(jsonPath, JSON.stringify({ total: checkNames.length, failures, skips, names: checkNames, skipNames }) + "\n")
   }
+  console.log(`self-test: ${checkNames.length - failures} PASS, ${skips} SKIP, ${failures} FAIL`)
   return failures === 0 ? 0 : 1
 }
 

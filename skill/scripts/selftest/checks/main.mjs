@@ -6,7 +6,7 @@ import { pathToFileURL } from "node:url"
 
 const SENTINEL = "library-import-ok"
 
-export default async function ({ check, runCli, selfPath, dir }) {
+export default async function ({ check, runCli, selfPath, dir, skip }) {
   const work = mkdtempSync(join(tmpdir(), "slop-gate-main-"))
   const mainLink = join(work, ".selftest-main-link.mjs")
   try {
@@ -36,9 +36,10 @@ export default async function ({ check, runCli, selfPath, dir }) {
       symlinkSync(join(dirname(selfPath), "src"), join(work, "src"), "dir")
       symlinkOk = true
     } catch {
-      check("main-symlink: skip — symlink creation not permitted", true, "skip: symlink creation not permitted (Windows needs developer mode or admin)")
-      check("main-preserve: skip — symlink creation not permitted", true, "skip: symlink creation not permitted")
-      check("main-preserve-main: skip — symlink creation not permitted", true, "skip: symlink creation not permitted")
+      const reason = "symlink creation not permitted (Windows needs developer mode or admin)"
+      skip("main-symlink: запуск через symlink выполняет CLI [exit 0, help]", reason)
+      skip("main-preserve: --preserve-symlinks через symlink выполняет CLI [exit 0, help]", reason)
+      skip("main-preserve-main: --preserve-symlinks-main через symlink [exit 0, help]", reason)
     }
     if (symlinkOk) {
       try {
