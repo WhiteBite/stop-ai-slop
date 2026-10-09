@@ -20,7 +20,7 @@ function readText(relPath) {
 
 function pluginSurface(version) {
   const name = "version-sync-plugin: plugin.json version == package.json"
-  const relPath = ".claude-plugin/stop-ai-slop/plugin.json"
+  const relPath = ".claude-plugin/plugin.json"
   const raw = readText(relPath)
   if (raw === null) return { name, relPath, expected: version, actual: "missing", ok: false }
   let actual = null
