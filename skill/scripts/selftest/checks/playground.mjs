@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "node:fs"
 import { join } from "node:path"
 
-export default async function ({ check, runCli, selfRoot }) {
+export default async function ({ check, runCli, selfRoot, skip }) {
   const { RULES } = await import("../../scan.mjs")
   const pg = join(selfRoot, "playground")
   const pkg = JSON.parse(readFileSync(join(pg, "package.json"), "utf8"))
@@ -36,9 +36,7 @@ export default async function ({ check, runCli, selfRoot }) {
     `missing: ${missingIds.join(", ") || "—"}; stale: ${staleIds.join(", ") || "—"}`,
   )
   if (!existsSync(join(pg, "node_modules"))) {
-    check("playground-build-env: skip - fresh checkout, the committed dist is the artifact", true)
-  } else {
-    check("playground-build-env: node_modules present, the committed dist is asserted as-is (never rebuilt here)", true)
+    skip("playground-build-env", "fresh checkout, the committed dist is the artifact")
   }
   const scanned = runCli(["scan", "playground"], selfRoot)
   check("playground-gate: scan playground exits 0", scanned.status === 0, `exit ${scanned.status}: ${scanned.out.slice(0, 200)}`)
