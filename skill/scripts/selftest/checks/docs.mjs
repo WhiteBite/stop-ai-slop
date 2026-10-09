@@ -1,5 +1,6 @@
 import { execFileSync } from "node:child_process"
-import { readFileSync, writeFileSync } from "node:fs"
+import { copyFileSync, cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
+import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { END, START, TARGETS, tableFor } from "../../gen-docs.mjs"
 
@@ -22,6 +23,25 @@ const blockOf = (raw) => {
 
 const countOf = (raw, needle) => raw.split(needle).length - 1
 
+const PINNED_TABLES = {
+  "readme-en": { header: "| Rule | Severity | What it catches |", sep: "| --- | --- | --- |" },
+  "readme-ru": { header: "| Правило | Severity | Суть |", sep: "| --- | --- | --- |" },
+  "skill-ru": { header: "| Правило | Severity | Why | Write | Ignore-when |", sep: "| --- | --- | --- | --- | --- |" },
+}
+
+const CONTENT_FIELDS = {
+  "readme-en": (rule) => [rule.en.message],
+  "readme-ru": (rule) => [rule.message],
+  "skill-ru": (rule) => [rule.why, rule.write, rule.ignoreWhen],
+}
+
+const uncell = (text) => text.replaceAll("\\|", "|")
+
+const rowsOf = (block) =>
+  (block ?? "").split("\n").slice(2).map((line) => line.split(/(?<!\\)\|/).slice(1, -1).map((cell) => cell.trim()))
+
+const idOf = (cells) => (cells[0] ?? "").replace(/^`|`$/g, "")
+
 export default async function ({ check, runCli, selfRoot }) {
   const synced = gen(["--check"], selfRoot)
   check(
@@ -30,7 +50,7 @@ export default async function ({ check, runCli, selfRoot }) {
     `exit ${synced.status}: ${synced.out.slice(0, 300)}`,
   )
 
-  const { RULES } = await import("../../scan.mjs")
+  const { RULES, RULE_BY_ID } = await import("../../scan.mjs")
   for (const { rel, kind } of TARGETS) {
     const raw = readFileSync(join(selfRoot, rel), "utf8")
     const block = blockOf(raw)
@@ -52,23 +72,66 @@ export default async function ({ check, runCli, selfRoot }) {
     )
     const scanned = runCli(["scan", rel], selfRoot)
     check(`docs-clean[${rel}]: the generated document passes the scanner [exit 0]`, scanned.status === 0, `exit ${scanned.status}: ${scanned.out.slice(0, 200)}`)
+
+    const pinned = PINNED_TABLES[kind]
+    const lines = (block ?? "").split("\n")
+    check(
+      `docs-table-header[${rel}]: column order matches the pinned snapshot, not the generator`,
+      lines[0] === pinned.header && lines[1] === pinned.sep,
+      `header: ${lines[0] ?? "—"}; sep: ${lines[1] ?? "—"}`,
+    )
+    const rows = rowsOf(block)
+    const rowIds = rows.map(idOf)
+    const expectedIds = RULES.map((r) => r.id)
+    const absentIds = expectedIds.filter((id) => !rowIds.includes(id))
+    const extraIds = rowIds.filter((id) => !expectedIds.includes(id))
+    const repeatedIds = expectedIds.filter((id) => countOf(block ?? "", `\`${id}\``) !== 1)
+    check(
+      `docs-table-ids[${rel}]: exactly one row per RULES id, no unknown or repeated ids`,
+      rows.length === expectedIds.length && absentIds.length === 0 && extraIds.length === 0 && repeatedIds.length === 0,
+      `rows=${rows.length}/${expectedIds.length}; absent: ${absentIds.join(", ") || "—"}; extra: ${extraIds.join(", ") || "—"}; repeated: ${repeatedIds.join(", ") || "—"}`,
+    )
+    const badSeverity = rows.filter((cells) => {
+      const rule = RULE_BY_ID.get(idOf(cells))
+      return rule === undefined || cells[1] !== rule.severity
+    })
+    check(
+      `docs-table-severity[${rel}]: every row carries the severity from RULES`,
+      badSeverity.length === 0,
+      badSeverity.map((cells) => `${cells[0] ?? "?"}→${cells[1] ?? "—"}`).slice(0, 5).join("; "),
+    )
+    const fields = CONTENT_FIELDS[kind]
+    const badContent = rows.filter((cells) => {
+      const rule = RULE_BY_ID.get(idOf(cells))
+      if (rule === undefined) return true
+      const want = fields(rule)
+      const got = cells.slice(2).map(uncell)
+      return want.length !== got.length || want.some((value, i) => value !== got[i])
+    })
+    check(
+      `docs-table-content[${rel}]: message cells equal the RULES fields, not the generator's rendering`,
+      badContent.length === 0,
+      badContent.map((cells) => cells[0] ?? "?").slice(0, 5).join(", "),
+    )
   }
 
-  const target = join(selfRoot, "README.md")
-  const original = readFileSync(target, "utf8")
+  const work = mkdtempSync(join(tmpdir(), "slop-docs-tamper-"))
   try {
-    writeFileSync(target, original.replace("| `multi-line-comment` |", "| `multi-line-comment-TAMPERED` |"))
-    const tampered = gen(["--check"], selfRoot)
+    cpSync(join(selfRoot, "skill"), join(work, "skill"), { recursive: true })
+    for (const rel of ["README.md", "README.ru.md"]) copyFileSync(join(selfRoot, rel), join(work, rel))
+    const target = join(work, "README.md")
+    writeFileSync(target, readFileSync(target, "utf8").replace("| `multi-line-comment` |", "| `multi-line-comment-TAMPERED` |"))
+    const tampered = gen(["--check"], work)
     check(
       "docs-tamper: a hand-edited generated row is reported with the file and line",
       tampered.status === 1 && tampered.out.includes("OUT OF SYNC") && tampered.out.includes("README.md") && tampered.out.includes("regenerate:"),
       `exit ${tampered.status}: ${tampered.out.slice(0, 300)}`,
     )
   } finally {
-    writeFileSync(target, original)
+    rmSync(work, { recursive: true, force: true })
   }
-  const restored = gen(["--check"], selfRoot)
-  check("docs-tamper: restored byte-exact, back in sync", restored.status === 0 && readFileSync(target, "utf8") === original, `exit ${restored.status}`)
+  const untouched = gen(["--check"], selfRoot)
+  check("docs-tamper: the tamper scenario never writes the working tree, still in sync", untouched.status === 0, `exit ${untouched.status}: ${untouched.out.slice(0, 200)}`)
 
   const llms = readFileSync(join(selfRoot, "llms.txt"), "utf8")
   const listLine = llms.split("\n").find((l) => l.includes("Rules reference"))

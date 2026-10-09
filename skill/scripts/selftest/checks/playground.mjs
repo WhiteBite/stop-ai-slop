@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from "node:fs"
 import { join } from "node:path"
 
 export default async function ({ check, runCli, selfRoot }) {
+  const { RULES } = await import("../../scan.mjs")
   const pg = join(selfRoot, "playground")
   const pkg = JSON.parse(readFileSync(join(pg, "package.json"), "utf8"))
   const deps = pkg.devDependencies ?? {}
@@ -27,12 +28,12 @@ export default async function ({ check, runCli, selfRoot }) {
       !/(?:src|href)="https?:/.test(html),
     `exists: ${html !== ""}, size: ${html.length}`,
   )
+  const missingIds = RULES.map((r) => r.id).filter((id) => !html.includes(id))
+  const staleIds = [...new Set(html.match(/vend\/[a-z-]+/g) ?? [])].filter((id) => !RULES.some((r) => r.id === id))
   check(
-    "playground-dist-detector: the bundle embeds the real rule table and both message languages",
-    ["multi-line-comment", "changelog-marker", "vend/step-numbered", "vend/generic-todo", "vend/this-function-opener"].every((id) =>
-      html.includes(id),
-    ) && html.includes("пересказывает") && html.includes("retells the diff"),
-    "rule ids or messages missing from the bundle",
+    "playground-dist-detector: the bundle embeds every rule id from RULES, no stale ids, and both message languages",
+    missingIds.length === 0 && staleIds.length === 0 && html.includes("пересказывает") && html.includes("retells the diff"),
+    `missing: ${missingIds.join(", ") || "—"}; stale: ${staleIds.join(", ") || "—"}`,
   )
   if (!existsSync(join(pg, "node_modules"))) {
     check("playground-build-env: skip - fresh checkout, the committed dist is the artifact", true)
