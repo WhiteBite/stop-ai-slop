@@ -2,6 +2,10 @@ import { execFileSync } from "node:child_process"
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
+import { pathToFileURL } from "node:url"
+
+const ZWSP = String.fromCodePoint(0x200b)
+const FEFF = String.fromCodePoint(0xfeff)
 
 const git = (cwd, args) =>
   execFileSync("git", ["-c", "user.email=slop@test", "-c", "user.name=slop", "-c", "commit.gpgsign=false", ...args], {
@@ -9,7 +13,7 @@ const git = (cwd, args) =>
     stdio: "pipe",
   })
 
-export default async function ({ check, runCli }) {
+export default async function ({ check, runCli, selfPath }) {
   const work = mkdtempSync(join(tmpdir(), "slop-gate-semantics-"))
   try {
     writeFileSync(join(work, "why-long.ts"), "// " + "x".repeat(118) + " otherwise the slot leaks\nconst x = 1\n")
@@ -194,5 +198,145 @@ export default async function ({ check, runCli }) {
     )
   } finally {
     rmSync(suppDir, { recursive: true, force: true })
+  }
+
+  const fixDir = mkdtempSync(join(tmpdir(), "slop-gate-semantics-fixes-"))
+  try {
+    writeFileSync(join(fixDir, "c1c-run.ts"), ["// line one", "// stop-ai-slop-ignore-line", "// line three"].join("\n") + "\n")
+    writeFileSync(
+      join(fixDir, "c1b-docstring.py"),
+      'def f():\n    """\n    # stop-ai-slop-ignore-file\n    """\n    # было так, стало иначе\n',
+    )
+    writeFileSync(join(fixDir, "c1b-scalar.yaml"), "key: |\n  # stop-ai-slop-ignore-file\n# было так, стало иначе\n")
+    writeFileSync(join(fixDir, "h4-regex.ts"), "const re = /a*/\n// comment line\n")
+    writeFileSync(join(fixDir, "m7-license.ts"), "// All rights reserved.\n// Proprietary.\nconst x = 1\n")
+    writeFileSync(join(fixDir, "m9-version.ts"), "// 1.0.0 is the minimum\nconst x = 1\n// 2.5x faster\nconst y = 2\n")
+    writeFileSync(join(fixDir, "l2-spanish.ts"), "// repasa todo el inventario\nconst x = 1\n")
+    writeFileSync(join(fixDir, "l2-prose.ts"), "// xxx\nconst x = 1\n")
+    writeFileSync(join(fixDir, "h5l-scan.ts"), "const a" + ZWSP + "b = 1 // stop-ai-slop-ignore-line vend/zero-width-chars\n")
+
+    const scanFix = (name) => runCli(["scan", name], fixDir)
+
+    const c1c = scanFix("c1c-run.ts")
+    const c1cHits = c1c.out.split("multi-line-comment").length - 1
+    check(
+      "C1c: директива внутри comment-рана не рвёт ран [exit 1, 1 multi-line]",
+      c1c.status === 1 && c1cHits === 1,
+      `exit ${c1c.status}: hits ${c1cHits}: ${c1c.out.slice(0, 200)}`,
+    )
+    const c1bDoc = scanFix("c1b-docstring.py")
+    check(
+      "C1b: директива в python docstring не глушит файл [exit 1, changelog]",
+      c1bDoc.status === 1 && c1bDoc.out.includes("changelog-marker"),
+      `exit ${c1bDoc.status}: ${c1bDoc.out.slice(0, 200)}`,
+    )
+    const c1bScalar = scanFix("c1b-scalar.yaml")
+    check(
+      "C1b: директива в YAML block scalar не глушит файл [exit 1, changelog]",
+      c1bScalar.status === 1 && c1bScalar.out.includes("changelog-marker"),
+      `exit ${c1bScalar.status}: ${c1bScalar.out.slice(0, 200)}`,
+    )
+    const h4 = scanFix("h4-regex.ts")
+    check(
+      "H4: regex-литерал /a*/ не считается комментарием [exit 0, без multi-line/header]",
+      h4.status === 0 && !h4.out.includes("multi-line-comment") && !h4.out.includes("vend/file-summary-header"),
+      `exit ${h4.status}: ${h4.out.slice(0, 200)}`,
+    )
+    const m7 = scanFix("m7-license.ts")
+    check(
+      "M7: «All rights reserved» + «Proprietary» — лицензионная шапка, не ошибка [exit 0]",
+      m7.status === 0 && !m7.out.includes("multi-line-comment") && !m7.out.includes("vend/file-summary-header"),
+      `exit ${m7.status}: ${m7.out.slice(0, 200)}`,
+    )
+    const m9 = scanFix("m9-version.ts")
+    check(
+      "M9: версии/десятичные (1.0.0, 2.5x) — не step-numbered [нет vend/step-numbered]",
+      m9.status === 0 && !m9.out.includes("vend/step-numbered"),
+      `exit ${m9.status}: ${m9.out.slice(0, 200)}`,
+    )
+    const l2Es = scanFix("l2-spanish.ts")
+    check(
+      "L2: испанская проза «todo» не generic-todo",
+      l2Es.status === 0 && !l2Es.out.includes("vend/generic-todo"),
+      `exit ${l2Es.status}: ${l2Es.out.slice(0, 200)}`,
+    )
+    const l2Prose = scanFix("l2-prose.ts")
+    check(
+      "L2: строчная проза «xxx» не generic-todo",
+      l2Prose.status === 0 && !l2Prose.out.includes("vend/generic-todo"),
+      `exit ${l2Prose.status}: ${l2Prose.out.slice(0, 200)}`,
+    )
+    const h5l = scanFix("h5l-scan.ts")
+    check(
+      "A6: ignore-line rule-scoped гасит security-находку на своей строке [exit 0]",
+      h5l.status === 0 && !h5l.out.includes("vend/zero-width-chars"),
+      `exit ${h5l.status}: ${h5l.out.slice(0, 200)}`,
+    )
+  } finally {
+    rmSync(fixDir, { recursive: true, force: true })
+  }
+
+  const moved = (await import(pathToFileURL(selfPath).href)).multisetDiff("a\nb\nc\n", "a\nc\nb\n")
+  check("A6: reorder не считается добавлением строки", moved.length === 0, moved)
+
+  const gDir = mkdtempSync(join(tmpdir(), "slop-gate-semantics-diff-"))
+  try {
+    git(gDir, ["init", "-q", "-b", "main"])
+    writeFileSync(join(gDir, "base.ts"), "const base = 1\n")
+    writeFileSync(join(gDir, "m8.ts"), "const x = 1\n")
+    writeFileSync(join(gDir, "l3.ts"), "const x = 1\n")
+    git(gDir, ["add", "."])
+    git(gDir, ["commit", "-q", "-m", "init"])
+
+    writeFileSync(join(gDir, "a.ts"), "const x = 1\n// stop-ai-slop-ignore-file legacy\n// было так, стало иначе\n")
+    git(gDir, ["add", "a.ts"])
+    const c1a = runCli(["--staged"], gDir)
+    check(
+      "C1a: ignore-file с невалидным хвостом не глушит файл [changelog + self-suppression]",
+      c1a.out.includes("changelog-marker") && c1a.out.includes("vend/self-suppression"),
+      `exit ${c1a.status}: ${c1a.out.slice(0, 250)}`,
+    )
+    git(gDir, ["commit", "-q", "-m", "c1a"])
+
+    writeFileSync(join(gDir, "m8.ts"), "const x = 1\n// header one\n// header two\n")
+    git(gDir, ["add", "m8.ts"])
+    const m8 = runCli(["--staged"], gDir)
+    check(
+      "M8: 2-строчный комментарий в середине файла — не file-summary-header [diff]",
+      !m8.out.includes("vend/file-summary-header"),
+      `exit ${m8.status}: ${m8.out.slice(0, 250)}`,
+    )
+    git(gDir, ["commit", "-q", "-m", "m8"])
+
+    writeFileSync(join(gDir, "l3.ts"), "const x = 1\n" + FEFF + "const y = 2\n")
+    git(gDir, ["add", "l3.ts"])
+    const l3 = runCli(["--staged"], gDir)
+    check(
+      "L3: FEFF в первой добавленной строке ханка — не BOM, флагается [vend/zero-width-chars]",
+      l3.out.includes("vend/zero-width-chars"),
+      `exit ${l3.status}: ${l3.out.slice(0, 250)}`,
+    )
+    git(gDir, ["commit", "-q", "-m", "l3"])
+
+    writeFileSync(join(gDir, "h5b.ts"), "// stop-ai-slop-ignore-next-line bogus-rule\nconst x = 1 // Step 3: normalize\n")
+    git(gDir, ["add", "h5b.ts"])
+    const h5b = runCli(["--staged"], gDir)
+    check(
+      "H5: ignore-next-line с bogus-id не подавляет + self-suppression [diff]",
+      h5b.out.includes("vend/step-numbered") && h5b.out.includes("vend/self-suppression"),
+      `exit ${h5b.status}: ${h5b.out.slice(0, 250)}`,
+    )
+    git(gDir, ["commit", "-q", "-m", "h5b"])
+
+    writeFileSync(join(gDir, "h5a.ts"), "// stop-ai-slop-ignore-next-line vend/step-numbered\nconst x = 1 // Step 3: normalize\n")
+    git(gDir, ["add", "h5a.ts"])
+    const h5a = runCli(["--staged"], gDir)
+    check(
+      "H5: ignore-next-line с валидным id подавляет step-numbered [exit 0]",
+      h5a.status === 0 && !h5a.out.includes("vend/step-numbered") && !h5a.out.includes("vend/self-suppression"),
+      `exit ${h5a.status}: ${h5a.out.slice(0, 250)}`,
+    )
+  } finally {
+    rmSync(gDir, { recursive: true, force: true })
   }
 }

@@ -151,7 +151,8 @@ export const MAX_COMMENT_LENGTH = 120
 export function isCommentLine(line, profile = PROFILES.legacy) {
   const t = line.trim()
   if (profile.prefixes.some((p) => t.startsWith(p))) return true
-  if (profile.suffixes.some((s) => t.endsWith(s))) return true
+  // a bare `*/` suffix is a regex literal or stray code unless a block opener is on the line
+  if (profile.suffixes.some((s) => t.endsWith(s)) && profile.blocks.some(([open]) => t.includes(open))) return true
   return profile.regexPrefixes.some((re) => re.test(t))
 }
 
