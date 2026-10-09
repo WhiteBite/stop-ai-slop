@@ -24,11 +24,11 @@ const run = (selfPath, args, cwd, input) => {
 const payload = (file) => JSON.stringify({ tool_name: "Write", tool_input: { file_path: file, content: "const x = 1\n" } })
 
 const MODES = [
-  { name: "scan", args: ["scan", "."], input: null },
-  { name: "scan-strict", args: ["scan", ".", "--strict"], input: null },
-  { name: "scan-format-json", args: ["scan", ".", "--format", "json"], input: null },
-  { name: "scan-format-sarif", args: ["scan", ".", "--format", "sarif"], input: null },
-  { name: "scan-lang-en", args: ["--lang", "en", "scan", "."], input: null },
+  { name: "scan", args: ["scan", "."], input: null, expect: [0, 1] },
+  { name: "scan-strict", args: ["scan", ".", "--strict"], input: null, expect: [0, 1] },
+  { name: "scan-format-json", args: ["scan", ".", "--format", "json"], input: null, expect: [0, 1] },
+  { name: "scan-format-sarif", args: ["scan", ".", "--format", "sarif"], input: null, expect: [0, 1] },
+  { name: "scan-lang-en", args: ["--lang", "en", "scan", "."], input: null, expect: [0, 1] },
   { name: "staged", args: ["--staged"], input: null, expect: 0 },
   { name: "diff", args: ["--diff", "HEAD"], input: null, expect: 0 },
   { name: "fix-dry-run", args: ["--fix", "--dry-run"], input: null, expect: 0 },
@@ -43,7 +43,7 @@ const MODES = [
   { name: "doctor", args: ["--doctor"], input: null, expect: 0 },
   { name: "install-hooks", args: ["--install-hooks"], input: null, expect: 0 },
   { name: "install-rules", args: ["--install-rules"], input: null, expect: 0 },
-  { name: "stdin-path", args: ["--stdin-path"], input: (cwd) => payload(join(cwd, "a.ts")) },
+  { name: "stdin-path", args: ["--stdin-path"], input: (cwd) => payload(join(cwd, "a.ts")), expect: [0, 1] },
   { name: "pre-tool", args: ["--pre-tool"], input: (cwd) => payload(join(cwd, "a.ts")), expect: 0 },
   {
     name: "mcp",
@@ -80,7 +80,7 @@ export default async function ({ check, selfPath }) {
       for (const mode of MODES) {
         const res = run(selfPath, mode.args, dir, mode.input === null ? undefined : mode.input(dir))
         const crashed = CRASH.test(res.out)
-        const badStatus = mode.expect === undefined ? res.status > 2 : res.status !== mode.expect
+        const badStatus = mode.expect === undefined ? res.status !== 0 : Array.isArray(mode.expect) ? !mode.expect.includes(res.status) : res.status !== mode.expect
         const badShape = mode.extra !== undefined && !mode.extra(res)
         check(
           `cli-smoke[${variant}]: ${mode.name} не падает`,
