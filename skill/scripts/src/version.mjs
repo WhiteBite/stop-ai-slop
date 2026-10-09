@@ -6,22 +6,22 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..")
 
 let cachedVersion = null
 
-export function packageVersion() {
-  if (cachedVersion === null) {
-    cachedVersion = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8")).version
-  }
-  return cachedVersion
+export function packageVersion(root = ROOT) {
+  if (root === ROOT && cachedVersion !== null) return cachedVersion
+  const version = JSON.parse(readFileSync(join(root, "package.json"), "utf8")).version
+  if (root === ROOT) cachedVersion = version
+  return version
 }
 
-function readText(relPath) {
-  const path = join(ROOT, relPath)
+function readText(root, relPath) {
+  const path = join(root, relPath)
   return existsSync(path) ? readFileSync(path, "utf8") : null
 }
 
-function pluginSurface(version) {
+function pluginSurface(root, version) {
   const name = "version-sync-plugin: plugin.json version == package.json"
   const relPath = ".claude-plugin/plugin.json"
-  const raw = readText(relPath)
+  const raw = readText(root, relPath)
   if (raw === null) return { name, relPath, expected: version, actual: "missing", ok: false }
   let actual = null
   try {
@@ -32,11 +32,11 @@ function pluginSurface(version) {
   return { name, relPath, expected: version, actual, ok: actual === version }
 }
 
-function schemaSurface(version) {
+function schemaSurface(root, version) {
   const name = "version-sync-schema: schema $id содержит /v<version>/ из package.json"
   const relPath = "schema/stop-ai-slop.schema.json"
   const expected = `v${version}`
-  const raw = readText(relPath)
+  const raw = readText(root, relPath)
   if (raw === null) return { name, relPath, expected, actual: "missing", ok: false }
   let id = null
   try {
@@ -50,11 +50,11 @@ function schemaSurface(version) {
   return { name, relPath, expected, actual, ok: id.includes(`/v${version}/`) }
 }
 
-function changelogSurface(version) {
+function changelogSurface(root, version) {
   const name = "version-sync-changelog: CHANGELOG.md содержит секцию ## <version> из package.json"
   const relPath = "CHANGELOG.md"
   const expected = `## ${version}`
-  const raw = readText(relPath)
+  const raw = readText(root, relPath)
   if (raw === null) return { name, relPath, expected, actual: "missing", ok: false }
   const headings = raw.split(/\r?\n/).filter((line) => line.startsWith("## "))
   const ok = headings.some((line) => line.trim() === expected)
@@ -63,20 +63,20 @@ function changelogSurface(version) {
   return { name, relPath, expected, actual, ok }
 }
 
-function citationSurface(version) {
+function citationSurface(root, version) {
   const name = "version-sync-citation: CITATION.cff version == package.json"
   const relPath = "CITATION.cff"
-  const raw = readText(relPath)
+  const raw = readText(root, relPath)
   if (raw === null) return { name, relPath, expected: version, actual: "missing", ok: false }
   const m = /^version:\s*["']?(\d+\.\d+\.\d+)["']?\s*$/m.exec(raw)
   const actual = m !== null ? m[1] : "no version: line"
   return { name, relPath, expected: version, actual, ok: actual === version }
 }
 
-function jsonldSurface(version) {
+function jsonldSurface(root, version) {
   const name = "version-sync-jsonld: docs/jsonld.jsonld softwareVersion == package.json"
   const relPath = "docs/jsonld.jsonld"
-  const raw = readText(relPath)
+  const raw = readText(root, relPath)
   if (raw === null) return { name, relPath, expected: version, actual: "missing", ok: false }
   let actual = null
   try {
@@ -87,37 +87,48 @@ function jsonldSurface(version) {
   return { name, relPath, expected: version, actual, ok: actual === version }
 }
 
-function modelineSurface(version, relPath) {
+function modelineSurface(root, version, relPath) {
   const name = `version-sync-modeline: ${relPath} schema modeline tag == v${version}`
   const expected = `v${version}`
-  const raw = readText(relPath)
+  const raw = readText(root, relPath)
   if (raw === null) return { name, relPath, expected, actual: "missing", ok: false }
   const m = /\/v(\d+\.\d+\.\d+)\/schema\/stop-ai-slop\.schema\.json/.exec(raw)
   const actual = m !== null ? `v${m[1]}` : "no schema modeline tag"
   return { name, relPath, expected, actual, ok: actual === expected }
 }
 
-function revSurface(version, relPath) {
+function revSurface(root, version, relPath) {
   const name = `version-sync-precommit: ${relPath} pre-commit rev == v${version}`
   const expected = `v${version}`
-  const raw = readText(relPath)
+  const raw = readText(root, relPath)
   if (raw === null) return { name, relPath, expected, actual: "missing", ok: false }
   const m = /^\s*rev:\s*v(\d+\.\d+\.\d+)\s*$/m.exec(raw)
   const actual = m !== null ? `v${m[1]}` : "no pre-commit rev"
   return { name, relPath, expected, actual, ok: actual === expected }
 }
 
-export function versionSurfaces() {
-  const version = packageVersion()
+function formulaSurface(root, version) {
+  const name = "version-sync-formula: Formula/stop-ai-slop.rb url tag == package.json"
+  const relPath = "Formula/stop-ai-slop.rb"
+  const raw = readText(root, relPath)
+  if (raw === null) return { name, relPath, expected: version, actual: "missing", ok: false }
+  const m = /stop-ai-slop-(\d+\.\d+\.\d+)\.tgz/.exec(raw)
+  const actual = m !== null ? m[1] : "no url tag"
+  return { name, relPath, expected: version, actual, ok: actual === version }
+}
+
+export function versionSurfaces(root = ROOT) {
+  const version = packageVersion(root)
   return [
-    pluginSurface(version),
-    schemaSurface(version),
-    changelogSurface(version),
-    citationSurface(version),
-    jsonldSurface(version),
-    modelineSurface(version, "README.md"),
-    modelineSurface(version, "README.ru.md"),
-    revSurface(version, "README.md"),
-    revSurface(version, "README.ru.md"),
+    pluginSurface(root, version),
+    schemaSurface(root, version),
+    changelogSurface(root, version),
+    citationSurface(root, version),
+    jsonldSurface(root, version),
+    modelineSurface(root, version, "README.md"),
+    modelineSurface(root, version, "README.ru.md"),
+    revSurface(root, version, "README.md"),
+    revSurface(root, version, "README.ru.md"),
+    formulaSurface(root, version),
   ]
 }
