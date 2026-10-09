@@ -10,7 +10,7 @@ const ZW = String.fromCodePoint(0x200b)
 function runWithInput(selfPath, cwd, args, payload) {
   try {
     const out = execFileSync(process.execPath, [selfPath, ...args], {
-      input: JSON.stringify(payload),
+      input: typeof payload === "string" ? payload : JSON.stringify(payload),
       cwd,
       encoding: "utf8",
       stdio: "pipe",
@@ -19,6 +19,21 @@ function runWithInput(selfPath, cwd, args, payload) {
     return { status: 0, out }
   } catch (error) {
     return { status: error.status ?? 1, out: `${error.stdout ?? ""}${error.stderr ?? ""}` }
+  }
+}
+
+function runSplit(selfPath, cwd, args, payload) {
+  try {
+    const stdout = execFileSync(process.execPath, [selfPath, ...args], {
+      input: typeof payload === "string" ? payload : JSON.stringify(payload),
+      cwd,
+      encoding: "utf8",
+      stdio: "pipe",
+      env: LANG,
+    })
+    return { status: 0, stdout, stderr: "" }
+  } catch (error) {
+    return { status: error.status ?? 1, stdout: error.stdout ?? "", stderr: error.stderr ?? "" }
   }
 }
 
@@ -106,9 +121,41 @@ export default async function ({ check, runCli, selfPath }) {
     writeFileSync(s6file, "// " + "z".repeat(55) + "\nconst x = 1\n")
     const s6 = stdinPath(selfPath, cfgRoot, { tool_input: { file_path: s6file } })
     check(
-      "cfg-surface S6: --stdin-path чтит maxCommentLength [exit 1]",
-      s6.status === 1 && s6.out.includes("long-comment"),
+      "cfg-surface S6: --stdin-path чтит maxCommentLength [exit 2]",
+      s6.status === 2 && s6.out.includes("long-comment"),
       `exit ${s6.status}: ${s6.out.slice(0, 200)}`,
+    )
+
+    const m5file = join(cfgRoot, "m5.ts")
+    writeFileSync(m5file, "// one\n// two\nconst x = 1\n")
+    const m5 = runSplit(selfPath, cfgRoot, ["--stdin-path"], { tool_input: { file_path: m5file } })
+    check(
+      "post-tool M5: --stdin-path находки в stderr [exit 2]",
+      m5.status === 2 && m5.stderr.includes("multi-line-comment") && !m5.stdout.includes("multi-line-comment"),
+      `exit ${m5.status}: stdout=${JSON.stringify(m5.stdout.slice(0, 120))} stderr=${JSON.stringify(m5.stderr.slice(0, 160))}`,
+    )
+    const m5fix = runSplit(selfPath, cfgRoot, ["--stdin-path", "--fix-suggestions"], { tool_input: { file_path: m5file } })
+    const m5line = m5fix.stdout.trimEnd().split("\n").at(-1) ?? ""
+    let m5entries = null
+    if (m5line.startsWith("fix-suggestions: ")) {
+      try {
+        m5entries = JSON.parse(m5line.slice("fix-suggestions: ".length))
+      } catch {
+        m5entries = null
+      }
+    }
+    check(
+      "post-tool M5: --fix-suggestions строка остаётся в stdout при exit 2",
+      m5fix.status === 2 && m5fix.stderr.includes("multi-line-comment") && Array.isArray(m5entries) && m5entries.length >= 1,
+      `exit ${m5fix.status}: stdout=${JSON.stringify(m5fix.stdout.slice(0, 200))}`,
+    )
+    rmSync(m5file, { force: true })
+
+    const a6json = runWithInput(selfPath, cfgRoot, ["--pre-tool"], "definitely not json{{{")
+    check(
+      "pre-tool A6: битый JSON в stdin — fail-open [exit 0]",
+      a6json.status === 0,
+      `exit ${a6json.status}: ${a6json.out.slice(0, 200)}`,
     )
 
     writeFileSync(join(cfgRoot, "scan-slop.ts"), "// one\n// two\nconst x = 1\n")
@@ -158,6 +205,30 @@ export default async function ({ check, runCli, selfPath }) {
       "cfg-surface evaluateEdit: lineNo — реальная строка файла, не индекс добавленной",
       eePos.blocked === true && eePos.violations[0]?.lineNo === 3 && eePos.message.includes("pos.ts:3"),
       JSON.stringify({ blocked: eePos.blocked, lineNo: eePos.violations[0]?.lineNo, message: eePos.message?.slice(0, 80) }),
+    )
+
+    const meFile = join(cfgRoot, "multiedit-pos.ts")
+    writeFileSync(meFile, "const a = 1\nconst b = 2\nconst c = 3\n")
+    const me = evaluateEdit("multiedit", {
+      filePath: meFile,
+      edits: [
+        { oldString: "const a = 1\n", newString: "// alpha one\n// alpha two\nconst a = 1\n" },
+        { oldString: "const c = 3\n", newString: "const c = 3\nconst d = 4\n// gamma one\n// gamma two\n" },
+      ],
+    })
+    check(
+      "gate A6: multiedit 2+ правки — кумулятивный сдвиг lineNo",
+      me.blocked === true &&
+        me.addedCount === 5 &&
+        me.violations.filter((v) => v.rule === "multi-line-comment").map((v) => v.lineNo).join(",") === "1,7" &&
+        me.message.includes("multiedit-pos.ts:1") &&
+        me.message.includes("multiedit-pos.ts:7"),
+      JSON.stringify({
+        blocked: me.blocked,
+        added: me.addedCount,
+        lineNos: me.violations.map((v) => v.lineNo),
+        msg: me.message?.slice(0, 120),
+      }),
     )
   } finally {
     rmSync(cfgRoot, { recursive: true, force: true })

@@ -1,12 +1,16 @@
 import type { Plugin } from "@opencode-ai/plugin"
 import { appendAudit, evaluateEdit } from "../skill/scripts/scan.mjs"
+import { shapeTool } from "../skill/scripts/src/gate.mjs"
 
 export { detectCommentSlop } from "../skill/scripts/scan.mjs"
 export type { Violation } from "../skill/scripts/scan.mjs"
 
 function guard(tool: string, args: Record<string, unknown>) {
   const result = evaluateEdit(tool, args)
-  if (!result.evaluated) return
+  if (!result.evaluated) {
+    if (shapeTool(tool, args) !== null) appendAudit({ verdict: "unevaluated", tool, filePath: result.filePath })
+    return
+  }
   if (!result.blocked) {
     appendAudit({ verdict: "passed", tool, filePath: result.filePath, added: result.addedCount })
     return

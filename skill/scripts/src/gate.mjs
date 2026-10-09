@@ -106,30 +106,86 @@ export function formatFindings(filePath, violations, prefix = "comment-gate") {
   return `${blocks.join("\n\n")}\nPolicy: ${T("gatePolicy")}`
 }
 export const MUTATING_TOOLS = new Set(["edit", "write", "multiedit"])
-export function evaluateEdit(tool, args, opts) {
-  if (typeof tool !== "string" || !MUTATING_TOOLS.has(tool)) {
-    return { tool, evaluated: false, blocked: false, filePath: null, addedCount: 0, violations: [], message: null }
+const PRE_TOOL_READ_ONLY = /read|view|grep|search|glob|list|ls|bash|shell|exec|run|fetch|web|think|todo|plan/
+
+export function shapeTool(tool, args) {
+  let name = String(tool ?? "").toLowerCase()
+  if (name === "write_file") name = "write"
+  else if (name === "replace") name = "edit"
+  if (name === "apply_patch") return "apply_patch"
+  if (MUTATING_TOOLS.has(name)) return name
+  if (PRE_TOOL_READ_ONLY.test(name)) return null
+  const shapePath = args?.file_path ?? args?.filePath
+  const shapePatch = [args?.command, args?.input, args?.patch, args?.text].find((v) => typeof v === "string")
+  if (typeof shapePath === "string" && typeof args?.content === "string") return "write"
+  if (
+    typeof shapePath === "string" &&
+    typeof (args?.old_string ?? args?.oldString ?? args?.old_str) === "string" &&
+    typeof (args?.new_string ?? args?.newString ?? args?.new_str) === "string"
+  )
+    return "edit"
+  if (typeof shapePath === "string" && Array.isArray(args?.edits)) return "multiedit"
+  if (typeof shapePatch === "string" && shapePatch.includes("*** Begin Patch")) return "apply_patch"
+  return null
+}
+
+export function normalizeToolArgs(args) {
+  return {
+    filePath: args?.file_path ?? args?.filePath,
+    content: args?.content,
+    oldString: args?.old_string ?? args?.oldString ?? args?.old_str,
+    newString: args?.new_string ?? args?.newString ?? args?.new_str,
+    edits: Array.isArray(args?.edits)
+      ? args.edits.map((e) => ({ oldString: e?.old_string ?? e?.oldString, newString: e?.new_string ?? e?.newString }))
+      : args?.edits,
   }
-  const filePathArg = typeof args?.filePath === "string" ? args.filePath : null
-  const root = typeof opts?.root === "string" ? opts.root : filePathArg === null ? null : resolveConfigRoot(filePathArg)
-  const extracted = addedFromToolArgs(tool, args ?? {}, root === null ? opts : { ...opts, keepGenerated: true })
-  if (extracted === null) {
-    return {
-      tool,
-      evaluated: false,
-      blocked: false,
-      filePath: typeof args?.filePath === "string" ? args.filePath : null,
-      addedCount: 0,
-      violations: [],
+}
+
+export function evaluateEdit(tool, args, opts) {
+  const raw = args ?? {}
+  const filePathArg = typeof raw.filePath === "string" ? raw.filePath : typeof raw.file_path === "string" ? raw.file_path : null
+  const shaped = typeof tool === "string" ? shapeTool(tool, raw) : null
+  if (shaped === null) {
+    return { tool, evaluated: false, blocked: false, filePath: filePathArg, addedCount: 0, violations: [], message: null }
+  }
+  if (shaped === "apply_patch") {
+    const text = [raw.command, raw.input, raw.patch, raw.text].find((v) => typeof v === "string")
+    const deltas = typeof text === "string" ? extractPatchDeltas(text) : []
+    if (deltas.length === 0) {
+      return { tool: shaped, evaluated: false, blocked: false, filePath: null, addedCount: 0, violations: [], message: null }
+    }
+    const groups = []
+    let addedCount = 0
+    for (const { filePath, added } of deltas) {
+      addedCount += added.length
+      const root = typeof opts?.root === "string" ? opts.root : resolveConfigRoot(filePath)
+      const violations = configFindings(root, filePath, added, true).filter((v) => v.severity === "error")
+      if (violations.length > 0) groups.push({ filePath, violations: violations.map((v) => ({ ...v, lineNo: null })) })
+    }
+    const merged = groups.flatMap((g) => g.violations)
+    const result = {
+      tool: shaped,
+      evaluated: true,
+      blocked: merged.length > 0,
+      filePath: deltas[0].filePath,
+      addedCount,
+      violations: merged,
       message: null,
     }
+    if (merged.length > 0) result.message = groups.map((g) => formatFindings(g.filePath, g.violations)).join("\n")
+    return result
+  }
+  const root = typeof opts?.root === "string" ? opts.root : filePathArg === null ? null : resolveConfigRoot(filePathArg)
+  const extracted = addedFromToolArgs(shaped, normalizeToolArgs(raw), root === null ? opts : { ...opts, keepGenerated: true })
+  if (extracted === null) {
+    return { tool: shaped, evaluated: false, blocked: false, filePath: filePathArg, addedCount: 0, violations: [], message: null }
   }
   const violations = locateViolations(
     configFindings(root, extracted.filePath, extracted.added, true).filter((v) => v.severity === "error"),
     extracted.lineNos,
   )
   const result = {
-    tool,
+    tool: shaped,
     evaluated: true,
     blocked: violations.length > 0,
     filePath: extracted.filePath,

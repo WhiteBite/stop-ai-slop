@@ -2,10 +2,10 @@ import { existsSync, readFileSync } from "node:fs"
 import { resolve } from "node:path"
 import { toRel } from "./paths.mjs"
 import { profileFor } from "./profiles.mjs"
-import { addedFromToolArgs, configFindings, extractPatchDeltas, formatFindings, loadConfigCached, locateViolations } from "./gate.mjs"
+import { addedFromToolArgs, configFindings, extractPatchDeltas, formatFindings, loadConfigCached, locateViolations, normalizeToolArgs, shapeTool } from "./gate.mjs"
 import { gitToplevel, readScannable } from "./git.mjs"
 import { loadBaseline, maskBaselined } from "./baseline.mjs"
-import { failsGate, printFindings } from "./report.mjs"
+import { failsGate, findingsToText, printFindings } from "./report.mjs"
 import { printFixSuggestions } from "./fixsuggest.mjs"
 import { T } from "./i18n.mjs"
 
@@ -36,11 +36,15 @@ export function cmdStdinPath(fixSuggestions = false) {
   )
   const baseline = loadBaseline(root)
   const fresh = maskBaselined(baseline, findings)
-  printFindings(fresh)
   if (fixSuggestions) printFixSuggestions(root, fresh, "text")
-  return failsGate(fresh, false) ? 1 : 0
+  if (failsGate(fresh, false)) {
+    // Claude Code delivers hook stderr to the model only on exit 2
+    process.stderr.write(findingsToText(fresh) + "\n")
+    return 2
+  }
+  printFindings(fresh)
+  return 0
 }
-export const PRE_TOOL_READ_ONLY = /read|view|grep|search|glob|list|ls|bash|shell|exec|run|fetch|web|think|todo|plan/
 
 export function preToolPatch(ti) {
   const text = [ti.command, ti.input, ti.patch, ti.text].find((v) => typeof v === "string")
@@ -66,44 +70,19 @@ export function cmdPreTool() {
   try {
     payload = JSON.parse(readFileSync(0, "utf8"))
   } catch {
-      process.stderr.write(T("preToolNotJson") + "\n")
+    process.stderr.write(T("preToolNotJson") + "\n")
     return 0
   }
-  let tool = String(payload?.tool_name ?? "").toLowerCase()
-  if (tool === "write_file") tool = "write"
-  else if (tool === "replace") tool = "edit"
   const ti = payload?.tool_input ?? {}
-  if (tool === "apply_patch") return preToolPatch(ti)
-  if (tool !== "write" && tool !== "edit" && tool !== "multiedit") {
-    if (PRE_TOOL_READ_ONLY.test(tool)) return 0
-    const shapePath = ti.file_path ?? ti.filePath
-    const shapePatch = [ti.command, ti.input, ti.patch, ti.text].find((v) => typeof v === "string")
-    if (typeof shapePath === "string" && typeof ti.content === "string") tool = "write"
-    else if (
-      typeof shapePath === "string" &&
-      typeof (ti.old_string ?? ti.oldString ?? ti.old_str) === "string" &&
-      typeof (ti.new_string ?? ti.newString ?? ti.new_str) === "string"
-    )
-      tool = "edit"
-    else if (typeof shapePath === "string" && Array.isArray(ti.edits)) tool = "multiedit"
-    else if (typeof shapePatch === "string" && shapePatch.includes("*** Begin Patch")) return preToolPatch(ti)
-    else return 0
-  }
+  const shaped = shapeTool(payload?.tool_name, ti)
+  if (shaped === null) return 0
+  if (shaped === "apply_patch") return preToolPatch(ti)
   const root = gitToplevel(process.cwd())
   const config = loadConfigOrNull(root)
-  const extracted = addedFromToolArgs(
-    tool,
-    {
-      filePath: ti.file_path ?? ti.filePath,
-      content: ti.content,
-      oldString: ti.old_string ?? ti.oldString ?? ti.old_str,
-      newString: ti.new_string ?? ti.newString ?? ti.new_str,
-      edits: Array.isArray(ti.edits)
-        ? ti.edits.map((e) => ({ oldString: e?.old_string ?? e?.oldString, newString: e?.new_string ?? e?.newString }))
-        : ti.edits,
-    },
-    { includeGenerated: config?.scanGenerated === true, keepGenerated: true },
-  )
+  const extracted = addedFromToolArgs(shaped, normalizeToolArgs(ti), {
+    includeGenerated: config?.scanGenerated === true,
+    keepGenerated: true,
+  })
   if (extracted === null) return 0
   const violations = locateViolations(
     configFindings(root, extracted.filePath, extracted.added, true, config).filter((v) => v.severity === "error"),
