@@ -8,7 +8,6 @@ import {
   collectCommands,
   mergeHooks,
   readJsonConfig,
-  recordOwnership,
   resolveHooksDir,
   writeJsonAtomic,
   writeMarkerBlock,
@@ -54,7 +53,8 @@ export function cmdInstall(strict = false) {
       const eol = raw.includes("\r\n") ? "\r\n" : "\n"
       const indent = raw.match(/^[ \t]+(?=")/m)?.[0] ?? null
       const body = indent === null ? JSON.stringify(pkg) : JSON.stringify(pkg, null, indent)
-      writeFileSync(pkgPath, (eol === "\r\n" ? body.replace(/\n/g, "\r\n") : body) + (/\r?\n$/.test(raw) ? eol : ""))
+      const bom = raw.charCodeAt(0) === 0xfeff ? String.fromCharCode(0xfeff) : ""
+      writeFileSync(pkgPath, bom + (eol === "\r\n" ? body.replace(/\n/g, "\r\n") : body) + (/\r?\n$/.test(raw) ? eol : ""))
       console.log(`slop-gate: package.json — ${had ? "обновлены" : "добавлены"} scripts.stop-ai-slop и scripts.stop-ai-slop:all`)
     }
   } else {
@@ -68,7 +68,13 @@ export function cmdInstall(strict = false) {
   const hookPath = join(hooksDir, "pre-commit")
   const MARK = `# >>> ${SLOP_GATE_ID} >>>`
   const block = `${MARK}\nif [ ! -f "${abs}" ]; then\n  echo "slop-gate: сканер не найден: ${abs} — запустите --install заново" >&2\n  exit 2\nfi\n${stagedCmd}\n# <<< ${SLOP_GATE_ID} <<<\n`
-  const result = writeMarkerBlock(hookPath, block, { variant: "shell-block", id: SLOP_GATE_ID })
+  let result
+  try {
+    result = writeMarkerBlock(hookPath, block, { variant: "shell-block", id: SLOP_GATE_ID })
+  } catch (error) {
+    console.error(`slop-gate: не удалось записать pre-commit hook в ${hookPath}: ${error.message}`)
+    return 2
+  }
   if (result.action === "created") console.log("slop-gate: pre-commit hook создан")
   else if (result.action === "appended") console.log("slop-gate: pre-commit hook — добавлен блок после существующего содержимого")
   else console.log(`slop-gate: pre-commit hook — ${SLOP_GATE_ID} блок обновлён`)
@@ -81,7 +87,7 @@ export function cmdInstallHooks() {
   const command = `node "${abs}" --pre-tool`
   const matcher = "Write|Edit|MultiEdit|write_file|replace|apply_patch"
   const isMine = (cmd) => typeof cmd === "string" && cmd.includes("--pre-tool")
-  const mergeHook = (rel, template, shape, locatorOf) => {
+  const mergeHook = (rel, template, shape) => {
     const file = join(root, rel)
     let existing
     try {
@@ -102,20 +108,17 @@ export function cmdInstallHooks() {
     }
     const hadOwn = existing !== null && collectCommands(existing, { shape }).some(isMine)
     writeJsonAtomic(file, merged)
-    recordOwnership(root, "stop-ai-slop", rel, merged, [locatorOf(merged)])
     console.log(`slop-gate: ${rel} — ${hadOwn ? "хук обновлён" : "хук добавлен"}`)
   }
   mergeHook(
     ".codex/hooks.json",
     { hooks: { PreToolUse: [{ matcher, hooks: [{ type: "command", command }] }] } },
     "nested-hooks",
-    (merged) => ["hooks", "PreToolUse", merged.hooks.PreToolUse.length - 1],
   )
   mergeHook(
     ".devin/hooks.v1.json",
     { PreToolUse: [{ hooks: [{ type: "command", command }] }] },
     "root-events",
-    (merged) => ["PreToolUse", merged.PreToolUse.length - 1],
   )
   const vscodeRel = ".github/hooks/stop-ai-slop.json"
   const vscodeFile = join(root, vscodeRel)

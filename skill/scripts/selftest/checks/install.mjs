@@ -193,10 +193,10 @@ export default async function ({ check, runCli, selfPath }) {
   try {
     const res = runCli(["--install"], dBom)
     const after = pkgOf(dBom)
-    const pkg = parseJson(after)
+    const pkg = parseJson(after.charCodeAt(0) === 0xfeff ? after.slice(1) : after)
     check(
-      "install-pkg-bom: BOM распарсен, отступ сохранён, BOM не остался ни в начале, ни в середине [exit 0]",
-      res.status === 0 && pkg !== null && !after.includes(BOM) && /^ {4}"name"/m.test(after) && scriptsOk(pkg),
+      "install-pkg-bom: BOM сохранён при перезаписи, отступ сохранён, BOM не попадает в середину [exit 0]",
+      res.status === 0 && pkg !== null && after.startsWith(BOM) && !after.slice(1).includes(BOM) && /^ {4}"name"/m.test(after) && scriptsOk(pkg),
       `exit ${res.status}: ${JSON.stringify(after)}`,
     )
   } finally {

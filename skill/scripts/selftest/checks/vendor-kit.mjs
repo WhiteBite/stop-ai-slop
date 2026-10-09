@@ -2,7 +2,7 @@ import { createHash } from "node:crypto"
 import { readdirSync, readFileSync, statSync } from "node:fs"
 import { dirname, join, relative } from "node:path"
 
-const VENDORED_DIRS = ["src", "registry", "types"]
+const VENDORED_DIRS = ["src", "types"]
 
 export default async function ({ check, selfPath }) {
   const vendorRoot = join(dirname(selfPath), "vendor", "harness-kit")

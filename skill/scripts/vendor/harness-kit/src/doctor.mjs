@@ -12,14 +12,17 @@ function runGit(args, cwd) {
 
 export function resolveHooksDir(root, { exec } = {}) {
   if (!existsSync(join(root, '.git'))) return null;
-  const fallback = join(root, '.git', 'hooks');
   const run = exec ?? runGit;
   try {
     const configured = run(['config', 'core.hooksPath'], root).trim();
-    return configured === '' ? fallback : resolve(root, configured);
-  } catch {
-    return fallback;
-  }
+    if (configured !== '') return resolve(root, configured);
+  } catch {}
+  // a linked worktree has a .git FILE: only rev-parse knows the real (common-dir) hooks location
+  try {
+    const gitPath = run(['rev-parse', '--git-path', 'hooks'], root).trim();
+    if (gitPath !== '') return resolve(root, gitPath);
+  } catch {}
+  return join(root, '.git', 'hooks');
 }
 
 function finding(id, status, detail) {
