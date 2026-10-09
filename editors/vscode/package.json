@@ -12,6 +12,7 @@
   ],
   "main": "./extension.js",
   "activationEvents": [
+    "onStartupFinished",
     "onCommand:stopAiSlop.scanFile",
     "onCommand:stopAiSlop.scanWorkspace"
   ],
@@ -34,7 +35,7 @@
         "stopAiSlop.command": {
           "type": "string",
           "default": "npx stop-ai-slop",
-          "description": "Scanner invocation: npx or an absolute path to the stop-ai-slop bin. Split on whitespace and executed without a shell."
+          "description": "Scanner invocation: npx or an absolute path to the stop-ai-slop bin. Executed through a shell; wrap paths containing spaces in double quotes."
         }
       }
     }

@@ -3,6 +3,8 @@
 const { execFile } = require("node:child_process")
 const path = require("node:path")
 
+const SCAN_TIMEOUT_MS = 30000
+
 let vscodeModule = null
 function getVSCode() {
   if (vscodeModule === null) vscodeModule = require("vscode")
@@ -24,12 +26,32 @@ function parseFindings(text) {
   return out
 }
 
+function tokenizeCommand(line) {
+  const tokens = []
+  const re = /"([^"]*)"|(\S+)/g
+  let m
+  while ((m = re.exec(line)) !== null) tokens.push(m[1] !== undefined ? m[1] : m[2])
+  return tokens
+}
+
+function quoteToken(token) {
+  if (!/[\s"]/.test(token)) return token
+  if (process.platform === "win32") return `"${token}"`
+  return `'${token.replace(/'/g, `'\\''`)}'`
+}
+
+// npx on Windows is a .cmd shim: execFile without a shell spawns ENOENT
+function spawnScanner(commandLine, args, cwd, timeoutMs, done) {
+  // with shell:true node only concatenates args, so every token is quoted here
+  const line = [...tokenizeCommand(commandLine), ...args].map(quoteToken).join(" ")
+  execFile(line, [], { cwd, shell: true, timeout: timeoutMs, windowsHide: true }, done)
+}
+
 let collection = null
 let output = null
 
-function commandArgs() {
-  const configured = getVSCode().workspace.getConfiguration("stopAiSlop").get("command", "npx stop-ai-slop")
-  return configured.split(/\s+/).filter(Boolean)
+function configuredCommand() {
+  return getVSCode().workspace.getConfiguration("stopAiSlop").get("command", "npx stop-ai-slop")
 }
 
 function toDiagnostic(data) {
@@ -42,26 +64,29 @@ function toDiagnostic(data) {
   return diag
 }
 
-function runScan(args, cwd, done) {
-  const [cmd, ...base] = commandArgs()
-  execFile(cmd, [...base, ...args], { cwd }, (err, stdout, stderr) => {
+function runScan(args, cwd, handler) {
+  spawnScanner(configuredCommand(), args, cwd, SCAN_TIMEOUT_MS, (err, stdout, stderr) => {
     if (stderr) output.appendLine(String(stderr).trimEnd())
     if (err && !stdout) {
       output.appendLine(`scanner failed: ${err.message}`)
-      done(null)
+      handler(err, [])
       return
     }
-    done(parseFindings(stdout))
+    handler(null, parseFindings(stdout))
   })
+}
+
+function applyScanOutcome(target, uri, err, diagnostics) {
+  if (err !== null) target.delete(uri)
+  else target.set(uri, diagnostics)
 }
 
 function scanFile(uri) {
   const vs = getVSCode()
   const folder = vs.workspace.getWorkspaceFolder(uri)
   const cwd = folder ? folder.uri.fsPath : path.dirname(uri.fsPath)
-  runScan(["scan", uri.fsPath], cwd, (findings) => {
-    if (findings === null) return
-    collection.set(uri, findings.map(toDiagnostic))
+  runScan(["scan", uri.fsPath], cwd, (err, findings) => {
+    applyScanOutcome(collection, uri, err, findings.map(toDiagnostic))
   })
 }
 
@@ -70,9 +95,9 @@ function scanWorkspace() {
   const folders = vs.workspace.workspaceFolders
   if (!folders || folders.length === 0) return
   const root = folders[0].uri.fsPath
-  runScan(["scan", "."], root, (findings) => {
-    if (findings === null) return
+  runScan(["scan", "."], root, (err, findings) => {
     collection.clear()
+    if (err !== null) return
     const byFile = new Map()
     for (const data of findings) {
       const abs = path.isAbsolute(data.file) ? data.file : path.join(root, data.file)
@@ -101,8 +126,19 @@ function activate(context) {
       if (doc.uri.scheme === "file") scanFile(doc.uri)
     }),
   )
+  for (const editor of vs.window.visibleTextEditors) {
+    if (editor.document.uri.scheme === "file") scanFile(editor.document.uri)
+  }
 }
 
 function deactivate() {}
 
-module.exports = { activate, deactivate, parseFindings, toDiagnosticData }
+module.exports = {
+  activate,
+  deactivate,
+  parseFindings,
+  toDiagnosticData,
+  tokenizeCommand,
+  spawnScanner,
+  applyScanOutcome,
+}
