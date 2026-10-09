@@ -41,6 +41,7 @@ jobs:
         if: steps.ver.outputs.skip == 'false'
         run: npm publish --provenance
   release:
+    needs: npm
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -53,9 +54,10 @@ jobs:
             echo "value=v$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
           fi
       - name: Extract changelog section
+        env:
+          TAG: ${{ steps.tag.outputs.value }}
         run: |
-          version="${{ steps.tag.outputs.value }}"
-          version="${version#v}"
+          version="${TAG#v}"
           node -e '
             const fs = require("fs");
             const lines = fs.readFileSync("CHANGELOG.md", "utf8").split(/\r?\n/);
@@ -72,12 +74,12 @@ jobs:
       - name: Create GitHub release when missing
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.tag.outputs.value }}
         run: |
-          tag="${{ steps.tag.outputs.value }}"
-          if gh release view "$tag" >/dev/null 2>&1; then
-            echo "release $tag already exists, skipping"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "release $TAG already exists, skipping"
           else
-            gh release create "$tag" --title "$tag" --notes-file notes.md
+            gh release create "$TAG" --title "$TAG" --notes-file notes.md
           fi
   github-packages:
     runs-on: ubuntu-latest

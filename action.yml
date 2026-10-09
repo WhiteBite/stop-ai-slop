@@ -22,12 +22,18 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: Fetch base ref
+    - name: Require a resolvable base ref
       shell: bash
       run: |
-        if [ -n "$BASE_REF" ]; then
-          git fetch --no-tags --depth=1 origin "$BASE_REF"
+        if [ -z "$BASE_REF" ]; then
+          echo "::error::no base ref: on push events there is no github.base_ref; pass the base input explicitly or use pull_request"
+          exit 1
         fi
+      env:
+        BASE_REF: "${{ inputs.base != '' && inputs.base || github.base_ref }}"
+    - name: Fetch base ref
+      shell: bash
+      run: git fetch --no-tags --depth=1 origin "$BASE_REF"
       env:
         BASE_REF: "${{ inputs.base != '' && inputs.base || github.base_ref }}"
     - name: Scan added lines
