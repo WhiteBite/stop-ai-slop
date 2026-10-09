@@ -51,8 +51,8 @@ One scanner (`skill/scripts/scan.mjs`, the `RULES` table) is exposed through ele
 | --- | --- | --- |
 | CLI (`stop-ai-slop` bin) | scans files, staged changes or a diff; `--explain`, `--audit`, baseline | automatic with `npm i -D stop-ai-slop` |
 | pre-commit hook + npm scripts | blocks every commit that adds slop | automatic: `npx stop-ai-slop --install` |
-| OpenCode write-time plugin | rejects `write`/`edit`/`multiedit` at the moment of the write | manual: a one-line stub file (below) |
-| Claude Code plugin | skill + PreToolUse hook (blocks `Write`/`Edit`) + PostToolUse hook (prints findings back into the session) | automatic: `/plugin marketplace add` + `/plugin install` |
+| OpenCode write-time plugin | rejects `write`/`edit`/`multiedit` at the moment of the write; shape-gates unknown tool names with write-shaped payloads | manual: a one-line stub file (below) |
+| Claude Code plugin | skill + PreToolUse hook (blocks `Write`/`Edit`) + PostToolUse hook (delivers findings for the written file back to the model via stderr, exit 2) | automatic: `/plugin marketplace add` + `/plugin install` |
 | Agent skill (`skill/SKILL.md`) | teaches the policy and the commands to any agent | automatic with the Claude Code plugin; a manual junction/symlink for OpenCode |
 | MCP server (`--mcp`) | pull-mode `slop_scan` / `slop_explain` / `slop_baseline` for any MCP client | manual: one config entry per client |
 | GitHub Action / GitLab CI template | blocks PR/MR pipelines on the diff | manual: a workflow / CI snippet |
@@ -84,7 +84,7 @@ Error rules block (exit 1; the write-time gate throws). Warning rules teach: the
 
 ## Enforcement points
 
-1. **OpenCode write-time plugin** — `plugin/comment-gate.ts` intercepts `write`/`edit`/`multiedit` and rejects an edit that has error findings at the moment of the write, applying the `.stop-ai-slop.yaml` of the edited file's repository root (resolved from the file, not `process.cwd()`, so a file in repo B is judged by repo B's policy even when OpenCode runs from repo A). Mounted into `~/.config/opencode/plugins/` via a re-export stub. The default export `{ id: "stop-ai-slop", server: CommentGate, setup }` serves both APIs: OpenCode 1.18.29+ calls `server()` (v1 hook `tool.execute.before`), OpenCode 2.x calls `setup()` (registers `ctx.tool.hook("execute.before")`, the only V2 hook that may reject a call); the legacy named export `CommentGate` keeps old stubs on older 1.x working. OpenCode displays local plugins by their stub file name — name the stub `stop-ai-slop.ts` instead of `comment-gate.ts` if you want that label.
+1. **OpenCode write-time plugin** — `plugin/comment-gate.ts` intercepts `write`/`edit`/`multiedit` and rejects an edit that has error findings at the moment of the write; unknown or capitalized tool names whose payload is write-shaped (`file_path`+`content`, `file_path`+`old_string`+`new_string`, `file_path`+`edits[]`, or patch text with `*** Begin Patch`) are evaluated by shape too, and a mutating-shaped call that cannot be evaluated is recorded in the audit log with verdict `unevaluated`. It applies the `.stop-ai-slop.yaml` of the edited file's repository root (resolved from the file, not `process.cwd()`, so a file in repo B is judged by repo B's policy even when OpenCode runs from repo A). Mounted into `~/.config/opencode/plugins/` via a re-export stub. The default export `{ id: "stop-ai-slop", server: CommentGate, setup }` serves both APIs: OpenCode 1.18.29+ calls `server()` (v1 hook `tool.execute.before`), OpenCode 2.x calls `setup()` (registers `ctx.tool.hook("execute.before")`, the only V2 hook that may reject a call); the legacy named export `CommentGate` keeps old stubs on older 1.x working. OpenCode displays local plugins by their stub file name — name the stub `stop-ai-slop.ts` instead of `comment-gate.ts` if you want that label.
 2. **Pre-commit hook via `--install`** — one command weaves `node .../scan.mjs --staged` into `.git/hooks/pre-commit` (idempotent: appends a marked block without clobbering an existing hook) and adds the `stop-ai-slop` / `stop-ai-slop:all` npm scripts to package.json. The hook and npm scripts embed the absolute path to the scanner as of install time — after moving or re-cloning the scanner, run `--install` again.
 3. **Agent skill** — `skill/SKILL.md` (name: `stop-ai-slop`): the policy, the rule table, the run modes. Mounts into OpenCode and Claude Code.
 4. **Baseline for legacy** — 1) `--install`, 2) `--baseline-write` (records current findings), 3) commit the baseline, 4) from then on the gate sees only new findings. Baseline v2 stores each finding as a pair of lines — `relpath:line` plus `fp:<hash>`, the fingerprint being a SHA-256 hash (first 16 hex chars) of the rule id and the trimmed comment text — and matches by fingerprint, not by position: edits above a baselined line no longer resurrect legacy, while changed comment text surfaces as new slop. The same text pasted again is masked only up to the number of baselined occurrences, so a fresh copy of legacy slop still counts as new slop. Old v1 baselines (`relpath:line` lines only) keep masking by position until the next `--baseline-write`. `--baseline-prune` removes entries that have no live finding (in v2 the pair dies together); a repeated `--baseline-write` would also amnesty new slop — do not do that.
@@ -166,7 +166,7 @@ For bulk semantic cleanup (the not-auto-fixed rules), the intended flow is: `--f
 
 ## Configuration
 
-An optional `.stop-ai-slop.yaml` in the repository root (same place as the baseline: the git root, or the scan directory outside a repo). Read by the `scan`, `--staged`, `--diff` and `--pre-tool` modes and by the OpenCode write-time plugin, which resolves it from the edited file's git root (falling back to the file's directory outside a repo). The parser is a zero-dep YAML subset: `key: value` scalars, lists via `- `, a `rules:` section with two-space indent, an `overrides:` list of `{paths, rules}` entries, `#` comments and blank lines skipped, values may be quoted. Unknown keys are ignored; an invalid severity is exit 2 with the file name and line number.
+An optional `.stop-ai-slop.yaml` in the repository root (same place as the baseline: the git root, or the scan directory outside a repo). Read by the `scan`, `--staged`, `--diff` and `--pre-tool` modes and by the OpenCode write-time plugin, which resolves it from the edited file's git root (falling back to the file's directory outside a repo). The parser is a zero-dep YAML subset: `key: value` scalars, lists via `- `, a `rules:` section with two-space indent, an `overrides:` list of `{paths, rules}` entries, `#` comments and blank lines skipped, values may be quoted. Unknown keys are ignored; an invalid severity or an unknown rule id in `rules`/`overrides` is exit 2 with the file name and line number.
 
 | Key | Meaning |
 | --- | --- |
@@ -214,7 +214,7 @@ The `--mcp` flag runs stop-ai-slop as an MCP server over stdio (JSON-RPC 2.0). T
 npx stop-ai-slop --mcp
 ```
 
-The server supports protocols `2024-11-05`, `2025-11-25` and `2026-07-28` — the version is negotiated on `initialize`. stdout carries only protocol messages; logs go to stderr.
+The server supports protocols `2024-11-05`, `2025-11-25` and `2026-07-28` — the version is negotiated on `initialize`. JSON-RPC batch requests (an array in) are answered with an array of responses. stdout carries only protocol messages; logs go to stderr. `slop_scan` resolves `.stop-ai-slop.yaml` and the baseline from the git root of the scanned path, not from the server's cwd.
 
 Three tools:
 
@@ -256,7 +256,7 @@ Client setup:
 
 The `--pre-tool` flag reads a PreToolUse JSON payload from stdin (`{ tool_name, tool_input }`), scans the proposed delta content (the `Write` content, or the `Edit` difference — `new_string` minus `old_string`), and on error findings prints them to stderr and exits with code 2 — Claude Code cancels the tool call and shows the reason to the model. A clean payload exits 0 with no output.
 
-The plugin already carries the hook (`.claude-plugin/stop-ai-slop/hooks/hooks.json`, matcher `Write|Edit`), so a marketplace install gets it automatically. For manual setup, add to `.claude/settings.json`:
+The plugin already carries the hook (`hooks/hooks.json`, matcher `Write|Edit`), so a marketplace install gets it automatically. For manual setup, add to `.claude/settings.json`:
 
 ```json
 {
@@ -408,7 +408,7 @@ on: pull_request:
             base: ${{ github.base_ref }}
 ```
 
-The action fetches the base ref itself, so a standard shallow checkout is enough; `strict: "true"` enables warnings-as-errors; `format: "json"` or `format: "sarif"` switches the action output to a machine-readable format (see "Output formats"). The action does not run on push events (there is no `github.base_ref`) — use `pull_request` or pass `base` explicitly. The `annotations` input (default `"true"`) adds `--annotations` to the text-format scan: every finding is also emitted as a GitHub Actions workflow command (`::error file=<rel>,line=<n>::…` / `::warning …`) and shows up inline on the PR diff; with `format: "json"` or `"sarif"` the flag is a no-op.
+The action fetches the base ref itself, so a standard shallow checkout is enough; `strict: "true"` enables warnings-as-errors; `format: "json"` or `format: "sarif"` switches the action output to a machine-readable format (see "Output formats"). The action fails when no base ref is resolvable (a push event without the `base` input) instead of scanning an empty diff — use `pull_request` or pass `base` explicitly. The `annotations` input (default `"true"`) adds `--annotations` to the text-format scan: every finding is also emitted as a GitHub Actions workflow command (`::error file=<rel>,line=<n>::…` / `::warning …`) and shows up inline on the PR diff; with `format: "json"` or `"sarif"` the flag is a no-op.
 
 ## Publishing to npm
 
@@ -457,7 +457,7 @@ The repository is a ready Claude Code plugin marketplace:
 /plugin install stop-ai-slop
 ```
 
-The plugin carries the skill and a PostToolUse hook (`Write|Edit` → `scan.mjs --stdin-path`) that prints findings for the just-written file back into the session. For Codex CLI, run `npx stop-ai-slop --install-hooks` to write `.codex/hooks.json` (see "Agent hook integrations") instead of copying the Claude hook by hand. Cursor has no public write-time hook surface yet — use `npx stop-ai-slop --install-rules` to drop the policy into `.cursor/rules/`.
+The plugin carries the skill and a PostToolUse hook (`Write|Edit` → `scan.mjs --stdin-path`) that scans the just-written file and, when the gate fails, prints the findings to stderr and exits 2 — Claude Code delivers them back to the model. For Codex CLI, run `npx stop-ai-slop --install-hooks` to write `.codex/hooks.json` (see "Agent hook integrations") instead of copying the Claude hook by hand. Cursor has no public write-time hook surface yet — use `npx stop-ai-slop --install-rules` to drop the policy into `.cursor/rules/`.
 
 ## IntelliJ IDEA
 

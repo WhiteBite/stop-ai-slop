@@ -51,8 +51,8 @@ brew install WhiteBite/stop-ai-slop/stop-ai-slop
 | --- | --- | --- |
 | CLI (bin `stop-ai-slop`) | сканирует файлы, staged-изменения или дифф; `--explain`, `--audit`, baseline | автоматически с `npm i -D stop-ai-slop` |
 | pre-commit hook + npm scripts | блокирует каждый коммит с новым слопом | автоматически: `npx stop-ai-slop --install` |
-| Write-time плагин OpenCode | отклоняет `write`/`edit`/`multiedit` в момент записи | вручную: файл-стаб из одной строки (ниже) |
-| Плагин Claude Code | скилл + PreToolUse-хук (блокирует `Write`/`Edit`) + PostToolUse-хук (возвращает находки в сессию) | автоматически: `/plugin marketplace add` + `/plugin install` |
+| Write-time плагин OpenCode | отклоняет `write`/`edit`/`multiedit` в момент записи; незнакомые имена инструментов с write-формой payload гейтится по форме | вручную: файл-стаб из одной строки (ниже) |
+| Плагин Claude Code | скилл + PreToolUse-хук (блокирует `Write`/`Edit`) + PostToolUse-хук (при срабатывании гейта печатает находки в stderr и выходит с кодом 2 — модель получает их обратно) | автоматически: `/plugin marketplace add` + `/plugin install` |
 | Agent skill (`skill/SKILL.md`) | даёт политику и команды любому агенту | автоматически с плагином Claude Code; вручную junction/симлинк для OpenCode |
 | MCP-сервер (`--mcp`) | pull-mode `slop_scan` / `slop_explain` / `slop_baseline` для любого MCP-клиента | вручную: одна запись в конфиге клиента |
 | GitHub Action / GitLab CI-шаблон | блокирует PR/MR-пайплайны на диффе | вручную: сниппет воркфлоу/CI |
@@ -84,7 +84,7 @@ Error-правила блокируют (exit 1, write-time gate бросает 
 
 ## Точки приложения
 
-1. **OpenCode write-time плагин** — `plugin/comment-gate.ts` перехватывает `write`/`edit`/`multiedit` и отклоняет правку с error-находками в момент записи, применяя `.stop-ai-slop.yaml` git-корня редактируемого файла (корень берётся из файла, не из `process.cwd()` — cwd хоста OpenCode часто другой репозиторий). Монтируется в `~/.config/opencode/plugins/` стабом-реэкспортом. Default-экспорт `{ id: "stop-ai-slop", server: CommentGate, setup }` обслуживает оба API: OpenCode 1.18.29+ вызывает `server()` (v1-хук `tool.execute.before`), OpenCode 2.x вызывает `setup()` (регистрирует `ctx.tool.hook("execute.before")`, единственный хук V2, которому разрешено падать); legacy-экспорт `CommentGate` сохраняет работоспособность старых стабов на более старых 1.x; OpenCode показывает локальные плагины по имени файла стаба — назовите стаб `stop-ai-slop.ts` вместо `comment-gate.ts`, если хотите такую метку.
+1. **OpenCode write-time плагин** — `plugin/comment-gate.ts` перехватывает `write`/`edit`/`multiedit` и отклоняет правку с error-находками в момент записи; незнакомые или капитализированные имена инструментов с write-формой payload (`file_path`+`content`, `file_path`+`old_string`+`new_string`, `file_path`+`edits[]` или патч-текст с `*** Begin Patch`) тоже оцениваются по форме, а мутирующий вызов по форме, который не удалось оценить, пишется в аудит-лог с вердиктом `unevaluated`. Применяет `.stop-ai-slop.yaml` git-корня редактируемого файла (корень берётся из файла, не из `process.cwd()` — cwd хоста OpenCode часто другой репозиторий). Монтируется в `~/.config/opencode/plugins/` стабом-реэкспортом. Default-экспорт `{ id: "stop-ai-slop", server: CommentGate, setup }` обслуживает оба API: OpenCode 1.18.29+ вызывает `server()` (v1-хук `tool.execute.before`), OpenCode 2.x вызывает `setup()` (регистрирует `ctx.tool.hook("execute.before")`, единственный хук V2, которому разрешено падать); legacy-экспорт `CommentGate` сохраняет работоспособность старых стабов на более старых 1.x; OpenCode показывает локальные плагины по имени файла стаба — назовите стаб `stop-ai-slop.ts` вместо `comment-gate.ts`, если хотите такую метку.
 2. **Pre-commit через `--install`** — одна команда вшивает `node .../scan.mjs --staged` в `.git/hooks/pre-commit` (идемпотентно, дописывает блок с маркером, не затирая существующий hook) и добавляет npm scripts `stop-ai-slop` / `stop-ai-slop:all` в package.json. Hook и npm scripts содержат абсолютный путь к сканеру на момент установки — после переноса или повторного клонирования сканера запустите `--install` заново.
 3. **Agent skill** — `skill/SKILL.md` (name: `stop-ai-slop`): политика, таблица правил, режимы запуска. Монтируется в OpenCode и Claude Code.
 4. **Baseline для легаси** — 1) `--install`, 2) `--baseline-write` (записывает текущие находки), 3) закоммитить baseline, 4) дальше гейт видит только новое. Baseline v2 хранит каждую находку парой строк — `relpath:line` плюс `fp:<hash>`, fingerprint — SHA-256-хэш (первые 16 hex-символов) от id правила и обрезанного текста комментария — и матчится по fingerprint, а не по позиции: правки выше baselined-строки больше не воскрешают легаси, а изменённый текст всплывает как новый слоп. Тот же текст, вставленный заново, маскируется только до числа baselined-вхождений — свежая копия легаси-слопа всё равно считается новой. Старые v1-baseline (только `relpath:line`) маскируют по позиции до следующего `--baseline-write`. `--baseline-prune` удаляет записи без живых находок (в v2 пара умирает вместе); повторный `--baseline-write` амнистирует и новый слоп — не делать.
@@ -166,7 +166,7 @@ node skill/scripts/scan.mjs --fix             # записать правки, �
 
 ## Конфиг
 
-Необязательный файл `.stop-ai-slop.yaml` в корне репозитория (там же, где baseline: корень git, а вне репо — каталог сканирования). Читается режимами `scan`, `--staged`, `--diff` и write-time плагином OpenCode, который резолвит его из git-корня редактируемого файла (вне репо — из каталога файла). Парсер — zero-dep подмножество YAML: скаляры `ключ: значение`, списки через `- `, секция `rules:` с двухпробельным отступом, список `overrides:` из записей `{paths, rules}`, `#`-комментарии и пустые строки пропускаются, значения могут быть в кавычках. Неизвестные ключи игнорируются; недопустимое severity — exit 2 с именем файла и номером строки.
+Необязательный файл `.stop-ai-slop.yaml` в корне репозитория (там же, где baseline: корень git, а вне репо — каталог сканирования). Читается режимами `scan`, `--staged`, `--diff` и write-time плагином OpenCode, который резолвит его из git-корня редактируемого файла (вне репо — из каталога файла). Парсер — zero-dep подмножество YAML: скаляры `ключ: значение`, списки через `- `, секция `rules:` с двухпробельным отступом, список `overrides:` из записей `{paths, rules}`, `#`-комментарии и пустые строки пропускаются, значения могут быть в кавычках. Неизвестные ключи игнорируются; недопустимое severity или неизвестный id правила в `rules`/`overrides` — exit 2 с именем файла и номером строки.
 
 | Ключ | Семантика |
 | --- | --- |
@@ -214,7 +214,7 @@ Remap severity применяется после детекции и до фил
 npx stop-ai-slop --mcp
 ```
 
-Сервер поддерживает протоколы `2024-11-05`, `2025-11-25`, `2026-07-28` — версия согласуется на `initialize`. stdout несёт только сообщения протокола, логи пишутся в stderr.
+Сервер поддерживает протоколы `2024-11-05`, `2025-11-25`, `2026-07-28` — версия согласуется на `initialize`. Пакетные JSON-RPC-запросы (массив на входе) получают ответ массивом. stdout несёт только сообщения протокола, логи пишутся в stderr. `slop_scan` резолвит `.stop-ai-slop.yaml` и baseline из git-корня сканируемого пути, а не из cwd сервера.
 
 Три инструмента:
 
@@ -256,7 +256,7 @@ npx stop-ai-slop --mcp
 
 Флаг `--pre-tool` читает из stdin JSON-пейлоад PreToolUse (`{ tool_name, tool_input }`), сканирует предлагаемый дельта-контент (содержимое `Write` или разница `Edit` — `new_string` минус `old_string`), и при наличии error-находок выводит их в stderr и завершается с кодом 2 — Claude Code отменяет вызов инструмента и показывает причину модели. Чистый пейлоад завершается с кодом 0 без вывода.
 
-Плагин уже содержит хук (`.claude-plugin/stop-ai-slop/hooks/hooks.json`, matcher `Write|Edit`), так что установка через marketplace получает его автоматически. Для ручной настройки добавьте в `.claude/settings.json`:
+Плагин уже содержит хук (`hooks/hooks.json`, matcher `Write|Edit`), так что установка через marketplace получает его автоматически. Для ручной настройки добавьте в `.claude/settings.json`:
 
 ```json
 {
@@ -408,7 +408,7 @@ on: pull_request:
             base: ${{ github.base_ref }}
 ```
 
-Action сам подтягивает базовый реф, поэтому стандартного shallow checkout достаточно; `strict: "true"` включает режим warnings-as-errors; `format: "json"` или `format: "sarif"` переключает вывод action на машиночитаемый формат (см. «Форматы вывода»). На push-событиях action не работает (нет `github.base_ref`) — используйте `pull_request` или передавайте base явно. Вход `annotations` (по умолчанию `"true"`) добавляет `--annotations` к скану в text-формате: каждая находка дополнительно печатается workflow-командой GitHub Actions (`::error file=<rel>,line=<n>::…` / `::warning …`) и подсвечивается прямо в диффе PR; при `format: "json"` или `"sarif"` флаг ничего не меняет.
+Action сам подтягивает базовый реф, поэтому стандартного shallow checkout достаточно; `strict: "true"` включает режим warnings-as-errors; `format: "json"` или `format: "sarif"` переключает вывод action на машиночитаемый формат (см. «Форматы вывода»). Action падает с явной ошибкой, когда базовый реф не резолвится (push-событие без входa base), вместо скана пустого диффа — используйте `pull_request` или передавайте base явно. Вход `annotations` (по умолчанию `"true"`) добавляет `--annotations` к скану в text-формате: каждая находка дополнительно печатается workflow-командой GitHub Actions (`::error file=<rel>,line=<n>::…` / `::warning …`) и подсвечивается прямо в диффе PR; при `format: "json"` или `"sarif"` флаг ничего не меняет.
 
 ## Релизы в npm
 
@@ -457,7 +457,7 @@ repos:
 /plugin install stop-ai-slop
 ```
 
-Плагин несёт скилл и PostToolUse-хук (`Write|Edit` → `scan.mjs --stdin-path`), который печатает находки по только что записанному файлу обратно в сессию. Для Codex CLI запустите `npx stop-ai-slop --install-hooks`, чтобы записать `.codex/hooks.json` (см. «Хук-интеграции с агентами»), вместо ручного копирования хука Claude. У Cursor пока нет публичной поверхности write-time хуков — используйте `npx stop-ai-slop --install-rules`, чтобы добавить политику в `.cursor/rules/`.
+Плагин несёт скилл и PostToolUse-хук (`Write|Edit` → `scan.mjs --stdin-path`), который сканирует только что записанный файл и при срабатывании гейта печатает находки в stderr с выходом под кодом 2 — Claude Code передаёт их модели. Для Codex CLI запустите `npx stop-ai-slop --install-hooks`, чтобы записать `.codex/hooks.json` (см. «Хук-интеграции с агентами»), вместо ручного копирования хука Claude. У Cursor пока нет публичной поверхности write-time хуков — используйте `npx stop-ai-slop --install-rules`, чтобы добавить политику в `.cursor/rules/`.
 
 ## IntelliJ IDEA
 

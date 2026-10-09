@@ -17,7 +17,7 @@ description: Comment-slop policy and mechanical gate — single source of truth 
 node <SKILL_DIR>/scripts/scan.mjs --staged
 ```
 
-В OpenCode-сессиях write/edit/multiedit дополнительно блокируются на записи плагином comment-gate (error-правила). В Claude Code и вне сессий — через pre-commit hook (`--install` ниже) или вручную.
+В OpenCode-сессиях write/edit/multiedit дополнительно блокируются на записи плагином comment-gate (error-правила); незнакомые имена инструментов с write-формой payload гейтятся по форме, а неоценённый мутирующий вызов пишется в аудит-лог с вердиктом `unevaluated`. В Claude Code и вне сессий — через pre-commit hook (`--install` ниже) или вручную.
 
 ## Правила
 
@@ -61,7 +61,7 @@ Error блокирует (exit 1, write-time gate бросает). Warning — �
 - `--baseline-prune` — удалить из baseline записи без живых находок; амнистирует удалённое легаси, не трогая новый слоп.
 - `--bench` / `--bench-write` — FP-регрессионная когорта: 8 пин-репозиториев OSS (SHA до 2025-01-01, таблица `BENCH_COHORT`), счётчики находок по правилам без конфига и baseline; `--bench` сравнивает с `bench-history.json` (рост счётчика = регрессия = exit 1), `--bench-write` перезаписывает эталон. Нужны git и сеть; кэш `~/.cache/stop-ai-slop/bench` (переопределяется `STOP_AI_SLOP_BENCH_CACHE`).
 - `--audit [N]` — последние N записей аудит-лога решений write-time плагина (`loaded`/`blocked`/passed с файлом и правилами); путь лога — переменная `STOP_AI_SLOP_LOG`, по умолчанию `~/.config/opencode/logs/comment-gate.jsonl`. Плагин загружается на старте сессии OpenCode: после правок плагина нужен рестарт. Шаг 0 диагностики: если в логе нет новых записей после редактирования — процесс OpenCode не подхватил новую версию плагина.
-- `--stdin-path` — читает JSON hook-пейлоад из stdin (`tool_input.file_path`) и сканирует один файл; для PostToolUse-хуков Claude Code/Cursor/Codex (шаблон: `.claude-plugin/stop-ai-slop/hooks/hooks.json`).
+- `--stdin-path` — читает JSON hook-пейлоад из stdin (`tool_input.file_path`) и сканирует один файл; при срабатывании гейта печатает находки в stderr и выходит с кодом 2, чтобы Claude Code передал их модели (шаблон хука: `hooks/hooks.json`).
 - `--self-test` — саботаж-тест на временных фикстурах; exit != 0 при любом расхождении.
 - `--install` — в репозитории: добавить npm scripts `stop-ai-slop` / `stop-ai-slop:all` (если есть package.json) и подключить `.git/hooks/pre-commit` с `node .../scan.mjs --staged`. Идемпотентно; существующее тело hook не перезаписывает — дописывает блок с маркером.
 - `--install --strict` — то же самое, но hook запускает `--strict`, так что warning тоже блокируют гейт.

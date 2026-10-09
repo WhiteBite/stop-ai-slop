@@ -31,6 +31,15 @@ npx stop-ai-slop --install        # writes the pre-commit hook + npm scripts int
 
 `--install` is the only command that modifies your repo: it appends a marked block to `.git/hooks/pre-commit` (idempotent, never clobbers an existing hook) and adds the `stop-ai-slop` / `stop-ai-slop:all` npm scripts. The hook embeds the absolute path to the scanner as of install time — after moving or re-cloning the scanner, run `--install` again.
 
+### Homebrew
+
+```
+brew tap WhiteBite/stop-ai-slop https://github.com/WhiteBite/stop-ai-slop
+brew install WhiteBite/stop-ai-slop/stop-ai-slop
+```
+
+The formula wraps the npm package (this repository doubles as its own tap — the formula lives in `Formula/stop-ai-slop.rb`) and pulls in Homebrew's `node`, which satisfies the Node >= 18 requirement.
+
 ## Who is it for
 
 Teams and solo developers whose code is written partly or mostly by AI coding agents (OpenCode, Claude Code, Cursor, Codex, Copilot, Gemini CLI) and who want a comment policy enforced mechanically — at the write, at the commit, in CI — instead of relying on review discipline.
@@ -53,8 +62,8 @@ One scanner (`skill/scripts/scan.mjs`, the `RULES` table) is exposed through ele
 | --- | --- | --- |
 | CLI (`stop-ai-slop` bin) | scans files, staged changes or a diff; `--explain`, `--audit`, baseline | automatic with `npm i -D stop-ai-slop` |
 | pre-commit hook + npm scripts | blocks every commit that adds slop | automatic: `npx stop-ai-slop --install` |
-| OpenCode write-time plugin | rejects `write`/`edit`/`multiedit` at the moment of the write | manual: a one-line stub file (below) |
-| Claude Code plugin | skill + PreToolUse hook (blocks `Write`/`Edit`) + PostToolUse hook (prints findings back into the session) | automatic: `/plugin marketplace add` + `/plugin install` |
+| OpenCode write-time plugin | rejects `write`/`edit`/`multiedit` at the moment of the write; shape-gates unknown tool names with write-shaped payloads | manual: a one-line stub file (below) |
+| Claude Code plugin | skill + PreToolUse hook (blocks `Write`/`Edit`) + PostToolUse hook (delivers findings for the written file back to the model via stderr, exit 2) | automatic: `/plugin marketplace add` + `/plugin install` |
 | Agent skill (`skill/SKILL.md`) | teaches the policy and the commands to any agent | automatic with the Claude Code plugin; a manual junction/symlink for OpenCode |
 | MCP server (`--mcp`) | pull-mode `slop_scan` / `slop_explain` / `slop_baseline` for any MCP client | manual: one config entry per client |
 | GitHub Action / GitLab CI template | blocks PR/MR pipelines on the diff | manual: a workflow / CI snippet |
@@ -86,7 +95,7 @@ Error rules block (exit 1; the write-time gate throws). Warning rules teach: the
 
 ## Enforcement points
 
-1. **OpenCode write-time plugin** — `plugin/comment-gate.ts` intercepts `write`/`edit`/`multiedit` and rejects an edit that has error findings at the moment of the write, applying the `.stop-ai-slop.yaml` of the edited file's repository root (resolved from the file, not `process.cwd()`, so a file in repo B is judged by repo B's policy even when OpenCode runs from repo A). Mounted into `~/.config/opencode/plugins/` via a re-export stub. The default export `{ id: "stop-ai-slop", server: CommentGate, setup }` serves both APIs: OpenCode 1.18.29+ calls `server()` (v1 hook `tool.execute.before`), OpenCode 2.x calls `setup()` (registers `ctx.tool.hook("execute.before")`, the only V2 hook that may reject a call); the legacy named export `CommentGate` keeps old stubs on older 1.x working. OpenCode displays local plugins by their stub file name — name the stub `stop-ai-slop.ts` instead of `comment-gate.ts` if you want that label.
+1. **OpenCode write-time plugin** — `plugin/comment-gate.ts` intercepts `write`/`edit`/`multiedit` and rejects an edit that has error findings at the moment of the write; unknown or capitalized tool names whose payload is write-shaped (`file_path`+`content`, `file_path`+`old_string`+`new_string`, `file_path`+`edits[]`, or patch text with `*** Begin Patch`) are evaluated by shape too, and a mutating-shaped call that cannot be evaluated is recorded in the audit log with verdict `unevaluated`. It applies the `.stop-ai-slop.yaml` of the edited file's repository root (resolved from the file, not `process.cwd()`, so a file in repo B is judged by repo B's policy even when OpenCode runs from repo A). Mounted into `~/.config/opencode/plugins/` via a re-export stub. The default export `{ id: "stop-ai-slop", server: CommentGate, setup }` serves both APIs: OpenCode 1.18.29+ calls `server()` (v1 hook `tool.execute.before`), OpenCode 2.x calls `setup()` (registers `ctx.tool.hook("execute.before")`, the only V2 hook that may reject a call); the legacy named export `CommentGate` keeps old stubs on older 1.x working. OpenCode displays local plugins by their stub file name — name the stub `stop-ai-slop.ts` instead of `comment-gate.ts` if you want that label.
 2. **Pre-commit hook via `--install`** — one command weaves `node .../scan.mjs --staged` into `.git/hooks/pre-commit` (idempotent: appends a marked block without clobbering an existing hook) and adds the `stop-ai-slop` / `stop-ai-slop:all` npm scripts to package.json. The hook and npm scripts embed the absolute path to the scanner as of install time — after moving or re-cloning the scanner, run `--install` again.
 3. **Agent skill** — `skill/SKILL.md` (name: `stop-ai-slop`): the policy, the rule table, the run modes. Mounts into OpenCode and Claude Code.
 4. **Baseline for legacy** — 1) `--install`, 2) `--baseline-write` (records current findings), 3) commit the baseline, 4) from then on the gate sees only new findings. Baseline v2 stores each finding as a pair of lines — `relpath:line` plus `fp:<hash>`, the fingerprint being a SHA-256 hash (first 16 hex chars) of the rule id and the trimmed comment text — and matches by fingerprint, not by position: edits above a baselined line no longer resurrect legacy, while changed comment text surfaces as new slop. The same text pasted again is masked only up to the number of baselined occurrences, so a fresh copy of legacy slop still counts as new slop. Old v1 baselines (`relpath:line` lines only) keep masking by position until the next `--baseline-write`. `--baseline-prune` removes entries that have no live finding (in v2 the pair dies together); a repeated `--baseline-write` would also amnesty new slop — do not do that.
@@ -168,7 +177,7 @@ For bulk semantic cleanup (the not-auto-fixed rules), the intended flow is: `--f
 
 ## Configuration
 
-An optional `.stop-ai-slop.yaml` in the repository root (same place as the baseline: the git root, or the scan directory outside a repo). Read by the `scan`, `--staged`, `--diff` and `--pre-tool` modes and by the OpenCode write-time plugin, which resolves it from the edited file's git root (falling back to the file's directory outside a repo). The parser is a zero-dep YAML subset: `key: value` scalars, lists via `- `, a `rules:` section with two-space indent, `#` comments and blank lines skipped, values may be quoted. Unknown keys are ignored; an invalid severity is exit 2 with the file name and line number.
+An optional `.stop-ai-slop.yaml` in the repository root (same place as the baseline: the git root, or the scan directory outside a repo). Read by the `scan`, `--staged`, `--diff` and `--pre-tool` modes and by the OpenCode write-time plugin, which resolves it from the edited file's git root (falling back to the file's directory outside a repo). The parser is a zero-dep YAML subset: `key: value` scalars, lists via `- `, a `rules:` section with two-space indent, an `overrides:` list of `{paths, rules}` entries, `#` comments and blank lines skipped, values may be quoted. Unknown keys are ignored; an invalid severity or an unknown rule id in `rules`/`overrides` is exit 2 with the file name and line number.
 
 | Key | Meaning |
 | --- | --- |
@@ -177,6 +186,8 @@ An optional `.stop-ai-slop.yaml` in the repository root (same place as the basel
 | `generatedPaths` | list of relative path prefixes treated as generated (same prefix semantics as `excludePaths`); see [Generated code](#generated-code) |
 | `scanGenerated` | `true` disables the generated-file exemption — generated code is linted like any other file |
 | `rules` | severity override per rule id: `error`, `warning` or `off` (rule disabled) |
+| `overrides` | list of per-path severity overrides, each `{paths: [patterns], rules: {rule-id: severity}}`; a pattern without `*` is a path prefix (same semantics as `excludePaths`), `*` matches any characters except `/`, `**` matches any characters including `/`; for a matching file the last matching entry wins, and an override beats the global `rules` remap |
+| `ticketPattern` | regex source enabling `vend/ticket-ref` (e.g. `'\bKRY-\d+\b'`); without the key the rule is inert — a bare ticket reference in a comment is flagged, while TODO lines, tracker links and CVE-/GHSA- advisories are exempt |
 
 ```yaml
 maxCommentLength: 100
@@ -186,16 +197,22 @@ excludePaths:
 rules:
   multi-line-comment: off
   vend/step-numbered: error
+overrides:
+  - paths:
+      - "*.yaml"
+      - ".github/**/*.yml"
+    rules:
+      multi-line-comment: warning
 ```
 
-Severity remap is applied after detection and before baseline filtering and exit-code computation; the baseline matches on the finding fingerprint (rule id + trimmed text; on `rel:line` for old v1 baselines) regardless of severity, so changing a severity in the config neither resurrects nor masks baselined findings.
+Severity remap is applied after detection and before baseline filtering and exit-code computation; per-path `overrides` are applied on top of the global `rules` remap — for a matching file the last matching entry wins, and `off` removes the finding. The baseline matches on the finding fingerprint (rule id + trimmed text; on `rel:line` for old v1 baselines) regardless of severity, so changing a severity in the config neither resurrects nor masks baselined findings.
 
 ### Config JSON Schema
 
 `schema/stop-ai-slop.schema.json` (draft-07, shipped in the npm tarball). Modeline at top of `.stop-ai-slop.yaml`:
 
 ```yaml
-# yaml-language-server: $schema=https://raw.githubusercontent.com/WhiteBite/stop-ai-slop/v0.12.0/schema/stop-ai-slop.schema.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/WhiteBite/stop-ai-slop/v0.14.1/schema/stop-ai-slop.schema.json
 ```
 
 (or node_modules path `./node_modules/stop-ai-slop/schema/stop-ai-slop.schema.json`). Parity with the parser is enforced by a self-test gate (`schema-parity-config` / `schema-parity-rules`).
@@ -208,7 +225,7 @@ The `--mcp` flag runs stop-ai-slop as an MCP server over stdio (JSON-RPC 2.0). T
 npx stop-ai-slop --mcp
 ```
 
-The server supports protocols `2024-11-05`, `2025-11-25` and `2026-07-28` — the version is negotiated on `initialize`. stdout carries only protocol messages; logs go to stderr.
+The server supports protocols `2024-11-05`, `2025-11-25` and `2026-07-28` — the version is negotiated on `initialize`. JSON-RPC batch requests (an array in) are answered with an array of responses. stdout carries only protocol messages; logs go to stderr. `slop_scan` resolves `.stop-ai-slop.yaml` and the baseline from the git root of the scanned path, not from the server's cwd.
 
 Three tools:
 
@@ -250,7 +267,7 @@ Client setup:
 
 The `--pre-tool` flag reads a PreToolUse JSON payload from stdin (`{ tool_name, tool_input }`), scans the proposed delta content (the `Write` content, or the `Edit` difference — `new_string` minus `old_string`), and on error findings prints them to stderr and exits with code 2 — Claude Code cancels the tool call and shows the reason to the model. A clean payload exits 0 with no output.
 
-The plugin already carries the hook (`.claude-plugin/stop-ai-slop/hooks/hooks.json`, matcher `Write|Edit`), so a marketplace install gets it automatically. For manual setup, add to `.claude/settings.json`:
+The plugin already carries the hook (`hooks/hooks.json`, matcher `Write|Edit`), so a marketplace install gets it automatically. For manual setup, add to `.claude/settings.json`:
 
 ```json
 {
@@ -269,6 +286,14 @@ The plugin already carries the hook (`.claude-plugin/stop-ai-slop/hooks/hooks.js
 ```
 
 The alternative decision form via `hookSpecificOutput.permissionDecision` (deny) exists, but this hook uses exit 2 + stderr to surface multi-line findings.
+
+The plugin also ships a SessionStart hook (no matcher — startup, resume and clear) running `scan.mjs --policy`, which states the one-line comment policy and the per-rule summary up front in the session context, so most edits never trip the gate.
+
+For agent-driven repair, the `scan`, `--staged`, `--diff` and `--stdin-path` modes accept `--fix-suggestions`: after the normal output the scanner prints one extra line, `fix-suggestions: <single-line JSON array>`, listing the exact edits `--fix` would apply — one `{"file","line","rule","kind","from","to"}` entry per mechanically fixable finding (`kind` is `delete-line`, `replace-line` or `delete-run`; findings that need a human rewrite, like `long-comment`, get no entry). With `--format json` or `--format sarif` the line goes to stderr, so stdout stays machine-parseable.
+
+```
+fix-suggestions: [{"file":"src/a.ts","line":3,"rule":"changelog-marker","kind":"delete-line","from":"// this fixes the cache miss","to":null}]
+```
 
 ## Agent hook integrations
 
@@ -320,7 +345,9 @@ Files owned by us are overwritten; shared-name files WITHOUT our first-line mark
 
 ### VS Code
 
-A `tasks.json` task with a problem matcher to highlight findings in the Problems panel:
+The extension in `editors/vscode/` is the primary path: copy or link that directory into `~/.vscode/extensions/whitebite.stop-ai-slop-0.1.0/`, reload the window, and set `stopAiSlop.command` to your scanner invocation (default `npx stop-ai-slop`). Findings land in the Problems panel on save and via the `stop-ai-slop: Scan the current file` / `Scan the workspace` commands; see `editors/vscode/README.md`.
+
+The zero-install alternative is a `tasks.json` task with a problem matcher to highlight findings in the Problems panel:
 
 ```json
 {
@@ -392,13 +419,13 @@ on: pull_request:
             base: ${{ github.base_ref }}
 ```
 
-The action fetches the base ref itself, so a standard shallow checkout is enough; `strict: "true"` enables warnings-as-errors; `format: "json"` or `format: "sarif"` switches the action output to a machine-readable format (see "Output formats"). The action does not run on push events (there is no `github.base_ref`) — use `pull_request` or pass `base` explicitly. The `annotations` input (default `"true"`) adds `--annotations` to the text-format scan: every finding is also emitted as a GitHub Actions workflow command (`::error file=<rel>,line=<n>::…` / `::warning …`) and shows up inline on the PR diff; with `format: "json"` or `"sarif"` the flag is a no-op.
+The action fetches the base ref itself, so a standard shallow checkout is enough; `strict: "true"` enables warnings-as-errors; `format: "json"` or `format: "sarif"` switches the action output to a machine-readable format (see "Output formats"). The action fails when no base ref is resolvable (a push event without the `base` input) instead of scanning an empty diff — use `pull_request` or pass `base` explicitly. The `annotations` input (default `"true"`) adds `--annotations` to the text-format scan: every finding is also emitted as a GitHub Actions workflow command (`::error file=<rel>,line=<n>::…` / `::warning …`) and shows up inline on the PR diff; with `format: "json"` or `"sarif"` the flag is a no-op.
 
 ## Publishing to npm
 
 Bootstrap, once: the first publish of a new package needs interactive confirmation — `npm publish` in a terminal: npm either asks for an OTP (if 2FA is on) or offers browser-approve ("Authenticate your account at …"), which is enough without an OTP and without 2FA; the third path is a granular token with bypass-2FA in `~/.npmrc`. Right after it: npmjs.com → package Settings → Trusted publishing → add `WhiteBite/stop-ai-slop` and the `publish.yml` workflow; if that form requires enabling 2FA, that is the only place it is mandatory for fully automatic tags.
 
-After that, deploy is tag-driven: bump the version in `package.json` + add a CHANGELOG entry, commit, `git tag vX.Y.Z && git push origin main --tags`. The `.github/workflows/publish.yml` workflow (trigger `push: tags: v*`) runs the self-test, skips the publish if that version is already in the registry (tag arrival order does not matter), and publishes via OIDC with provenance. Node 24 in the workflow is required: OIDC publishing needs npm CLI >= 11.5.1.
+After that, deploy is tag-driven: bump the version in `package.json` + add a CHANGELOG entry, commit, `git tag vX.Y.Z && git push origin main --tags`. The `.github/workflows/publish.yml` workflow (trigger `push: tags: v*`) runs the self-test, skips the publish if that version is already in the registry (tag arrival order does not matter), and publishes via OIDC with provenance. Node 24 in the workflow is required: OIDC publishing needs npm CLI >= 11.5.1. After a release, update `Formula/stop-ai-slop.rb`: point `url` at the new version's npm tarball and recompute `sha256` — the tarball hash changes with every version.
 
 The same workflow also creates the GitHub Release for the tag (notes taken from the matching `CHANGELOG.md` section, skipped when the release already exists) and mirrors the package to GitHub Packages as `@whitebite/stop-ai-slop` (the GitHub npm registry only accepts scoped names; the mirror is skipped when that version is already there). Consumers of the mirror configure the registry per scope:
 
@@ -425,7 +452,7 @@ The cmd.exe equivalent is `mklink /J`; on Linux/macOS use `ln -s`. In any git re
 ```yaml
 repos:
   - repo: https://github.com/WhiteBite/stop-ai-slop
-    rev: v0.12.0
+    rev: v0.14.1
     hooks:
       - id: stop-ai-slop
 ```
@@ -441,7 +468,7 @@ The repository is a ready Claude Code plugin marketplace:
 /plugin install stop-ai-slop
 ```
 
-The plugin carries the skill and a PostToolUse hook (`Write|Edit` → `scan.mjs --stdin-path`) that prints findings for the just-written file back into the session. For Codex CLI, run `npx stop-ai-slop --install-hooks` to write `.codex/hooks.json` (see "Agent hook integrations") instead of copying the Claude hook by hand. Cursor has no public write-time hook surface yet — use `npx stop-ai-slop --install-rules` to drop the policy into `.cursor/rules/`.
+The plugin carries the skill and a PostToolUse hook (`Write|Edit` → `scan.mjs --stdin-path`) that scans the just-written file and, when the gate fails, prints the findings to stderr and exits 2 — Claude Code delivers them back to the model. For Codex CLI, run `npx stop-ai-slop --install-hooks` to write `.codex/hooks.json` (see "Agent hook integrations") instead of copying the Claude hook by hand. Cursor has no public write-time hook surface yet — use `npx stop-ai-slop --install-rules` to drop the policy into `.cursor/rules/`.
 
 ## IntelliJ IDEA
 
@@ -482,6 +509,7 @@ Comment syntax comes from a language profile, not a single shared list: `#` is a
 | css | `//`, `/*` | `/* */` | css, scss, less |
 | py | `#` | `"""` / `'''` | py, pyi, vy |
 | hash | `#` | — | rb, sh, yaml, toml, ex, raku, awk, go.mod, go.sum, Dockerfile, Makefile, .gitignore |
+| gherkin | `#` | — | feature (Gherkin: multi-line and summary-header exempt; changelog/step/markdown still apply) |
 | hashblock | `#`, `/*` | `/* */` | nix, hcl, tf, tfvars |
 | powershell | `#` | `<# #>` | ps1, psm1 |
 | julia | `#` | `#= =#` | jl |
@@ -521,7 +549,7 @@ Comment syntax comes from a language profile, not a single shared list: `#` is a
 | `vend/this-function-opener` | warning | a comment starts with "This function/…", «Эта функция/…», «Diese Funktion…», «Cette fonction…» or «Esta función…» |
 | `vend/file-summary-header` | warning | a 2+ line summary-header comment at the top of a file |
 | `vend/generic-todo` | warning | a TODO/FIXME/XXX without a ticket link (any case) |
-| `vend/ticket-ref` | warning | a bare ticket reference in a comment — the change context belongs in the commit message or PR, not the code (inert until `ticketPattern` is set in `.stop-ai-slop.yaml`) |
+| `vend/ticket-ref` | warning | a bare ticket reference in a comment — the change context belongs in the commit message or PR, not the code |
 | `vend/cross-file-ref` | warning | a pointer to another file/line in a comment (handler.py:147) |
 | `vend/obvious-comment` | warning | a single-line comment restates the code line beneath it |
 | `vend/ai-plan-narration` | warning | a comment narrates the agent's own work process (plan/spec/task references, instruction acknowledgements) |
@@ -533,7 +561,7 @@ Comment syntax comes from a language profile, not a single shared list: `#` is a
 | `vend/bidi-controls` | error | BiDi controls (U+202A-U+202E, U+2066-U+2069) on any line, and directional marks (U+200E, U+200F) in code |
 <!-- stop-ai-slop:rules:end -->
 
-Error rules do not apply to doc-blocks (JSDoc `/** … */`, Python docstrings, and `///` doc-comment lines — dartdoc, rustdoc, C# XML doc): contract documentation for classes and functions may be any length. Inside doc-blocks, changelog markers (error) and signature restatement "This function…" (warning) are still caught. A `long-comment` line whose text carries a why-marker (`because`, `since`, `otherwise`, `workaround`, `to avoid`, `by design`, `trade-off`, `e.g.` — plus RU/DE/FR/ES equivalents) is not flagged: a long single-line why-comment is legitimate, a multi-line narrative is not.
+Error rules do not apply to doc-blocks (JSDoc `/** … */`, Python docstrings, and `///` doc-comment lines — dartdoc, rustdoc, C# XML doc): contract documentation for classes and functions may be any length. Inside doc-blocks, changelog markers (error) and signature restatement "This function…" (warning) are still caught. A `long-comment` line whose text carries a why-marker (`because`, `since`, `otherwise`, `workaround`, `to avoid`, `by design`, `trade-off`, `e.g.` — plus RU/DE/FR/ES equivalents) is not flagged: a long single-line why-comment is legitimate, a multi-line narrative is not. The same why-marker exempts a 2-line comment run (a wrapped why that would fit one line); 3+ lines are still flagged. Gherkin `.feature` specs exempt `multi-line-comment` and `vend/file-summary-header` entirely — scenario narration and header blocks there are a normal form — while the other slop rules (`changelog-marker`, `step-numbered`, `markdown-in-comment`) keep firing.
 
 Text rules (`step-numbered`, `markdown-in-comment`, `this-function-opener`, `cross-file-ref`) are matched on the text after the comment marker is stripped, so they work in every profile — `# Шаг 3` in yaml and `-- Step 3` in sql are caught identically. `step-numbered`, `this-function-opener` and `changelog-marker` understand RU + EN + DE + FR + ES ("Шаг N", "Schritt N", "Étape N", "Diese Funktion", "au lieu de", "ya no", etc.); other natural languages are not covered. Structural rules (multi-line, divider, header, todo) do not depend on the wording language. `step-numbered` and `markdown-in-comment` do not fire inside doc-blocks. `vend/obvious-comment` is additionally gated by a per-file density filter: a file's obvious-comment findings are dropped unless they make up at least 2% of its non-empty, non-comment lines — hand-written files carry a few terse comments, while generated files narrate every few lines.
 
@@ -580,6 +608,16 @@ The first run needs network and git: each repo is fetched once (`git init` + `gi
 
 Refreshing the cohort: edit `BENCH_COHORT` (repo + pinned SHA), re-run `--bench-write`, and review the resulting `bench-history.json` delta in the PR — every count increase must be explainable as a true positive, otherwise the rule change is a false-positive regression.
 
+## Playground
+
+A zero-backend page that runs the real detector (`skill/scripts/src/detect.mjs`) in the browser: Vite bundles the actual modules, nothing is vendored. The built page is committed at `playground/dist/index.html` and works offline, including opened straight from disk (`file://`).
+
+```
+cd playground && npm install && npm run build
+```
+
+Then open `playground/dist/index.html`. The playground is a devDependency-isolated demo: it is not part of the shipped npm package (the `files` list does not include `playground/`). GitHub Pages deployment is a future step.
+
 ## Comparison with alternatives
 
 Facts from the competitors' READMEs, GitHub metadata and npm download counts, checked 2026-09-29. Traction = GitHub stars and npm downloads per month on the check date.
@@ -617,7 +655,7 @@ SaaS review bots: [CodeRabbit](https://coderabbit.ai) ships a named "Slop Detect
 - **Comment length is an absolute limit.** Our `long-comment` is 120 characters; windbag's VERBOSE_COMMENT measures the comment against the code it documents. (After the 2026-09-29 comparison we adopted two of windbag's rules as `vend/cross-file-ref` and `vend/obvious-comment`; the relative-length rule remains theirs.)
 - **No semantic matching.** gptlint (LLM) and almcc/slop-linter (Jev model) judge meaning and catch paraphrased slop; our markers are dictionaries in RU+EN+DE+FR+ES — no ZH/JA phrase detection.
 - **No IDE extension.** AI-SLOP-Detector ships a VS Code extension with inline findings and a status-bar score; our IDE story is a tasks.json problem matcher plus an IDEA File Watcher template.
-- **Adoption and distribution.** aislop: 655 stars, 47k downloads/month, npm + PyPI + Homebrew, score badges, `aislop agent` repair sessions driving Codex/Claude/OpenCode worktrees. slop-scan: 35k downloads/month. stop-ai-slop: 449 downloads/month, npm + a GitHub Packages mirror, no Homebrew formula.
+- **Adoption and distribution.** aislop: 655 stars, 47k downloads/month, npm + PyPI + Homebrew, score badges, `aislop agent` repair sessions driving Codex/Claude/OpenCode worktrees. slop-scan: 35k downloads/month. stop-ai-slop: 449 downloads/month, npm + a GitHub Packages mirror + a Homebrew formula (this repository as its own tap).
 
 ### What only stop-ai-slop has
 
