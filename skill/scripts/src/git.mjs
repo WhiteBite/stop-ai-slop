@@ -130,6 +130,35 @@ export function gitStagedDiff(root) {
   }
 }
 
+const C_ESCAPES = { a: "\a", b: "\b", f: "\f", n: "\n", r: "\r", t: "\t", v: "\v", '"': '"', "\\": "\\" }
+
+function cUnquote(quoted) {
+  let text = ""
+  const bytes = []
+  const flush = () => {
+    if (bytes.length > 0) {
+      text += Buffer.from(bytes).toString("utf8")
+      bytes.length = 0
+    }
+  }
+  for (let i = 0; i < quoted.length; i++) {
+    const ch = quoted[i]
+    if (ch !== "\\") {
+      flush()
+      text += ch
+    } else if (quoted[i + 1] >= "0" && quoted[i + 1] <= "7") {
+      let digits = ""
+      while (digits.length < 3 && quoted[i + 1] >= "0" && quoted[i + 1] <= "7") digits += quoted[++i]
+      bytes.push(Number.parseInt(digits, 8))
+    } else {
+      flush()
+      text += C_ESCAPES[quoted[++i]] ?? quoted[i] ?? "\\"
+    }
+  }
+  flush()
+  return text
+}
+
 export function parseUnifiedDiff(diff) {
   const byFile = new Map()
   let file = null
@@ -142,7 +171,8 @@ export function parseUnifiedDiff(diff) {
       continue
     }
     if (!inHunk && raw.startsWith("+++ ")) {
-      const p = raw.slice(4).trim().replace(/^"|"$/g, "")
+      let p = raw.slice(4).trim()
+      if (p.length >= 2 && p.startsWith('"') && p.endsWith('"')) p = cUnquote(p.slice(1, -1))
       file = p === "/dev/null" ? null : p.replace(/^b\//, "")
       continue
     }
