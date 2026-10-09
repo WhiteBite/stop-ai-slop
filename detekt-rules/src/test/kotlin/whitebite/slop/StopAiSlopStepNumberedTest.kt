@@ -37,4 +37,24 @@ class StopAiSlopStepNumberedTest {
     fun `nbsp between step word and number is flagged`() {
         assertEquals(1, rule.lint(lines("// step" + ch(0x00A0) + "3: init", "val x = 1")).size)
     }
+
+    @Test
+    fun `block comment opened mid-line with marker text is flagged`() {
+        assertEquals(1, rule.lint(lines("/* Step 1 */ val x = 1")).size)
+    }
+
+    @Test
+    fun `orphan star continuation line is flagged`() {
+        assertEquals(1, rule.lint(lines("val a = 1", " * Step 1")).size)
+    }
+
+    @Test
+    fun `markerless continuation inside a mid-line block is clean`() {
+        assertEquals(0, rule.lint(lines("val x = 1 /* note", "Step 2", "*/")).size)
+    }
+
+    @Test
+    fun `star continuation inside a mid-line block is flagged`() {
+        assertEquals(1, rule.lint(lines("val x = 1 /* note", " * Step 2", " */")).size)
+    }
 }

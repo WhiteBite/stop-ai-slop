@@ -7,17 +7,9 @@ import java.util.WeakHashMap
 
 internal class SlopHit(val rule: String, val element: PsiElement, val offset: Int)
 
-private class LineModel(
-    val comment: BooleanArray,
-    val doc: BooleanArray,
-    val commentElement: Array<PsiElement?>,
-    val inlineElement: Array<PsiElement?>,
-    val inlineText: Array<String?>,
-    val inlineStartCol: IntArray,
-)
-
 internal object SlopDetector {
     private const val AI_VOCAB_MIN = 3
+    private const val OBVIOUS_DENSITY = 0.02
 
     private val cache = Collections.synchronizedMap(WeakHashMap<KtFile, List<SlopHit>>())
 
@@ -33,24 +25,29 @@ internal object SlopDetector {
         val src = SourceLines(text)
         val raw = src.lines
         val stripped = raw.map { SlopMarkers.STRIP_INVISIBLE.matcher(it).replaceAll("") }
-        val model = buildModel(root, text, src, stripped.size)
-        val suppress = collectSuppressions(stripped)
-        if (suppress.file) return emptyList()
+        val n = stripped.size
+        val cls = classifyLines(stripped)
+        val headComments = collectHeadComments(root, src, n)
+        val suppress = collectSuppressions(stripped, cls)
+        if (suppress.fileAll) return emptyList()
         val hits = ArrayList<SlopHit>()
+        val obviousIdx = ArrayList<Int>()
+        var codeLines = 0
 
-        fun push(rule: String, i: Int, inline: Boolean = false) {
+        fun push(rule: String, i: Int, markerIdx: Int = -1) {
             val lineNo = i + 1
+            if (suppress.fileScoped?.contains(rule) == true) return
             if (suppress.perLine.containsKey(lineNo)) {
                 val ids = suppress.perLine[lineNo]
                 if (ids == null || ids.contains(rule)) return
             }
             val element: PsiElement
             val offset: Int
-            if (inline && model.inlineElement[i] != null) {
-                element = model.inlineElement[i]!!
-                offset = model.inlineStartCol[i]
-            } else if ((model.comment[i] || model.doc[i]) && model.commentElement[i] != null) {
-                element = model.commentElement[i]!!
+            if (markerIdx >= 0) {
+                element = root
+                offset = (src.startOf(i) + markerIdx).coerceIn(0, text.length)
+            } else if (i < n && (cls[i].comment || cls[i].doc) && headComments[i] != null) {
+                element = headComments[i]!!
                 offset = (src.startOf(i) - element.textRange.startOffset).coerceAtLeast(0)
             } else {
                 element = root
@@ -59,31 +56,31 @@ internal object SlopDetector {
             hits += SlopHit(rule, element, offset)
         }
 
-        fun testLine(text0: String, i: Int, doc: Boolean, inline: Boolean): Int {
+        fun testLine(text0: String, i: Int, doc: Boolean, markerIdx: Int): Int {
             val t = text0.trim()
             val body = SlopMarkers.stripCommentMarker(t)
-            if (SlopMarkers.CHANGELOG_STRONG.find(text0)) push("changelog-marker", i, inline)
+            if (SlopMarkers.CHANGELOG_STRONG.find(text0)) push("changelog-marker", i, markerIdx)
             if (!doc && text0.length > SlopMarkers.MAX_COMMENT_LENGTH && !SlopMarkers.LONG_LINK.find(text0) && !SlopMarkers.WHY_MARKERS.find(body)) {
-                push("long-comment", i, inline)
+                push("long-comment", i, markerIdx)
             }
-            if (!doc && SlopMarkers.STEP_NUMBERED.find(body)) push("vend/step-numbered", i, inline)
-            if (SlopMarkers.isDividerLine(t)) push("vend/section-divider", i, inline)
+            if (!doc && SlopMarkers.STEP_NUMBERED.find(body)) push("vend/step-numbered", i, markerIdx)
+            if (SlopMarkers.isDividerLine(t)) push("vend/section-divider", i, markerIdx)
             if (!doc &&
                 (SlopMarkers.MARKDOWN_BOLD.find(body) || SlopMarkers.MARKDOWN_LIST.find(body) || SlopMarkers.MARKDOWN_TABLE.find(body))
             ) {
-                push("vend/markdown-in-comment", i, inline)
+                push("vend/markdown-in-comment", i, markerIdx)
             }
-            if (SlopMarkers.THIS_OPENER.find(body)) push("vend/this-function-opener", i, inline)
+            if (SlopMarkers.THIS_OPENER.find(body)) push("vend/this-function-opener", i, markerIdx)
             if (SlopMarkers.AI_PLAN_NARRATION.find(body) &&
                 !(SlopMarkers.TODO_WORD.find(t) && (SlopMarkers.TICKET_REF.find(t) || SlopMarkers.ISSUE_LINK.find(t)))
             ) {
-                push("vend/ai-plan-narration", i, inline)
+                push("vend/ai-plan-narration", i, markerIdx)
             }
             if (SlopMarkers.TODO_WORD.find(t) && !SlopMarkers.TICKET_REF.find(t) && !SlopMarkers.ISSUE_LINK.find(t)) {
-                push("vend/generic-todo", i, inline)
+                push("vend/generic-todo", i, markerIdx)
             }
-            if (!doc && SlopMarkers.isCrossFileRef(body)) push("vend/cross-file-ref", i, inline)
-            if (!doc && SlopMarkers.isResearchCitation(body)) push("vend/research-citation", i, inline)
+            if (!doc && SlopMarkers.isCrossFileRef(body)) push("vend/cross-file-ref", i, markerIdx)
+            if (!doc && SlopMarkers.isResearchCitation(body)) push("vend/research-citation", i, markerIdx)
             return SlopMarkers.weakMarkerHits(text0)
         }
 
@@ -105,50 +102,58 @@ internal object SlopDetector {
             }
         }
 
-        for (i in stripped.indices) {
+        for (i in 0 until n) {
             val rawLine = raw[i]
+            val line = stripped[i]
+            if (!cls[i].comment && !cls[i].doc && line.trim().isNotEmpty()) codeLines++
             if (rawLine.isNotEmpty()) {
                 if (SlopMarkers.zeroWidthHit(rawLine, i)) push("vend/zero-width-chars", i)
                 if (SlopMarkers.BIDI.find(rawLine)) push("vend/bidi-controls", i)
-                if (!model.comment[i] && !model.doc[i]) {
-                    val col = model.inlineStartCol[i]
-                    val codePart = if (col >= 0) rawLine.substring(0, col) else rawLine
-                    if (SlopMarkers.CJK_ADJACENT.find(codePart)) push("vend/cjk-noise", i)
+                if (!cls[i].comment && !cls[i].doc) {
+                    val m = inlineMarkerAt(rawLine)
+                    val codePart = if (m == null) rawLine else rawLine.substring(0, m.idx)
                     // U+200E/U+200F в комментарии — легальная RTL-типографика, поэтому только код
                     if (SlopMarkers.BIDI_MARK.find(codePart)) push("vend/bidi-controls", i)
+                    if (SlopMarkers.CJK_ADJACENT.find(codePart)) push("vend/cjk-noise", i)
                 }
             }
-            if (SlopMarkers.SUPPRESS_ANY.find(stripped[i])) continue
-            if (model.comment[i] || model.doc[i]) {
-                val weak = testLine(stripped[i], i, model.doc[i], false)
-                if (!model.doc[i]) aiVocabHit(stripped[i], i)
+            if (directiveOf(line, cls[i]) != null) continue
+            if (cls[i].comment || cls[i].doc) {
+                val weak = testLine(line, i, cls[i].doc, -1)
+                if (!cls[i].doc) aiVocabHit(line, i)
                 if (weak > 0) {
                     weakRun += weak
                     if (weakRunLine == -1) weakRunLine = i
                 }
-                if (model.comment[i] && !model.doc[i] && !SlopMarkers.TODO_WORD.find(stripped[i])) {
+                if (cls[i].comment && !cls[i].doc && !SlopMarkers.TODO_WORD.find(SlopMarkers.stripCommentMarker(line.trim()))) {
                     var j = i + 1
-                    while (j < stripped.size && stripped[j].trim().isEmpty()) j++
-                    val prevOk = i == 0 || (!model.comment[i - 1] && !model.doc[i - 1])
-                    if (j < stripped.size && !model.comment[j] && !model.doc[j] && prevOk &&
-                        SlopMarkers.isObviousComment(SlopMarkers.stripCommentMarker(stripped[i].trim()), stripped[j])
+                    while (j < n && stripped[j].trim().isEmpty()) j++
+                    val prevOk = i == 0 || (!cls[i - 1].comment && !cls[i - 1].doc)
+                    if (j < n && !cls[j].comment && !cls[j].doc && prevOk &&
+                        SlopMarkers.isObviousComment(SlopMarkers.stripCommentMarker(line.trim()), stripped[j])
                     ) {
-                        push("vend/obvious-comment", i)
+                        obviousIdx += i
                     }
                 }
             } else {
                 flushWeakRun()
-                val inline = model.inlineText[i]
-                if (inline != null && testLine(inline, i, false, true) >= 2) push("changelog-marker", i, true)
-                if (inline != null) aiVocabHit(inline, i)
+                val m = inlineMarkerAt(line)
+                if (m != null) {
+                    val inline = line.substring(m.idx)
+                    if (testLine(inline, i, false, m.idx) >= 2) push("changelog-marker", i, m.idx)
+                    aiVocabHit(inline, i)
+                }
             }
         }
         flushWeakRun()
+        if (obviousIdx.isNotEmpty() && codeLines > 0 && obviousIdx.size.toDouble() / codeLines >= OBVIOUS_DENSITY) {
+            for (i in obviousIdx) push("vend/obvious-comment", i)
+        }
         if (aiVocab.size >= AI_VOCAB_MIN) push("vend/ai-vocab-density", aiVocabLine)
 
         var runStart = -1
-        for (i in 0..stripped.size) {
-            val inRun = i < stripped.size && model.comment[i] && !SlopMarkers.SUPPRESS_ANY.find(stripped[i])
+        for (i in 0..n) {
+            val inRun = i < n && cls[i].comment && !(i == 0 && stripped[0].startsWith("#!"))
             if (inRun && runStart == -1) runStart = i
             if (!inRun && runStart != -1) {
                 if (i - runStart >= 2) {
@@ -160,9 +165,9 @@ internal object SlopDetector {
         }
 
         var headerEnd = 0
-        while (headerEnd < stripped.size &&
-            model.comment[headerEnd] &&
-            !SlopMarkers.SUPPRESS_ANY.find(stripped[headerEnd]) &&
+        while (headerEnd < n &&
+            cls[headerEnd].comment &&
+            directiveOf(stripped[headerEnd], cls[headerEnd]) == null &&
             !(headerEnd == 0 && stripped[0].startsWith("#!"))
         ) {
             headerEnd++
@@ -177,44 +182,5 @@ internal object SlopDetector {
         if (runLines.size != 2) return false
         val text = runLines.joinToString(" ") { SlopMarkers.stripCommentMarker(it.trim()) }
         return text.length <= SlopMarkers.MAX_COMMENT_LENGTH && SlopMarkers.WHY_MARKERS.find(text)
-    }
-
-    private fun buildModel(root: KtFile, text: String, src: SourceLines, n: Int): LineModel {
-        val comment = BooleanArray(n)
-        val doc = BooleanArray(n)
-        val commentElement = arrayOfNulls<PsiElement>(n)
-        val inlineElement = arrayOfNulls<PsiElement>(n)
-        val inlineText = arrayOfNulls<String>(n)
-        val inlineStartCol = IntArray(n) { -1 }
-        val (comments, _) = collectComments(root)
-        for (c in comments) {
-            val el = c.element
-            if (c.kind == CommentKind.LINE) {
-                val line = c.startLine
-                if (line >= n) continue
-                val prefix = text.substring(src.startOf(line), c.startOffset)
-                if (prefix.isBlank()) {
-                    if (commentElement[line] == null) commentElement[line] = el
-                    comment[line] = true
-                } else {
-                    inlineElement[line] = el
-                    inlineText[line] = SlopMarkers.STRIP_INVISIBLE.matcher(el.text.removeSuffix("\r")).replaceAll("")
-                    inlineStartCol[line] = c.startOffset - src.startOf(line)
-                }
-                continue
-            }
-            for (line in c.startLine..c.endLine) {
-                if (line >= n) continue
-                val lineStart = src.startOf(line)
-                val lineEnd = lineStart + src.lines[line].length
-                val coveredStart = (if (line == c.startLine) c.startOffset else lineStart).coerceIn(lineStart, lineEnd)
-                val coveredEnd = (if (line == c.endLine) c.endOffset else lineEnd).coerceIn(lineStart, lineEnd)
-                if (text.substring(lineStart, coveredStart).isBlank() && text.substring(coveredEnd, lineEnd).isBlank()) {
-                    if (commentElement[line] == null) commentElement[line] = el
-                    if (c.kind == CommentKind.DOC) doc[line] = true else comment[line] = true
-                }
-            }
-        }
-        return LineModel(comment, doc, commentElement, inlineElement, inlineText, inlineStartCol)
     }
 }

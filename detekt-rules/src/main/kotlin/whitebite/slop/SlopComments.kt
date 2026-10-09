@@ -80,8 +80,76 @@ internal fun collectComments(root: KtFile): Pair<List<KtCommentInfo>, SourceLine
     return out to src
 }
 
+internal class LineCls(val comment: Boolean, val doc: Boolean)
+
+private val LINE_PREFIXES = listOf("//", "/*", "*")
+private val BLOCK_PAIRS = listOf("/*" to "*/", "{/*" to "*/}")
+private val DOC_OPENERS = listOf(Regex("""^/\*\*""") to "*/", Regex("""^///""") to "")
+
+internal fun isCommentLine(line: String): Boolean {
+    val t = line.trim()
+    if (LINE_PREFIXES.any { t.startsWith(it) }) return true
+    return t.endsWith("*/") && BLOCK_PAIRS.any { t.contains(it.first) }
+}
+
+internal class SlopClassifier {
+    private var blockClose: String? = null
+    private var docClose: String? = null
+
+    fun classify(line: String): LineCls {
+        val t = line.trim()
+        docClose?.let { close ->
+            if (t.contains(close)) docClose = null
+            return LineCls(false, true)
+        }
+        blockClose?.let { close ->
+            if (t.contains(close)) blockClose = null
+            return LineCls(true, false)
+        }
+        for ((openRe, close) in DOC_OPENERS) {
+            val m = openRe.find(t) ?: continue
+            if (!t.substring(m.value.length).contains(close)) docClose = close
+            return LineCls(false, true)
+        }
+        for ((open, close) in BLOCK_PAIRS) {
+            if (t.startsWith(open) && !t.substring(open.length).contains(close)) {
+                blockClose = close
+                return LineCls(true, false)
+            }
+        }
+        return LineCls(isCommentLine(line), false)
+    }
+}
+
+internal fun classifyLines(lines: List<String>): List<LineCls> {
+    val classifier = SlopClassifier()
+    return lines.map { classifier.classify(it) }
+}
+
+internal fun collectHeadComments(root: KtFile, src: SourceLines, n: Int): Array<PsiElement?> {
+    val text = root.text
+    val out = arrayOfNulls<PsiElement>(n)
+    val (comments, _) = collectComments(root)
+    for (c in comments) {
+        for (line in c.startLine..c.endLine) {
+            if (line >= n) break
+            val lineStart = src.startOf(line)
+            val lineEnd = lineStart + src.lines[line].length
+            val coveredStart = (if (line == c.startLine) c.startOffset else lineStart).coerceIn(lineStart, lineEnd)
+            val coveredEnd = (if (line == c.endLine) c.endOffset else lineEnd).coerceIn(lineStart, lineEnd)
+            if (text.substring(lineStart, coveredStart).isBlank() && text.substring(coveredEnd, lineEnd).isBlank()) {
+                if (out[line] == null) out[line] = c.element
+            }
+        }
+    }
+    return out
+}
+
 // (?U) — \s в JS юникодный (U+00A0), в Java по умолчанию ASCII
-private val licenseHead = Regex("(?U)^(?://+|/\\*+|\\*+|<!--|#+|;+|--+)\\s*(?:copyright|licensed?|SPDX)", RegexOption.IGNORE_CASE)
+private val licenseHead = Regex(
+    "(?U)^(?://+|/\\*+|\\*+|\\(\\*+|<!--+|#+|;+|--+)\\s*(?:copyright|licensed?|SPDX|all rights reserved|permission is hereby granted|public domain|MIT License)",
+    RegexOption.IGNORE_CASE,
+)
 
 internal fun isLicenseRun(runLines: List<String>): Boolean =
     runLines.take(3).any { licenseHead.containsMatchIn(it.trim()) } ||

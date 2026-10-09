@@ -47,4 +47,32 @@ class StopAiSlopObviousCommentTest {
     fun `comment in a kdoc is clean`() {
         assertEquals(0, rule.lint(lines("/** increment the counter */", "counter += 1")).size)
     }
+
+    @Test
+    fun `single obvious comment far below the density threshold is dropped`() {
+        val dense = (0 until 100).map { "val v$it = $it" }
+        val code = (listOf("// increment the counter", "counter += 1") + dense).toTypedArray()
+        assertEquals(0, rule.lint(lines(*code)).size)
+    }
+
+    @Test
+    fun `density exactly at the two percent threshold is kept`() {
+        val dense = (0 until 49).map { "val v$it = $it" }
+        val code = (listOf("// increment the counter", "counter += 1") + dense).toTypedArray()
+        assertEquals(1, rule.lint(lines(*code)).size)
+    }
+
+    @Test
+    fun `density just below the two percent threshold is dropped`() {
+        val dense = (0 until 50).map { "val v$it = $it" }
+        val code = (listOf("// increment the counter", "counter += 1") + dense).toTypedArray()
+        assertEquals(0, rule.lint(lines(*code)).size)
+    }
+
+    @Test
+    fun `two obvious comments over fifty code lines stay above the threshold`() {
+        val dense = (0 until 48).map { "val v$it = $it" }
+        val code = (listOf("// increment the counter", "counter += 1", "// reset slot", "resetSlot()") + dense).toTypedArray()
+        assertEquals(2, rule.lint(lines(*code)).size)
+    }
 }

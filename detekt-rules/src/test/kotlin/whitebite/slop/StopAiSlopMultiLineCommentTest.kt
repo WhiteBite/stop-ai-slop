@@ -91,4 +91,34 @@ class StopAiSlopMultiLineCommentTest {
         )
         assertEquals(1, rule.lint(code).size)
     }
+
+    @Test
+    fun `markerless continuation inside a mid-line block does not form a run`() {
+        assertEquals(0, rule.lint(lines("val x = 1 /* note", "Step 2", "*/", "val y = 2")).size)
+    }
+
+    @Test
+    fun `star continuation lines inside a mid-line block form a run`() {
+        assertEquals(1, rule.lint(lines("val x = 1 /* note", " * Step 2", " */")).size)
+    }
+
+    @Test
+    fun `all rights reserved head is a license run`() {
+        assertEquals(0, rule.lint(lines("// All rights reserved.", "// Proprietary and confidential", "val x = 1")).size)
+    }
+
+    @Test
+    fun `permission is hereby granted head is a license run`() {
+        assertEquals(0, rule.lint(lines("// Permission is hereby granted, free of charge", "// to any person obtaining a copy", "val x = 1")).size)
+    }
+
+    @Test
+    fun `public domain head is a license run`() {
+        assertEquals(0, rule.lint(lines("// Public domain dedication", "// No warranty of any kind", "val x = 1")).size)
+    }
+
+    @Test
+    fun `mit license head is a license run`() {
+        assertEquals(0, rule.lint(lines("// MIT License applies to this module", "// See the license text upstream", "val x = 1")).size)
+    }
 }

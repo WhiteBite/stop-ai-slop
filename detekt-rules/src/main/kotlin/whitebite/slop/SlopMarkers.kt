@@ -137,10 +137,7 @@ internal object SlopMarkers {
         "[" + 0x200E.toChar() + 0x200F.toChar() + "]|" + BS + BS + "u200[eEfF]",
     )
 
-    val SUPPRESS_NEXT = Pat.of("""stop-ai-slop-ignore-next-line\b(.*)${D}""")
-    val SUPPRESS_LINE = Pat.of("""stop-ai-slop-ignore-line\b(.*)${D}""")
-    val SUPPRESS_FILE = Pat.of("""stop-ai-slop-ignore-file\b(.*)${D}""")
-    val SUPPRESS_ANY = Pat.of("""stop-ai-slop-ignore-(?:next-line|line|file)\b""")
+    val DIRECTIVE_HEAD = Regex("""(?U)^\s*stop-ai-slop-ignore-(next-line|line|file)\b""")
 
     val GEN_NAME_SAFE = Pat.of(
         """\.(?:g|g\.i|freezed|gr|chopper|pb|pbenum|pbjson|pbgrpc|pbserver)\.dart${D}|_pb2(?:_grpc)?\.py${D}|_pb2\.pyi${D}|_pb\.go${D}|_grpc\.pb\.go${D}|\.pb\.(?:cc|h|hpp|cpp)${D}|_grpc\.pb\.(?:cc|h)${D}|\.pb\.mojom\.(?:cc|h)${D}|zz_generated\.|_string\.go${D}|\.sql\.go${D}|\.querier\.go${D}|\.Designer\.cs${D}|\.g\.i\.cs${D}|AssemblyAttributes\.cs${D}|^GlobalUsings(?:\.g)?\.cs${D}|\.min\.[cm]?js${D}|\.min\.css${D}|\.bundle\.js${D}""",
