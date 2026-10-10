@@ -36,6 +36,7 @@
 
 - Директивы подавления `stop-ai-slop-ignore-next-line [ids]`, `-ignore-line [ids]`, `-ignore-file [ids]`, хвост `-- reason`. Пустой список правил глушит всё на цели.
 - Лицензионная шапка (`isLicenseRun`) освобождает `multi-line-comment` и `vend/file-summary-header`.
+- `long-comment`: порог длины — 120 символов на строку комментария (`MAX_COMMENT_LENGTH` в `SlopMarkers.kt`), зеркало дефолта `maxCommentLength` JS-сканера; per-repo конфигурации у порта нет.
 - `long-comment`: строка с why-маркером в срезанном тексте (`WHY_MARKERS`: `because`/`otherwise`/`чтобы`/… ) не флагается; `multi-line-comment`: ран ровно из 2 строк с why-маркером (сжатый текст ≤ 120) не флагается, 3+ строки — флагаются. Маркеры — зеркало Node-сканера; языковые профили (в т.ч. `gherkin`) в порт не входят, область только `.kt`.
 - Doc-блоки: `changelog-marker`, `vend/this-function-opener` и `vend/ai-plan-narration` срабатывают и внутри; `step-numbered`, `markdown-in-comment`, `long-comment`, `cross-file-ref`, `obvious-comment` — нет; `multi-line-comment` doc-блоки не видит вовсе.
 - Сгенерированные файлы (`GEN_NAME_SAFE`, `GEN_HEADER_STRICT`, пара `GEN_HEADER_LAX`) освобождены от slop-правил, но три security-правила (`vend/zero-width-chars`, `vend/bidi-controls`, `vend/cjk-noise`) срабатывают и там: отравленный codegen — supply-chain сигнал.
