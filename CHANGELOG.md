@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.15.0
+
+- suppression-гейт: директива распознаётся только первым токеном после маркера комментария, id валидируются по известным rule-id, полнострочная директива требует классификации строки как комментария — закрыты обходы через `ignore-file <мусорный-токен>`, директиву внутри docstring/YAML block scalar и директиву-разрыватель comment-run; директива с неизвестным id инертна во всех режимах (в diff — по-прежнему `vend/self-suppression`)
+- `ignore-file [ids]` со списком правил теперь реально скоупит подавление по перечисленным правилам, а не глушит весь файл
+- OpenCode write-time плагин: shape-гейт неизвестных/капитализированных имён инструментов (`Write`, `str_replace`, `patch`, `apply` с write/edit/multiedit/apply_patch-формой payload); mutating-вызов, который не удалось оценить, пишется в аудит с verdict `unevaluated`
+- Claude Code PostToolUse-хук: находки уходят в stderr + exit 2 — модель получает их обратно (раньше был exit 1 + stdout); PreToolUse без изменений
+- Claude-плагин на корневом layout: `.claude-plugin/plugin.json` + `hooks/hooks.json` (auto-load без hooks-ключа); новый selftest-чек резолвит каждый component-путь манифеста на живом дереве
+- detekt-порт: поведенческий паритет с JS — density-gate obvious-comment (2%), директивы только внутри комментариев, comment-only generated head, LICENSE_HEAD/TODO_WORD/STEP_NUMBERED в точности как в JS; три механических гейта дрейфа: catalog parity (включая набор KNOWN_RULE_IDS), parity-corpus (19 кейсов, JS-вердикты = ground truth), marker-manifest (36 js / 26 kt паттернов)
+- MCP: JSON-RPC batch (array-in → array-out), `slop_scan` берёт конфиг и baseline из git-корня сканируемого пути, а не cwd сервера
+- version-sync гейт fail-closed: отсутствующая или невалидная поверхность = FAIL; Formula/stop-ai-slop.rb в списке поверхностей; SKIP — отдельный статус selftest, тавтологичные чеки удалены
+- VS Code-расширение: spawn через shell на Windows (npx.cmd больше не ENOENT), таймаут скана 30 с, устаревшие диагностики сбрасываются, активация при старте
+- `--install`: не падает в git worktree (hooks через `git rev-parse --git-path hooks`), сохраняет BOM package.json, повторный прогон не мусорит `.bak` и не перезаписывает идентичные файлы; мёртвые модули vendored harness-kit вычищены
+- GitHub Action без resolvable base — громкий FAIL вместо зелёного на пустом диффе; release-job ждёт npm-publish; тег передаётся через env
+- закрытые FP: regex-литерал с `*/` на конце строки, версии/десятичные (`// 1.0.0 is the minimum`, `// 2.5x faster`), license-шапки без слова copyright («all rights reserved» и т.п.), испанское «todo» в прозе, U+FEFF в первой добавленной строке hunk'а, header-FP на добавленном комментарии в середине файла в diff-режиме
+- diff-парсер: C-unquote путей git (`\t`, `\"`, `\\`, octal UTF-8) — readDisk больше не промахивается по квотированным путям; staged rename и binary покрыты тестами
+- конфиг: неизвестный rule id в `rules:`/`overrides:` — exit 2 с именем файла и строкой (раньше молча игнорировался)
+- self-test: 744 PASS / 1 SKIP / 0 FAIL; detekt: 180 тестов
+
 ## 0.14.1
 
 - detekt-порт: зеркалированы why-маркеры — `WHY_MARKERS` + эксемпт `long-comment` (закрыт пропущенный в 0.12 паритет) и 2-строчного `multi-line-comment`; добавлены тесты
