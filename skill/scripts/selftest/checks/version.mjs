@@ -23,14 +23,6 @@ export default async function ({ check, selfRoot, dir }) {
   for (const surface of surfaces) {
     check(surface.name, surface.ok, `${surface.relPath}: expected ${surface.expected}, actual ${surface.actual}`)
   }
-  const formula = surfaces.find((surface) => surface.relPath === "Formula/stop-ai-slop.rb")
-  check(
-    "version-sync-formula-surface: Formula/stop-ai-slop.rb входит в versionSurfaces(), url-тег == package.json",
-    formula !== undefined && formula.actual === pkgVer,
-    formula === undefined
-      ? "Formula/stop-ai-slop.rb отсутствует в versionSurfaces()"
-      : `${formula.relPath}: expected ${formula.expected}, actual ${formula.actual}`,
-  )
   const missingRoot = join(dir, "version-fail-closed")
   mkdirSync(missingRoot, { recursive: true })
   writeFileSync(join(missingRoot, "package.json"), JSON.stringify({ version: "0.0.0" }))

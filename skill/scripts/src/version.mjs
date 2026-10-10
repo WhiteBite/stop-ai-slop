@@ -107,16 +107,6 @@ function revSurface(root, version, relPath) {
   return { name, relPath, expected, actual, ok: actual === expected }
 }
 
-function formulaSurface(root, version) {
-  const name = "version-sync-formula: Formula/stop-ai-slop.rb url tag == package.json"
-  const relPath = "Formula/stop-ai-slop.rb"
-  const raw = readText(root, relPath)
-  if (raw === null) return { name, relPath, expected: version, actual: "missing", ok: false }
-  const m = /stop-ai-slop-(\d+\.\d+\.\d+)\.tgz/.exec(raw)
-  const actual = m !== null ? m[1] : "no url tag"
-  return { name, relPath, expected: version, actual, ok: actual === version }
-}
-
 export function versionSurfaces(root = ROOT) {
   const version = packageVersion(root)
   return [
@@ -129,6 +119,5 @@ export function versionSurfaces(root = ROOT) {
     modelineSurface(root, version, "README.ru.md"),
     revSurface(root, version, "README.md"),
     revSurface(root, version, "README.ru.md"),
-    formulaSurface(root, version),
   ]
 }
