@@ -72,11 +72,11 @@ internal object SlopDetector {
             }
             if (SlopMarkers.THIS_OPENER.find(body)) push("vend/this-function-opener", i, markerIdx)
             if (SlopMarkers.AI_PLAN_NARRATION.find(body) &&
-                !(SlopMarkers.TODO_WORD.find(t) && (SlopMarkers.TICKET_REF.find(t) || SlopMarkers.ISSUE_LINK.find(t)))
+                !(SlopMarkers.TODO_WORD.find(body) && (SlopMarkers.TICKET_REF.find(t) || SlopMarkers.ISSUE_LINK.find(t)))
             ) {
                 push("vend/ai-plan-narration", i, markerIdx)
             }
-            if (SlopMarkers.TODO_WORD.find(t) && !SlopMarkers.TICKET_REF.find(t) && !SlopMarkers.ISSUE_LINK.find(t)) {
+            if (SlopMarkers.TODO_WORD.find(body) && !SlopMarkers.TICKET_REF.find(t) && !SlopMarkers.ISSUE_LINK.find(t)) {
                 push("vend/generic-todo", i, markerIdx)
             }
             if (!doc && SlopMarkers.isCrossFileRef(body)) push("vend/cross-file-ref", i, markerIdx)

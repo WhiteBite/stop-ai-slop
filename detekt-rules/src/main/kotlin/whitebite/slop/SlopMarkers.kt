@@ -59,7 +59,7 @@ internal object SlopMarkers {
         ignoreCase = true,
     )
 
-    val TODO_WORD = Pat.of("""\b(?:todo|fixme|xxx)\b""", ignoreCase = true)
+    val TODO_WORD = Pat.of("""^(?:[Tt][Oo][Dd][Oo]|[Ff][Ii][Xx][Mm][Ee])\b|(?<![A-Za-z])XXX(?![A-Za-z])""")
 
     val AI_VOCAB_TOKENS = Pat.of(
         """\b(?:additionally|boasts|bolstered|crucial|delve|emphasizing|enduring|garner|intricate|intricacies|interplay|meticulously|meticulous|pivotal|tapestry|testament|vibrant|fostering|showcasing)\b""",

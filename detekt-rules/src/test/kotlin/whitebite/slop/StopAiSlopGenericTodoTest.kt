@@ -57,4 +57,14 @@ class StopAiSlopGenericTodoTest {
     fun `todo inside code identifier is clean`() {
         assertEquals(0, rule.lint(lines("val todos = 1")).size)
     }
+
+    @Test
+    fun `spanish prose todo mid-sentence is clean`() {
+        assertEquals(0, rule.lint(lines("// repasa todo el inventario", "val x = 1")).size)
+    }
+
+    @Test
+    fun `lowercase xxx is clean`() {
+        assertEquals(0, rule.lint(lines("// xxx", "val x = 1")).size)
+    }
 }

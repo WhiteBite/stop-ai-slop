@@ -263,5 +263,21 @@
         "line": 2
       }
     ]
+  },
+  {
+    "name": "todo-lowercase-xxx",
+    "lines": [
+      "// xxx",
+      "val x = 1"
+    ],
+    "expected": []
+  },
+  {
+    "name": "todo-spanish-prose",
+    "lines": [
+      "// repasa todo el inventario",
+      "val x = 1"
+    ],
+    "expected": []
   }
 ]
