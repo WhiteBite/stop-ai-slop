@@ -29,6 +29,8 @@ export const CASES = [
   { name: "ignore-next-line-inline-valid-rule", lines: ["val d = 1 // stop-ai-slop-ignore-next-line vend/step-numbered", "// Step 1: run", "val x = 1"] },
   { name: "todo-spanish-prose", lines: ["// repasa todo el inventario", "val x = 1"] },
   { name: "todo-lowercase-xxx", lines: ["// xxx", "val x = 1"] },
+  { name: "step-version-prose", lines: ["// 1.0.0 is the minimum", "val x = 1"] },
+  { name: "step-decimal-prose", lines: ["// 2.5x faster", "val x = 1"] },
 ]
 
 const cmpStr = (a, b) => (a < b ? -1 : a > b ? 1 : 0)

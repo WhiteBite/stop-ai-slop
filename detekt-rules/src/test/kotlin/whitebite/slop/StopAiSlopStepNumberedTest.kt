@@ -57,4 +57,14 @@ class StopAiSlopStepNumberedTest {
     fun `star continuation inside a mid-line block is flagged`() {
         assertEquals(1, rule.lint(lines("val x = 1 /* note", " * Step 2", " */")).size)
     }
+
+    @Test
+    fun `version number prose is clean`() {
+        assertEquals(0, rule.lint(lines("// 1.0.0 is the minimum", "val x = 1")).size)
+    }
+
+    @Test
+    fun `decimal multiplier prose is clean`() {
+        assertEquals(0, rule.lint(lines("// 2.5x faster", "val x = 1")).size)
+    }
 }

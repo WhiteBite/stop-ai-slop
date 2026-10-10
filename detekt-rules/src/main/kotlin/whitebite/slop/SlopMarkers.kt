@@ -38,7 +38,7 @@ internal object SlopMarkers {
     )
 
     val STEP_NUMBERED = Pat.of(
-        """^(?:step(?U:\s+)\d+|шаг(?U:\s+)\d+|schritt(?U:\s+)\d+|(?<![a-zéèêàùç])étape(?U:\s+)\d+|paso(?U:\s+)\d+|\d+\.)""",
+        """^(?:step(?U:\s+)\d+|шаг(?U:\s+)\d+|schritt(?U:\s+)\d+|(?<![a-zéèêàùç])étape(?U:\s+)\d+|paso(?U:\s+)\d+|\d+\.(?!\d))""",
         ignoreCase = true,
     )
 

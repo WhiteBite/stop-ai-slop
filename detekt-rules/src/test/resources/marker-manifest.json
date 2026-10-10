@@ -59,7 +59,7 @@
     "MARKDOWN_LIST": "(?U)^-\\s+\\S",
     "MARKDOWN_TABLE": "^\\|.+\\|.+\\|",
     "OBVIOUS_WHY": "because|since|otherwise|unless|until|so that|in case|workaround|invariant|constraint|intentionally|deliberately|required|\\bmust\\b|\\bshould\\b|\\bcannot\\b|\\bavoid\\b|\\bonly\\b|\\butc\\b|\\bgmt\\b|\\bms\\b|millisecond|second|т\\.?(?U:\\s*)к\\.|так как|потому что|чтобы|иначе|если|пока|должн|нужно|надо|обязательн|нельзя|воркэраунд|инвариант|ограничен|осторожн|намеренн|специальн|требует|только|миллисекунд|секунд",
-    "STEP_NUMBERED": "^(?:step(?U:\\s+)\\d+|шаг(?U:\\s+)\\d+|schritt(?U:\\s+)\\d+|(?<![a-zéèêàùç])étape(?U:\\s+)\\d+|paso(?U:\\s+)\\d+|\\d+\\.)",
+    "STEP_NUMBERED": "^(?:step(?U:\\s+)\\d+|шаг(?U:\\s+)\\d+|schritt(?U:\\s+)\\d+|(?<![a-zéèêàùç])étape(?U:\\s+)\\d+|paso(?U:\\s+)\\d+|\\d+\\.(?!\\d))",
     "THIS_OPENER": "^(?:this(?U:\\s+)(?:function|class|method|component)\\b|(?:эт[ао]т?(?U:\\s+)|данн(?:ая|ый)(?U:\\s+))(?:функци[а-яё]*|класс[а-яё]*|метод[а-яё]*|компонент[а-яё]*)|diese[rs]?(?U:\\s+)(?:funktion|klasse|methode|komponente)|cett[ee](?U:\\s+)(?:fonction|classe|méthode|composant)|est[ae](?U:\\s+)(?:función|clase|método|componente))",
     "TICKET_REF": "[A-Z]+-\\d+",
     "TODO_WORD": "^(?:[Tt][Oo][Dd][Oo]|[Ff][Ii][Xx][Mm][Ee])\\b|(?<![A-Za-z])XXX(?![A-Za-z])",

@@ -265,6 +265,22 @@
     ]
   },
   {
+    "name": "step-decimal-prose",
+    "lines": [
+      "// 2.5x faster",
+      "val x = 1"
+    ],
+    "expected": []
+  },
+  {
+    "name": "step-version-prose",
+    "lines": [
+      "// 1.0.0 is the minimum",
+      "val x = 1"
+    ],
+    "expected": []
+  },
+  {
     "name": "todo-lowercase-xxx",
     "lines": [
       "// xxx",
