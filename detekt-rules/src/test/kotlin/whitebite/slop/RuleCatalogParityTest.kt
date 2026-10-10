@@ -38,6 +38,12 @@ class RuleCatalogParityTest {
     }
 
     @Test
+    fun `KNOWN_RULE_IDS equals the catalog id set`() {
+        val catalogIds = catalog.rules.map { it.id }.toSet() + catalog.excludedIds
+        assertEquals(catalogIds, KNOWN_RULE_IDS)
+    }
+
+    @Test
     fun `issue severity maps catalog error to Defect and warning to Style`() {
         val byId = catalog.rules.associateBy { it.id }
         for (rule in registered) {

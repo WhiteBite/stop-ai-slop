@@ -27,6 +27,8 @@ export const CASES = [
   { name: "long-comment", lines: ["// " + "y".repeat(121), "val x = 1"] },
   { name: "license-header", lines: ["// Copyright (c) 2024 Foo Inc.", "// All rights reserved.", "val x = 1"] },
   { name: "ignore-next-line-inline-valid-rule", lines: ["val d = 1 // stop-ai-slop-ignore-next-line vend/step-numbered", "// Step 1: run", "val x = 1"] },
+  { name: "unknown-id-line-directive-inert", lines: ["// stop-ai-slop-ignore-line bogus-id", "// было, стало", "val x = 1"] },
+  { name: "unknown-id-file-directive-inert", lines: ["// stop-ai-slop-ignore-file bogus-id", "// было, стало", "val x = 1"] },
   { name: "todo-spanish-prose", lines: ["// repasa todo el inventario", "val x = 1"] },
   { name: "todo-lowercase-xxx", lines: ["// xxx", "val x = 1"] },
   { name: "step-version-prose", lines: ["// 1.0.0 is the minimum", "val x = 1"] },

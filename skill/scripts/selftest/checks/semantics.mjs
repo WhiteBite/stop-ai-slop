@@ -39,6 +39,8 @@ export default async function ({ check, runCli, selfPath }) {
     writeFileSync(join(work, "realsupp.ts"), "// stop-ai-slop-ignore-file\n// было иначе, стало так\n")
     const inlineDirective = 'const s = "stop-ai-slop-ignore-file"; ' + "// было, стало\n"
     writeFileSync(join(work, "strsupp-inline.ts"), inlineDirective)
+    writeFileSync(join(work, "bogus-line.ts"), "// stop-ai-slop-ignore-line bogus-id\n// было, стало\nconst x = 1\n")
+    writeFileSync(join(work, "bogus-file.ts"), "// stop-ai-slop-ignore-file bogus-id\n// было, стало\nconst x = 1\n")
     writeFileSync(join(work, "plan.ts"), "// step 2 of the plan: wire the handler\nconst x = 1\n")
     writeFileSync(join(work, "plan-ack.ts"), "// as requested, the timeout is 30 seconds\nconst x = 1\n")
     writeFileSync(join(work, "plan-fp.ts"), "/* Module API version as requested during initialization. */\nint apiver = 1;\n")
@@ -109,6 +111,18 @@ export default async function ({ check, runCli, selfPath }) {
       "strsupp-inline: директива в строке не глушит trailing-комментарий той же строки [exit 1]",
       strsuppInline.status === 1 && strsuppInline.out.includes("changelog-marker"),
       `exit ${strsuppInline.status}: ${strsuppInline.out.slice(0, 200)}`,
+    )
+    const bogusLine = scanOf("bogus-line.ts")
+    check(
+      "bogus-id: ignore-line с невалидным id не подавляет находки [exit 1]",
+      bogusLine.status === 1 && bogusLine.out.includes("multi-line-comment") && bogusLine.out.includes("changelog-marker"),
+      `exit ${bogusLine.status}: ${bogusLine.out.slice(0, 200)}`,
+    )
+    const bogusFile = scanOf("bogus-file.ts")
+    check(
+      "bogus-id: ignore-file с невалидным id не глушит файл [exit 1]",
+      bogusFile.status === 1 && bogusFile.out.includes("changelog-marker"),
+      `exit ${bogusFile.status}: ${bogusFile.out.slice(0, 200)}`,
     )
 
     const plan = scanOf("plan.ts")
@@ -297,6 +311,16 @@ export default async function ({ check, runCli, selfPath }) {
       `exit ${c1a.status}: ${c1a.out.slice(0, 250)}`,
     )
     git(gDir, ["commit", "-q", "-m", "c1a"])
+
+    writeFileSync(join(gDir, "a2.ts"), "const x = 1\n// stop-ai-slop-ignore-file bogus-id\n// было так, стало иначе\n")
+    git(gDir, ["add", "a2.ts"])
+    const c1aBogus = runCli(["--staged"], gDir)
+    check(
+      "C1a-bogus: ignore-file с неизвестным id инертен, self-suppression остаётся [diff]",
+      c1aBogus.out.includes("changelog-marker") && c1aBogus.out.includes("vend/self-suppression"),
+      `exit ${c1aBogus.status}: ${c1aBogus.out.slice(0, 250)}`,
+    )
+    git(gDir, ["commit", "-q", "-m", "c1a-bogus"])
 
     writeFileSync(join(gDir, "m8.ts"), "const x = 1\n// header one\n// header two\n")
     git(gDir, ["add", "m8.ts"])

@@ -295,5 +295,41 @@
       "val x = 1"
     ],
     "expected": []
+  },
+  {
+    "name": "unknown-id-file-directive-inert",
+    "lines": [
+      "// stop-ai-slop-ignore-file bogus-id",
+      "// было, стало",
+      "val x = 1"
+    ],
+    "expected": [
+      {
+        "rule": "multi-line-comment",
+        "line": 1
+      },
+      {
+        "rule": "changelog-marker",
+        "line": 2
+      }
+    ]
+  },
+  {
+    "name": "unknown-id-line-directive-inert",
+    "lines": [
+      "// stop-ai-slop-ignore-line bogus-id",
+      "// было, стало",
+      "val x = 1"
+    ],
+    "expected": [
+      {
+        "rule": "multi-line-comment",
+        "line": 1
+      },
+      {
+        "rule": "changelog-marker",
+        "line": 2
+      }
+    ]
   }
 ]

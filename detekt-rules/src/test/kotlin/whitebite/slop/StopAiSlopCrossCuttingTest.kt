@@ -19,8 +19,8 @@ class StopAiSlopCrossCuttingTest {
     }
 
     @Test
-    fun `ignore-next-line with an unknown rule id falls back to bare suppression`() {
-        assertEquals(0, step.lint(lines(ignoreNext("vend/long-comment"), "// Step 1: run", "val x = 1")).size)
+    fun `ignore-next-line with an unknown rule id is inert`() {
+        assertEquals(1, step.lint(lines(ignoreNext("vend/long-comment"), "// Step 1: run", "val x = 1")).size)
     }
 
     @Test

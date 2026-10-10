@@ -23,9 +23,10 @@ internal val KNOWN_RULE_IDS = setOf(
 
 // (?U) — \s в JS юникодный (U+00A0), в Java по умолчанию ASCII
 internal fun rulesOfTail(tail: String): Set<String>? {
-    val ids = tail.substringBefore("--").trim().split(Regex("""(?U)\s+"""))
-        .filter { it.isNotEmpty() && it in KNOWN_RULE_IDS }
-    return if (ids.isEmpty()) null else ids.toSet()
+    val tokens = tail.substringBefore("--").trim().split(Regex("""(?U)\s+""")).filter { it.isNotEmpty() }
+    // null = токенов нет (глушить всё на цели); пустой Set = токены есть, но ни один не валиден (инертно)
+    if (tokens.isEmpty()) return null
+    return tokens.filter { it in KNOWN_RULE_IDS }.toSet()
 }
 
 internal fun directiveHead(text: String): Directive? {

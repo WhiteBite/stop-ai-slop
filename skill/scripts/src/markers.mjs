@@ -136,9 +136,10 @@ export const directiveHead = (text) => {
   if (m === null) return null
   return { kind: m[1] === "next-line" ? "next" : m[1], tail: m[2] }
 }
+// null = list-less tail (suppress-all on target); empty Set = tokens present but none valid (inert)
 export const rulesOfTail = (tail) => {
-  const ids = tail.split("--")[0].trim().split(/\s+/).filter((w) => RULE_BY_ID.has(w))
-  return ids.length === 0 ? null : new Set(ids)
+  const tokens = tail.split("--")[0].trim().split(/\s+/).filter((w) => w !== "")
+  return tokens.length === 0 ? null : new Set(tokens.filter((w) => RULE_BY_ID.has(w)))
 }
 export const LICENSE_HEAD = /^(?:\/\/+|\/\*+|\*+|\(\*+|<!--+|#+|;+|--+)\s*(?:copyright|licensed?|SPDX|all rights reserved|permission is hereby granted|public domain|MIT License)/i
 export const GO_DECL_NAME = /^\s*(?:func\s+(?:\([^)]*\)\s*)?|type\s+|const\s+|var\s+)(\w+)/

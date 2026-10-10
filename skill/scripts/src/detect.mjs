@@ -126,7 +126,7 @@ export function collectSuppressions(lines, clss, profile = PROFILES.legacy, diff
     const d = directiveOf(lines[i] ?? "", profile, clss[i])
     if (d === null) continue
     const ids = rulesOfTail(d.tail)
-    if (diffMode && ids === null) {
+    if (diffMode && (ids === null || ids.size === 0)) {
       selfSuppress.push(i + 1)
       continue
     }
