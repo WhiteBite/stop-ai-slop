@@ -566,7 +566,7 @@ export async function cmdSelfTest() {
     check("cjk-ok: китайский комментарий не флагается", byRel("cjk-ok.ts").length === 0, byRel("cjk-ok.ts"))
     check("cjk-i18n: i18n-строки без смежности не флагуются", byRel("cjk-i18n.ts").length === 0, byRel("cjk-i18n.ts"))
     check("zw: zero-width в строке → vend/zero-width-chars [error]", byRel("zw.ts").some((f) => f.rule === "vend/zero-width-chars" && f.severity === "error"), byRel("zw.ts"))
-    check("zw-escape: escape-форма в исходнике → vend/zero-width-chars [error]", byRel("zw-escape.ts").some((f) => f.rule === "vend/zero-width-chars"), byRel("zw-escape.ts"))
+    check("zw-escape: escape-форма как текст в строке не флагается (только реальные codepoints)", byRel("zw-escape.ts").length === 0, byRel("zw-escape.ts"))
     check("zwj-ok: эмодзи-ZWJ последовательность не флагается", byRel("zwj-ok.ts").length === 0, byRel("zwj-ok.ts"))
     check("bidi: BiDi-контрол в строке → vend/bidi-controls [error]", byRel("bidi.ts").some((f) => f.rule === "vend/bidi-controls" && f.severity === "error"), byRel("bidi.ts"))
     check("bidi-escape: escape-форма → vend/bidi-controls [error]", byRel("bidi-escape.ts").some((f) => f.rule === "vend/bidi-controls"), byRel("bidi-escape.ts"))
@@ -659,8 +659,8 @@ export async function cmdSelfTest() {
         `exit ${applied.status}: ${after}`,
       )
       check(
-        "fix: escape-форма zero-width осталась как error-находка [exit 1]",
-        applied.out.includes("vend/zero-width-chars"),
+        "fix: escape-форма zero-width сохранена в файле и больше не флагается [exit 1]",
+        !applied.out.includes("vend/zero-width-chars"),
         applied.out,
       )
       const suppAfter = readFileSync(join(fixDir, "supp-keep.ts"), "utf8")

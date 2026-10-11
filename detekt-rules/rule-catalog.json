@@ -99,7 +99,7 @@
     {
       "id": "vend/zero-width-chars",
       "severity": "error",
-      "message": "невидимый символ нулевой ширины (U+200B, U+200C, U+200D, U+2060, U+FEFF или escape-форма)",
+      "message": "невидимый символ нулевой ширины (U+200B, U+200C, U+200D, U+2060, U+FEFF)",
       "kotlinRule": "StopAiSlopZeroWidthChars"
     }
   ],

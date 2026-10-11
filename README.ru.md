@@ -546,7 +546,7 @@ node skill/scripts/scan.mjs --audit 50     # последние 50
 | `vend/research-citation` | warning | научная ссылка в комментарии — код не место для библиографии |
 | `vend/self-suppression` | warning | директива подавления без списка правил пришла вместе с подавляемым кодом |
 | `vend/cjk-noise` | warning | CJK-иероглифы склеены с латиницей или цифрами в коде (артефакт генерации) |
-| `vend/zero-width-chars` | error | невидимый символ нулевой ширины (U+200B, U+200C, U+200D, U+2060, U+FEFF или escape-форма) |
+| `vend/zero-width-chars` | error | невидимый символ нулевой ширины (U+200B, U+200C, U+200D, U+2060, U+FEFF) |
 | `vend/bidi-controls` | error | BiDi-контролы (U+202A-U+202E, U+2066-U+2069) в любой строке и направленные марки (U+200E, U+200F) в коде |
 <!-- stop-ai-slop:rules:end -->
 

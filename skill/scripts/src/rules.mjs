@@ -278,13 +278,13 @@ export const RULES = [
   {
     id: "vend/zero-width-chars",
     severity: "error",
-    message: "невидимый символ нулевой ширины (U+200B, U+200C, U+200D, U+2060, U+FEFF или escape-форма)",
+    message: "невидимый символ нулевой ширины (U+200B, U+200C, U+200D, U+2060, U+FEFF)",
     why: "Невидимые символы — канал инъекций и обфускации (Unicode Instruction Injection, Trojan Source): текст выглядит не так, как исполняется.",
     instead: "удалить символ; пробел — обычным пробелом",
     write: "const label = 'test'",
     ignoreWhen: "нет (всегда артефакт или инъекция)",
     en: {
-      message: "an invisible zero-width character (U+200B, U+200C, U+200D, U+2060, U+FEFF or an escape form)",
+      message: "an invisible zero-width character (U+200B, U+200C, U+200D, U+2060, U+FEFF)",
       why: "Invisible characters are an injection and obfuscation channel (Unicode Instruction Injection, Trojan Source): the text does not look the way it executes.",
       instead: "delete the character; use an ordinary space for a space",
       write: "const label = 'test'",

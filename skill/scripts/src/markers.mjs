@@ -5,7 +5,7 @@ import { RULE_BY_ID } from "./rules.mjs"
 export const CHANGELOG_STRONG =
   /\bwas\b[^,.;\n]{0,60},\s*(?:and\s+)?now\b|\bthis fixes\b|\bthis fix\b|\bmust take over\b|broke, so|\b(?:before|prior\s+to|after|since)\s+this\s+(?:change|refactor|rewrite)\b(?!\s+(?:of|request)\b)|\bthe\s+old\b[^,.;\n]{0,40}(?<!\b(?:is|are|was|were|be|been|being)\s)\b(?:kept|behaved|returned|assumed|treated|held|ignored|skipped)\b(?!\s+(?:for|by|as|to|with|in|on|from|like|than|if|when|whenever|unless|until|during|while|over|under|across|through|via|without|within|between|among|against|per|onto|upon|about|after|before|since|despite|except|into|of|at|because|although|though|whereas|whether|around)\b)(?!\s+[\w-]{1,20}\s+by\b)|(?:(?<![\w)\]]\s)|(?<=\b(?:and|but|since|because|when|while|as|earlier|previously|originally|now|then|so|also|however|rem)\s))\b(?:we|they|it|this)\s+used to\b|(?<![а-яё])(?:до|после)\s+(?:этого\s+изменения|этой\s+правки)|(?<![а-яё])(?:стар(?:ый|ая|ое|ые|ого|ому|ым|ом|ой|ую|ых|ыми)|прежн(?:ий|яя|ее|ие|его|ему|им|ем|ей|юю|их|ими))[^,.;\n]{0,40}(?:держал[аои]?|возвращал[аои]?|считал[аои]?|обрабатывал[аои]?|игнорировал[аои]?|пропускал[аои]?|вел[аои]?|вёл)(?![а-яё])(?!\s+бы(?![а-яё]))|\bused to\b[^,.;\n]{0,50}\b(?:has|have)\s+been\s+(?:removed|deleted|replaced|dropped)\b/i
 export const CHANGELOG_WEAK =
-  /(?<![а-яё])(?:было|стало|раньше|вместо|теперь)(?![а-яё])|\bnow we\b|\bpreviously\b|\binstead of\b|\bno longer\b|(?<![a-zäöüß])(?:stattdessen|nicht mehr|früher war|war vorher)(?![a-zäöüß])|\bau lieu de\b|(?<![a-zéèêàùç])(?:auparavant|désormais)(?![a-zéèêàùç])|\ben lugar de\b|\bantes era\b|\bya no\b|\banteriormente\b/gi
+  /(?<![а-яё])(?:было|стало|раньше|вместо|теперь)(?![а-яё])|\bnow we\b|\bpreviously\b|\binstead of\b|(?<![a-zäöüß])(?:stattdessen|nicht mehr|früher war|war vorher)(?![a-zäöüß])|\bau lieu de\b|(?<![a-zéèêàùç])(?:auparavant|désormais)(?![a-zéèêàùç])|\ben lugar de\b|\bantes era\b|\bya no\b|\banteriormente\b/gi
 export const weakMarkerHits = (text) => (text.match(CHANGELOG_WEAK) ?? []).length
 export const GEN_NAME_SAFE =
   /\.(?:g|g\.i|freezed|gr|chopper|pb|pbenum|pbjson|pbgrpc|pbserver)\.dart$|_pb2(?:_grpc)?\.py$|_pb2\.pyi$|_pb\.go$|_grpc\.pb\.go$|\.pb\.(?:cc|h|hpp|cpp)$|_grpc\.pb\.(?:cc|h)$|\.pb\.mojom\.(?:cc|h)$|zz_generated\.|_string\.go$|\.sql\.go$|\.querier\.go$|\.Designer\.cs$|\.g\.i\.cs$|AssemblyAttributes\.cs$|^GlobalUsings(?:\.g)?\.cs$|\.min\.[cm]?js$|\.min\.css$|\.bundle\.js$/i
@@ -54,7 +54,7 @@ export const OBVIOUS_STOPWORDS = new Set(
 export const OBVIOUS_WHY =
   /because|since|otherwise|unless|until|so that|in case|workaround|invariant|constraint|intentionally|deliberately|required|\bmust\b|\bshould\b|\bcannot\b|\bavoid\b|\bonly\b|\butc\b|\bgmt\b|\bms\b|millisecond|second|т\.?\s*к\.|так как|потому что|чтобы|иначе|если|пока|должн|нужно|надо|обязательн|нельзя|воркэраунд|инвариант|ограничен|осторожн|намеренн|специальн|требует|только|миллисекунд|секунд/i
 export const WHY_MARKERS =
-  /\bbecause\b|\bsince\b|\botherwise\b|\bworkarounds?\b|\bcaveats?\b|\bto\s+avoid\b|\bby\s+design\b|\bhowever\b|\btrade-?offs?\b|\bfails?\s+when\b|\be\.g\.|\binvariants?\b|\bnote:|\bso\s+that\b|\bin\s+order\s+to\b|(?<![а-яё])(?:потому\s+что|иначе|воркэраунд|обход|чтобы|специально|напр\.)(?![а-яё])|(?<![a-zäöüß])(?:denn|sonst|um\s+zu\s+vermeiden)(?![a-zäöüß])|(?<![a-zéèêàùç])(?:car|sinon|contournement|pour\s+éviter)(?![a-zéèêàùç])|(?<![a-záéíóúñ])(?:porque|si\s+no|solución\s+alternativa|para\s+evitar)(?![a-záéíóúñ])/i
+  /\bbecause\b|\bsince\b|\botherwise\b|\bworkarounds?\b|\bcaveats?\b|\bto\s+avoid\b|\bby\s+design\b|\bhowever\b|\btrade-?offs?\b|\bfails?\s+when\b|\be\.g\.|\binvariants?\b|\bnote:|\bso\s+that\b|\bin\s+order\s+to\b|\bmust\b|\bcannot\b|\bnever\b|(?<![а-яё])(?:потому\s+что|иначе|воркэраунд|обход|чтобы|специально|напр\.)(?![а-яё])|(?<![a-zäöüß])(?:denn|sonst|um\s+zu\s+vermeiden)(?![a-zäöüß])|(?<![a-zéèêàùç])(?:car|sinon|contournement|pour\s+éviter)(?![a-zéèêàùç])|(?<![a-záéíóúñ])(?:porque|si\s+no|solución\s+alternativa|para\s+evitar)(?![a-záéíóúñ])/i
 export const OBVIOUS_WORD_SPLIT = /[^a-zа-яё0-9]+/
 export const camelSplit = (line) => line.replace(/([a-z0-9])(?=[A-Z])/g, "$1 ")
 export const commentContentWords = (text) =>
@@ -84,9 +84,7 @@ export const CJK = "[\\u2E80-\\u2EFF\\u3400-\\u4DBF\\u4E00-\\u9FFF\\uF900-\\uFAF
 export const CJK_ANY = new RegExp(CJK)
 export const LATIN = "[A-Za-z0-9_]"
 export const CJK_ADJACENT = new RegExp(CJK + LATIN + "|" + LATIN + CJK)
-export const ZERO_WIDTH = new RegExp("[" + CP(0x200b, 0x200c, 0x2060) + "]|" + BS + BS + "u200[bBcC]|" + BS + BS + "u2060")
-export const ZWJ_ESCAPE = new RegExp(BS + BS + "u200[dD]")
-export const FEFF_ESCAPE = new RegExp(BS + BS + "u[fF][eE][fF][fF]")
+export const ZERO_WIDTH = new RegExp("[" + CP(0x200b, 0x200c, 0x2060) + "]")
 export const FEFF_CHAR = CP(0xfeff)
 export const ZWJ_CHAR = CP(0x200d)
 export const EMOJI = new RegExp(
@@ -109,7 +107,6 @@ export const BIDI = new RegExp(
 )
 export const BIDI_MARK = new RegExp("[" + CP(0x200e, 0x200f) + "]|" + BS + BS + "u200[eEfF]")
 export const hasBadZwj = (line) => {
-  if (ZWJ_ESCAPE.test(line)) return true
   const chars = [...line]
   for (let k = 0; k < chars.length; k++) {
     if (chars[k] !== ZWJ_CHAR) continue
@@ -118,7 +115,6 @@ export const hasBadZwj = (line) => {
   return false
 }
 export const hasBadFeff = (line, i) => {
-  if (FEFF_ESCAPE.test(line)) return true
   const idx = line.indexOf(FEFF_CHAR)
   if (idx === -1) return false
   if (i === 0 && idx === 0) return line.indexOf(FEFF_CHAR, 1) !== -1
