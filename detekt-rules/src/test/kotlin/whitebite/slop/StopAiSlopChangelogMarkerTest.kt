@@ -14,6 +14,11 @@ class StopAiSlopChangelogMarkerTest {
     }
 
     @Test
+    fun `no longer with previously is a single weak marker`() {
+        assertEquals(0, rule.lint(lines("// the pool no longer trims idle entries, previously it did", "val x = 1")).size)
+    }
+
+    @Test
     fun `ru weak pair in one run is flagged`() {
         assertEquals(1, rule.lint(lines("// было так", "// стало иначе", "val x = 1")).size)
     }

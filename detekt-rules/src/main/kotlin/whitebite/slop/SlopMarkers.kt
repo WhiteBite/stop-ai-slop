@@ -33,7 +33,7 @@ internal object SlopMarkers {
     )
 
     val CHANGELOG_WEAK = Pat.of(
-        """(?<![а-яё])(?:было|стало|раньше|вместо|теперь)(?![а-яё])|\bnow we\b|\bpreviously\b|\binstead of\b|\bno longer\b|(?<![a-zäöüß])(?:stattdessen|nicht mehr|früher war|war vorher)(?![a-zäöüß])|\bau lieu de\b|(?<![a-zéèêàùç])(?:auparavant|désormais)(?![a-zéèêàùç])|\ben lugar de\b|\bantes era\b|\bya no\b|\banteriormente\b""",
+        """(?<![а-яё])(?:было|стало|раньше|вместо|теперь)(?![а-яё])|\bnow we\b|\bpreviously\b|\binstead of\b|(?<![a-zäöüß])(?:stattdessen|nicht mehr|früher war|war vorher)(?![a-zäöüß])|\bau lieu de\b|(?<![a-zéèêàùç])(?:auparavant|désormais)(?![a-zéèêàùç])|\ben lugar de\b|\bantes era\b|\bya no\b|\banteriormente\b""",
         ignoreCase = true,
     )
 
@@ -71,7 +71,7 @@ internal object SlopMarkers {
     val LONG_LINK = Pat.of("""(?U)https?://\S{30,}""")
 
     val WHY_MARKERS = Pat.of(
-        """\bbecause\b|\bsince\b|\botherwise\b|\bworkarounds?\b|\bcaveats?\b|\bto(?U:\s+)avoid\b|\bby(?U:\s+)design\b|\bhowever\b|\btrade-?offs?\b|\bfails?(?U:\s+)when\b|\be\.g\.|\binvariants?\b|\bnote:|\bso(?U:\s+)that\b|\bin(?U:\s+)order(?U:\s+)to\b|(?<![а-яё])(?:потому(?U:\s+)что|иначе|воркэраунд|обход|чтобы|специально|напр\.)(?![а-яё])|(?<![a-zäöüß])(?:denn|sonst|um(?U:\s+)zu(?U:\s+)vermeiden)(?![a-zäöüß])|(?<![a-zéèêàùç])(?:car|sinon|contournement|pour(?U:\s+)éviter)(?![a-zéèêàùç])|(?<![a-záéíóúñ])(?:porque|si(?U:\s+)no|solución(?U:\s+)alternativa|para(?U:\s+)evitar)(?![a-záéíóúñ])""",
+        """\bbecause\b|\bsince\b|\botherwise\b|\bworkarounds?\b|\bcaveats?\b|\bto(?U:\s+)avoid\b|\bby(?U:\s+)design\b|\bhowever\b|\btrade-?offs?\b|\bfails?(?U:\s+)when\b|\be\.g\.|\binvariants?\b|\bnote:|\bso(?U:\s+)that\b|\bin(?U:\s+)order(?U:\s+)to\b|\bmust\b|\bcannot\b|\bnever\b|(?<![а-яё])(?:потому(?U:\s+)что|иначе|воркэраунд|обход|чтобы|специально|напр\.)(?![а-яё])|(?<![a-zäöüß])(?:denn|sonst|um(?U:\s+)zu(?U:\s+)vermeiden)(?![a-zäöüß])|(?<![a-zéèêàùç])(?:car|sinon|contournement|pour(?U:\s+)éviter)(?![a-zéèêàùç])|(?<![a-záéíóúñ])(?:porque|si(?U:\s+)no|solución(?U:\s+)alternativa|para(?U:\s+)evitar)(?![a-záéíóúñ])""",
         ignoreCase = true,
     )
 
@@ -122,11 +122,8 @@ internal object SlopMarkers {
     )
 
     val ZERO_WIDTH = Pat.of(
-        "[" + 0x200B.toChar() + 0x200C.toChar() + 0x2060.toChar() + "]|" +
-            BS + BS + "u200[bBcC]|" + BS + BS + "u2060",
+        "[" + 0x200B.toChar() + 0x200C.toChar() + 0x2060.toChar() + "]",
     )
-    private val ZWJ_ESCAPE = Pat.of(BS + BS + "u200[dD]")
-    private val FEFF_ESCAPE = Pat.of(BS + BS + "u[fF][eE][fF][fF]")
 
     val BIDI = Pat.of(
         "[" + 0x202A.toChar() + "-" + 0x202E.toChar() + 0x2066.toChar() + "-" + 0x2069.toChar() + "]|" +
@@ -219,7 +216,6 @@ internal object SlopMarkers {
             (cp in 0x1F3FB..0x1F3FF)
 
     private fun hasBadZwj(line: String): Boolean {
-        if (ZWJ_ESCAPE.find(line)) return true
         val cps = line.codePoints().toArray()
         for (k in cps.indices) {
             if (cps[k] != 0x200D) continue
@@ -229,7 +225,6 @@ internal object SlopMarkers {
     }
 
     private fun hasBadFeff(line: String, lineIdx: Int): Boolean {
-        if (FEFF_ESCAPE.find(line)) return true
         val idx = line.indexOf(0xFEFF.toChar())
         if (idx == -1) return false
         if (lineIdx == 0 && idx == 0) return line.indexOf(0xFEFF.toChar(), 1) != -1

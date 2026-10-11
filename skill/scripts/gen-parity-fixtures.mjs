@@ -33,6 +33,20 @@ export const CASES = [
   { name: "todo-lowercase-xxx", lines: ["// xxx", "val x = 1"] },
   { name: "step-version-prose", lines: ["// 1.0.0 is the minimum", "val x = 1"] },
   { name: "step-decimal-prose", lines: ["// 2.5x faster", "val x = 1"] },
+  { name: "why2-must", lines: [
+    "val x = 1",
+    "// the retry budget must be shared across all callers of this client",
+    "// and every caller drains the same quota when the upstream pool saturates",
+    "val y = 2",
+  ] },
+  { name: "block-continuation", lines: [
+    "val x = 1",
+    " * first continuation line of the block",
+    " * second continuation line of the block",
+    "val y = 2",
+  ] },
+  { name: "bom-escape", lines: ['val s = "a' + "\\u" + 'FEFF"'] },
+  { name: "nolonger", lines: ["// the pool no longer trims idle entries, previously it did", "val x = 1"] },
 ]
 
 const cmpStr = (a, b) => (a < b ? -1 : a > b ? 1 : 0)

@@ -98,8 +98,35 @@ class StopAiSlopMultiLineCommentTest {
     }
 
     @Test
-    fun `star continuation lines inside a mid-line block form a run`() {
-        assertEquals(1, rule.lint(lines("val x = 1 /* note", " * Step 2", " */")).size)
+    fun `star continuation lines inside a mid-line block are clean`() {
+        assertEquals(0, rule.lint(lines("val x = 1 /* note", " * Step 2", " */")).size)
+    }
+
+    @Test
+    fun `star continuation run after a code line is clean`() {
+        assertEquals(0, rule.lint(lines("val x = 1", " * first continuation line", " * second continuation line", "val y = 2")).size)
+    }
+
+    @Test
+    fun `two-line why with must joined over 120 chars is clean`() {
+        val code = lines(
+            "val x = 1",
+            "// the retry budget must be shared across all callers of this client",
+            "// and every caller drains the same quota when the upstream pool saturates",
+            "val y = 2",
+        )
+        assertEquals(0, rule.lint(code).size)
+    }
+
+    @Test
+    fun `two-line why joined over 240 chars is still flagged`() {
+        val code = lines(
+            "val x = 1",
+            "// the retry budget must be shared " + "y".repeat(100),
+            "// and every caller drains the same quota " + "y".repeat(100),
+            "val y = 2",
+        )
+        assertEquals(1, rule.lint(code).size)
     }
 
     @Test

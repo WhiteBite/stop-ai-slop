@@ -37,4 +37,10 @@ class StopAiSlopLongCommentTest {
         val code = lines("// " + "y".repeat(110) + " because the slot is freed below", "val x = 1")
         assertEquals(0, rule.lint(code).size)
     }
+
+    @Test
+    fun `long why line with must is clean`() {
+        val code = lines("// " + "y".repeat(110) + " must be freed before the pool drains", "val x = 1")
+        assertEquals(0, rule.lint(code).size)
+    }
 }

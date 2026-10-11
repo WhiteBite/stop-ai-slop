@@ -1,5 +1,15 @@
 [
   {
+    "name": "block-continuation",
+    "lines": [
+      "val x = 1",
+      " * first continuation line of the block",
+      " * second continuation line of the block",
+      "val y = 2"
+    ],
+    "expected": []
+  },
+  {
     "name": "block-continuation-no-marker",
     "lines": [
       "val x = 1 /* note",
@@ -29,14 +39,17 @@
     ],
     "expected": [
       {
-        "rule": "multi-line-comment",
-        "line": 2
-      },
-      {
         "rule": "vend/step-numbered",
         "line": 2
       }
     ]
+  },
+  {
+    "name": "bom-escape",
+    "lines": [
+      "val s = \"a\\uFEFF\""
+    ],
+    "expected": []
   },
   {
     "name": "directive-in-string",
@@ -123,6 +136,14 @@
         "line": 1
       }
     ]
+  },
+  {
+    "name": "nolonger",
+    "lines": [
+      "// the pool no longer trims idle entries, previously it did",
+      "val x = 1"
+    ],
+    "expected": []
   },
   {
     "name": "obvious-above-density",
@@ -331,5 +352,15 @@
         "line": 2
       }
     ]
+  },
+  {
+    "name": "why2-must",
+    "lines": [
+      "val x = 1",
+      "// the retry budget must be shared across all callers of this client",
+      "// and every caller drains the same quota when the upstream pool saturates",
+      "val y = 2"
+    ],
+    "expected": []
   }
 ]

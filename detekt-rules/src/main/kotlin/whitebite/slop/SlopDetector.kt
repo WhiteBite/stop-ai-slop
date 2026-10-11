@@ -158,7 +158,7 @@ internal object SlopDetector {
             if (!inRun && runStart != -1) {
                 if (i - runStart >= 2) {
                     val runLines = stripped.subList(runStart, i)
-                    if (!isLicenseRun(runLines) && !wrappedWhy(runLines)) push("multi-line-comment", runStart)
+                    if (!isLicenseRun(runLines) && !wrappedWhy(runLines) && !blockContinuationRun(runLines)) push("multi-line-comment", runStart)
                 }
                 runStart = -1
             }
@@ -181,6 +181,8 @@ internal object SlopDetector {
     private fun wrappedWhy(runLines: List<String>): Boolean {
         if (runLines.size != 2) return false
         val text = runLines.joinToString(" ") { SlopMarkers.stripCommentMarker(it.trim()) }
-        return text.length <= SlopMarkers.MAX_COMMENT_LENGTH && SlopMarkers.WHY_MARKERS.find(text)
+        return text.length <= SlopMarkers.MAX_COMMENT_LENGTH * 2 && SlopMarkers.WHY_MARKERS.find(text)
     }
+
+    private fun blockContinuationRun(runLines: List<String>): Boolean = runLines.all { it.trim().startsWith("*") }
 }

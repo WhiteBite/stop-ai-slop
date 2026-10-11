@@ -14,8 +14,18 @@ class StopAiSlopZeroWidthCharsTest {
     }
 
     @Test
-    fun `escape spelling in source is flagged`() {
-        assertEquals(1, rule.lint(lines("// a " + BS + "u200B")).size)
+    fun `escape spelling in source is clean`() {
+        assertEquals(0, rule.lint(lines("// a " + BS + "u200B")).size)
+    }
+
+    @Test
+    fun `bom escape spelling in a string literal is clean`() {
+        assertEquals(0, rule.lint(lines("val s = \"a" + BS + "uFEFF\"")).size)
+    }
+
+    @Test
+    fun `zwj escape spelling in a string literal is clean`() {
+        assertEquals(0, rule.lint(lines("val x = \"a" + BS + "u200D\"")).size)
     }
 
     @Test
