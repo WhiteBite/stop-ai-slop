@@ -48,6 +48,20 @@ node skill/scripts/check-coship.mjs --diff origin/<base>
 
 Escape hatch: `--allow-coship "<reason>"` — the reason is printed in the output.
 
+## When a part of this repository should be removed
+
+Every component exists to prevent a failure mode; when the mode disappears, the component goes.
+
+| Part | Exists because | Remove when |
+| --- | --- | --- |
+| Marker dictionaries (`RULES`, `src/markers.mjs`) | models repeat a small set of comment patterns | the lists stop matching new model output: detbench misses grow while the bench cohort stays flat |
+| Write-time gate (`plugin/comment-gate.ts`, `--pre-tool`) | most slop lands through agent edits; blocking at write time beats catching it at commit | OpenCode or Claude Code ship native comment gating |
+| Fingerprinted baseline | legacy repos carry grandfathered slop | full scans go green on the target repos without masking |
+| `--bench` cohort | FP regressions on rule changes are invisible without a pinned human corpus | rule semantics freeze or the detector retires |
+| `--detbench` corpus | recall regressions on real agent slop are invisible without a pinned positive corpus | the audit log stops producing new shapes across refreshes |
+| detekt/Kotlin port | Kotlin projects need the same gate at build time | no Kotlin consumers or parity maintenance exceeds its use |
+| MCP server (`--mcp`) | pull-mode clients (Cursor, Zed, JetBrains) cannot run hooks | the hook surfaces cover every target client |
+
 ## Discoverability (RDK)
 
 - On-demand only: run these when the user explicitly asks; never proactively.

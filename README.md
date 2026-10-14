@@ -597,6 +597,20 @@ The first run needs network and git: each repo is fetched once (`git init` + `gi
 
 Refreshing the cohort: edit `BENCH_COHORT` (repo + pinned SHA), re-run `--bench-write`, and review the resulting `bench-history.json` delta in the PR — every count increase must be explainable as a true positive, otherwise the rule change is a false-positive regression.
 
+## DetBench (recall regression corpus)
+
+`--detbench` runs the detector over `detbench-corpus.json` — a committed corpus of real agent comment slop mined from the write-time gate's audit log (the findings of every `blocked` event). The bench cohort pins false positives on human code; detbench pins recall on real agent output: a rule change that stops firing on a corpus entry fails the mode with exit 1. Each entry stores the source file name (for profile resolution), the reconstructed line run, and the rule that must fire.
+
+```
+node skill/scripts/scan.mjs --detbench
+```
+
+Corpus semantics: a `multi-line-comment` finding is recorded as its line repeated three times — runs of 3+ lines always flag, so the reconstruction is immune to the two-line wrapped-why exemption; single-line rules are recorded as-is. Only error rules appear: the write-time gate blocks error findings only, so warnings never reach the audit log. `long-comment` findings cannot be mined — the audit log truncates the recorded text at 120 characters, and a truncated line can never exceed the length limit again.
+
+Regeneration: `node skill/scripts/gen-detbench.mjs --write` re-mines the local audit log (`STOP_AI_SLOP_LOG` overrides the path), keeps only entries that fire today, and reports the dropped ones; `--check` (CI-safe — it never reads the log) fails when a committed entry stops firing, the recall-regression tripwire, or when shape or sort order drifts; `--normalize` re-sorts the file after manual edits. The corpus path resolves from the git root (`STOP_AI_SLOP_DETBENCH` overrides). Refresh discipline mirrors `--bench-write`: regenerate, review the diff — corpus texts derive from real blocked edits, so rewrite identifying content before committing — and commit.
+
+The current corpus was mined 2026-10-15 from one machine's audit log: 180 blocked write-time edits → 181 unique entries after deduplication, all `multi-line-comment`.
+
 ## Playground
 
 A zero-backend page that runs the real detector (`skill/scripts/src/detect.mjs`) in the browser: Vite bundles the actual modules, nothing is vendored. The built page is committed at `playground/dist/index.html` and works offline, including opened straight from disk (`file://`).

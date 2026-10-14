@@ -39,6 +39,7 @@ const MODES = [
   { name: "policy", args: ["--policy"], input: null, expect: 0 },
   { name: "help", args: ["--help"], input: null, expect: 0 },
   { name: "audit", args: ["--audit"], input: null, expect: 0 },
+  { name: "detbench", args: ["--detbench"], input: null, expect: 0 },
   { name: "install", args: ["--install"], input: null, expect: 0 },
   { name: "doctor", args: ["--doctor"], input: null, expect: 0 },
   { name: "install-hooks", args: ["--install-hooks"], input: null, expect: 0 },

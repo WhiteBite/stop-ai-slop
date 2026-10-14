@@ -1,0 +1,1812 @@
+[
+  {
+    "file": ".env.example",
+    "lines": [
+      "# ВНИМАНИЕ: 1 разрешает notify.py РЕАЛЬНО писать в твой Telegram (Saved Messages).",
+      "# ВНИМАНИЕ: 1 разрешает notify.py РЕАЛЬНО писать в твой Telegram (Saved Messages).",
+      "# ВНИМАНИЕ: 1 разрешает notify.py РЕАЛЬНО писать в твой Telegram (Saved Messages)."
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-14"
+  },
+  {
+    "file": ".env.example",
+    "lines": [
+      "# Копируй в .env и заполни; скрипты читают его сами, env-переменные приоритетнее",
+      "# Копируй в .env и заполни; скрипты читают его сами, env-переменные приоритетнее",
+      "# Копируй в .env и заполни; скрипты читают его сами, env-переменные приоритетнее"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-13"
+  },
+  {
+    "file": ".env.example",
+    "lines": [
+      "# Необязательно: извлечение сущностей (extract.py). Без ключа работает stub.",
+      "# Необязательно: извлечение сущностей (extract.py). Без ключа работает stub.",
+      "# Необязательно: извлечение сущностей (extract.py). Без ключа работает stub."
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-14"
+  },
+  {
+    "file": ".env.example",
+    "lines": [
+      "# Необязательно: путь JSONL для export.py",
+      "# Необязательно: путь JSONL для export.py",
+      "# Необязательно: путь JSONL для export.py"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-14"
+  },
+  {
+    "file": ".env.example",
+    "lines": [
+      "# Необязательно: транскрипция голосовых/документов (media.py)",
+      "# Необязательно: транскрипция голосовых/документов (media.py)",
+      "# Необязательно: транскрипция голосовых/документов (media.py)"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-14"
+  },
+  {
+    "file": ".env.example",
+    "lines": [
+      "# Пресет DashScope (qwen, openai-совместимый):",
+      "# Пресет DashScope (qwen, openai-совместимый):",
+      "# Пресет DashScope (qwen, openai-совместимый):"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-14"
+  },
+  {
+    "file": ".env.example",
+    "lines": [
+      "# Скопируй в .env и заполни: все скрипты (sync/login/live/watch/server/ui)",
+      "# Скопируй в .env и заполни: все скрипты (sync/login/live/watch/server/ui)",
+      "# Скопируй в .env и заполни: все скрипты (sync/login/live/watch/server/ui)"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-13"
+  },
+  {
+    "file": "ApiExportIntegrationTest.java",
+    "lines": [
+      "// auth.mode=oidc — per-user token endpoints (/api/v1/auth/tokens) попадают",
+      "// auth.mode=oidc — per-user token endpoints (/api/v1/auth/tokens) попадают",
+      "// auth.mode=oidc — per-user token endpoints (/api/v1/auth/tokens) попадают"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-13"
+  },
+  {
+    "file": "CommunitySection.test.tsx",
+    "lines": [
+      "    // The success handler refetches catalog+installed; let those settle here,",
+      "    // The success handler refetches catalog+installed; let those settle here,",
+      "    // The success handler refetches catalog+installed; let those settle here,"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-14"
+  },
+  {
+    "file": "CorsSecurityConfig.java",
+    "lines": [
+      "    // The API surface has ~20 PATCH endpoints; a yml value that omits one of these",
+      "    // The API surface has ~20 PATCH endpoints; a yml value that omits one of these",
+      "    // The API surface has ~20 PATCH endpoints; a yml value that omits one of these"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-13"
+  },
+  {
+    "file": "DiscoveryApplicationService.java",
+    "lines": [
+      "            // T-114: a cached feed can outlive a candidate's deactivation",
+      "            // T-114: a cached feed can outlive a candidate's deactivation",
+      "            // T-114: a cached feed can outlive a candidate's deactivation"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-14"
+  },
+  {
+    "file": "MainArea.tsx",
+    "lines": [
+      "      {/* Main — Activity Rail + dockable grid (queue · swarm · agent · …).",
+      "      {/* Main — Activity Rail + dockable grid (queue · swarm · agent · …).",
+      "      {/* Main — Activity Rail + dockable grid (queue · swarm · agent · …)."
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-14"
+  },
+  {
+    "file": "MainArea.tsx",
+    "lines": [
+      "  // ── DnD docking (§6) — drag a tab into a dock; validated by allowedDocks. ──",
+      "  // ── DnD docking (§6) — drag a tab into a dock; validated by allowedDocks. ──",
+      "  // ── DnD docking (§6) — drag a tab into a dock; validated by allowedDocks. ──"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-14"
+  },
+  {
+    "file": "McpSearchServiceImpl.java",
+    "lines": [
+      "        // При непустом spaceKey стор опускает source-клаузу — запрос фактически",
+      "        // При непустом spaceKey стор опускает source-клаузу — запрос фактически",
+      "        // При непустом spaceKey стор опускает source-клаузу — запрос фактически"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-13"
+  },
+  {
+    "file": "PageIndexer.java",
+    "lines": [
+      "    // Входы дублируют конфиг-часть calculateFingerprint: сам фингерпринт-поток менять нельзя —",
+      "    // Входы дублируют конфиг-часть calculateFingerprint: сам фингерпринт-поток менять нельзя —",
+      "    // Входы дублируют конфиг-часть calculateFingerprint: сам фингерпринт-поток менять нельзя —"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-13"
+  },
+  {
+    "file": "SearchAdvisor.java",
+    "lines": [
+      "        // \"*\" = без ограничения пространства — общий null-space контракт с",
+      "        // \"*\" = без ограничения пространства — общий null-space контракт с",
+      "        // \"*\" = без ограничения пространства — общий null-space контракт с"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-13"
+  },
+  {
+    "file": "SkillLoadoutCard.tsx",
+    "lines": [
+      "// System presets are known by loadout_id (backend protects these ids from",
+      "// System presets are known by loadout_id (backend protects these ids from",
+      "// System presets are known by loadout_id (backend protects these ids from"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-14"
+  },
+  {
+    "file": "SyncOrchestrator.java",
+    "lines": [
+      "        // Страницы в БД не атрибутированы principal'у: перегон под чужим (или анонимным) токеном",
+      "        // Страницы в БД не атрибутированы principal'у: перегон под чужим (или анонимным) токеном",
+      "        // Страницы в БД не атрибутированы principal'у: перегон под чужим (или анонимным) токеном"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-13"
+  },
+  {
+    "file": "UserDataExportProcessor.java",
+    "lines": [
+      "      // save() bumps the row's @Version; only the returned copy carries it —",
+      "      // save() bumps the row's @Version; only the returned copy carries it —",
+      "      // save() bumps the row's @Version; only the returned copy carries it —"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-14"
+  },
+  {
+    "file": "UserInterestsGoalsCodesTest.java",
+    "lines": [
+      "    // arrange: real MapStruct mapper + aggregate whose profile collections",
+      "    // arrange: real MapStruct mapper + aggregate whose profile collections",
+      "    // arrange: real MapStruct mapper + aggregate whose profile collections"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-13"
+  },
+  {
+    "file": "V45__catalog_seed.sql",
+    "lines": [
+      "-- T-070: seed the interests catalog. Without rows PUT /api/v1/users/me/interests",
+      "-- T-070: seed the interests catalog. Without rows PUT /api/v1/users/me/interests",
+      "-- T-070: seed the interests catalog. Without rows PUT /api/v1/users/me/interests"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-13"
+  },
+  {
+    "file": "V55__seed_packs.sql",
+    "lines": [
+      "-- T-035: preinstalled content packs ship with the platform (mirrors the BDD",
+      "-- T-035: preinstalled content packs ship with the platform (mirrors the BDD",
+      "-- T-035: preinstalled content packs ship with the platform (mirrors the BDD"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-14"
+  },
+  {
+    "file": "WebSocketTransport.test.ts",
+    "lines": [
+      "      // spy before the first arm: an orphan timer from an uncleared re-arm",
+      "      // spy before the first arm: an orphan timer from an uncleared re-arm",
+      "      // spy before the first arm: an orphan timer from an uncleared re-arm"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-13"
+  },
+  {
+    "file": "WebSocketTransport.ts",
+    "lines": [
+      "    // No permanent give-up: once the attempt budget is exhausted, keep polling",
+      "    // No permanent give-up: once the attempt budget is exhausted, keep polling",
+      "    // No permanent give-up: once the attempt budget is exhausted, keep polling"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-13"
+  },
+  {
+    "file": "_common.py",
+    "lines": [
+      "    # Desktop launcher resolves a guest to role='admin' with uid=None; only an",
+      "    # Desktop launcher resolves a guest to role='admin' with uid=None; only an",
+      "    # Desktop launcher resolves a guest to role='admin' with uid=None; only an"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-14"
+  },
+  {
+    "file": "_stream_emission_mixin.py",
+    "lines": [
+      "        # Router resolves credentials and provider internally.",
+      "        # Router resolves credentials and provider internally.",
+      "        # Router resolves credentials and provider internally."
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-13"
+  },
+  {
+    "file": "_stream_emission_mixin.py",
+    "lines": [
+      "        # Router resolves credentials internally via credentials_resolver.",
+      "        # Router resolves credentials internally via credentials_resolver.",
+      "        # Router resolves credentials internally via credentials_resolver."
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-13"
+  },
+  {
+    "file": "_stream_emission_mixin.py",
+    "lines": [
+      "    # Chat worker threads have no event loop; composition injects the daemon",
+      "    # Chat worker threads have no event loop; composition injects the daemon",
+      "    # Chat worker threads have no event loop; composition injects the daemon"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-13"
+  },
+  {
+    "file": "_stream_emission_mixin.py",
+    "lines": [
+      "    # Chat worker threads run without an event loop; composition injects the",
+      "    # Chat worker threads run without an event loop; composition injects the",
+      "    # Chat worker threads run without an event loop; composition injects the"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-13"
+  },
+  {
+    "file": "_stream_emission_mixin.py",
+    "lines": [
+      "    # These methods are provided by OrchestrationService, _ToolExecutionMixin",
+      "    # These methods are provided by OrchestrationService, _ToolExecutionMixin",
+      "    # These methods are provided by OrchestrationService, _ToolExecutionMixin"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-13"
+  },
+  {
+    "file": "account_dialogs_session_test.dart",
+    "lines": [
+      "            // mirrors the account-management screen keeping the controller",
+      "            // mirrors the account-management screen keeping the controller",
+      "            // mirrors the account-management screen keeping the controller"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-13"
+  },
+  {
+    "file": "agent.py",
+    "lines": [
+      "    # Chat worker threads have no loop; capture the lifespan loop so",
+      "    # Chat worker threads have no loop; capture the lifespan loop so",
+      "    # Chat worker threads have no loop; capture the lifespan loop so"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-13"
+  },
+  {
+    "file": "app_bottom_sheet.dart",
+    "lines": [
+      "    // root navigator: модальный лист обязан рисоваться выше шелл-оверлеев",
+      "    // root navigator: модальный лист обязан рисоваться выше шелл-оверлеев",
+      "    // root navigator: модальный лист обязан рисоваться выше шелл-оверлеев"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-14"
+  },
+  {
+    "file": "app_button.dart",
+    "lines": [
+      "      // Text-кнопка без собственной заливки: на бренд-канвасе (celebratory)",
+      "      // Text-кнопка без собственной заливки: на бренд-канвасе (celebratory)",
+      "      // Text-кнопка без собственной заливки: на бренд-канвасе (celebratory)"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-14"
+  },
+  {
+    "file": "app_router.dart",
+    "lines": [
+      "  // Auth flips re-run the guard chain via refreshListenable on the SAME",
+      "  // Auth flips re-run the guard chain via refreshListenable on the SAME",
+      "  // Auth flips re-run the guard chain via refreshListenable on the SAME"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-14"
+  },
+  {
+    "file": "app_scaffold.dart",
+    "lines": [
+      "    // Celebratory paints the brand gradient edge-to-edge: прозрачный chrome",
+      "    // Celebratory paints the brand gradient edge-to-edge: прозрачный chrome",
+      "    // Celebratory paints the brand gradient edge-to-edge: прозрачный chrome"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-14"
+  },
+  {
+    "file": "app_text_styles.dart",
+    "lines": [
+      "  // ── Prototype v3 component type values (frozen) ────────────────────────",
+      "  // ── Prototype v3 component type values (frozen) ────────────────────────",
+      "  // ── Prototype v3 component type values (frozen) ────────────────────────"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-13"
+  },
+  {
+    "file": "ast_proof.py",
+    "lines": [
+      "        # 'search' also exists on protocol classes earlier in the original tree;",
+      "        # 'search' also exists on protocol classes earlier in the original tree;",
+      "        # 'search' also exists on protocol classes earlier in the original tree;"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-13"
+  },
+  {
+    "file": "attach_menu_sheet.dart",
+    "lines": [
+      "    // The sheet lives on the root navigator (T-040), while `context` below the",
+      "    // The sheet lives on the root navigator (T-040), while `context` below the",
+      "    // The sheet lives on the root navigator (T-040), while `context` below the"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-14"
+  },
+  {
+    "file": "baseline-v0.cjs",
+    "lines": [
+      "// Offline V0 baseline + degenerate-ablation reconciliation from the earlier run",
+      "// Offline V0 baseline + degenerate-ablation reconciliation from the earlier run",
+      "// Offline V0 baseline + degenerate-ablation reconciliation from the earlier run"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-13"
+  },
+  {
+    "file": "button_hero_depth_test.dart",
+    "lines": [
+      "    // Hermetic accelerometer: a torn-down override with live listeners can",
+      "    // Hermetic accelerometer: a torn-down override with live listeners can",
+      "    // Hermetic accelerometer: a torn-down override with live listeners can"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-14"
+  },
+  {
+    "file": "button_hero_depth_test.dart",
+    "lines": [
+      "    // MaterialApp lerps theme swaps over 200ms; settle so the skins resolve",
+      "    // MaterialApp lerps theme swaps over 200ms; settle so the skins resolve",
+      "    // MaterialApp lerps theme swaps over 200ms; settle so the skins resolve"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-14"
+  },
+  {
+    "file": "canvas_engine_test.dart",
+    "lines": [
+      "      // The static canvas keeps its single-painter shape: the base rect plus",
+      "      // The static canvas keeps its single-painter shape: the base rect plus",
+      "      // The static canvas keeps its single-painter shape: the base rect plus"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-14"
+  },
+  {
+    "file": "capabilities.py",
+    "lines": [
+      "    # ------------------------------------------------------------------",
+      "    # ------------------------------------------------------------------",
+      "    # ------------------------------------------------------------------"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-14"
+  },
+  {
+    "file": "capability-catalog-batch.test.ts",
+    "lines": [
+      "    // boundary member keeps the admission passage above the T-829 degenerate",
+      "    // boundary member keeps the admission passage above the T-829 degenerate",
+      "    // boundary member keeps the admission passage above the T-829 degenerate"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-13"
+  },
+  {
+    "file": "catalog_lint.py",
+    "lines": [
+      "# Controlled orgs: a catalog entry's install source must live here so an",
+      "# Controlled orgs: a catalog entry's install source must live here so an",
+      "# Controlled orgs: a catalog entry's install source must live here so an"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-13"
+  },
+  {
+    "file": "chat_core.spec.ts",
+    "lines": [
+      "// T-034 fixed the FE typing SEND, but the indicator renders on Alice's side via SSE — still dark in e2e",
+      "// T-034 fixed the FE typing SEND, but the indicator renders on Alice's side via SSE — still dark in e2e",
+      "// T-034 fixed the FE typing SEND, but the indicator renders on Alice's side via SSE — still dark in e2e"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-13"
+  },
+  {
+    "file": "chat_extra.spec.ts",
+    "lines": [
+      "// long-press a drawer tile → options sheet (Переименовать / <folder name> / Удалить папку);",
+      "// long-press a drawer tile → options sheet (Переименовать / <folder name> / Удалить папку);",
+      "// long-press a drawer tile → options sheet (Переименовать / <folder name> / Удалить папку);"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-13"
+  },
+  {
+    "file": "chat_media_sender_test.dart",
+    "lines": [
+      "      // The backend rejects a non-STICKER message that carries a stickerId",
+      "      // The backend rejects a non-STICKER message that carries a stickerId",
+      "      // The backend rejects a non-STICKER message that carries a stickerId"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-14"
+  },
+  {
+    "file": "check-orphan-keys.mjs",
+    "lines": [
+      "// render-time key fields: t(<obj>.<field>) resolves at runtime, so string literals",
+      "// render-time key fields: t(<obj>.<field>) resolves at runtime, so string literals",
+      "// render-time key fields: t(<obj>.<field>) resolves at runtime, so string literals"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-13"
+  },
+  {
+    "file": "check_agents_feature_matrix.dart",
+    "lines": [
+      "// (d) \"✅ Live\" status requires FE-implemented BDD scenarios: a Live row",
+      "// (d) \"✅ Live\" status requires FE-implemented BDD scenarios: a Live row",
+      "// (d) \"✅ Live\" status requires FE-implemented BDD scenarios: a Live row"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-13"
+  },
+  {
+    "file": "check_dead_routes.dart",
+    "lines": [
+      "  // A route whose subtree is navigable is not dead: removing it would break",
+      "  // A route whose subtree is navigable is not dead: removing it would break",
+      "  // A route whose subtree is navigable is not dead: removing it would break"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-13"
+  },
+  {
+    "file": "check_gate_registry.dart",
+    "lines": [
+      "      // check_gate_health исполняет selfTest split'ом по пробелам из корня репо:",
+      "      // check_gate_health исполняет selfTest split'ом по пробелам из корня репо:",
+      "      // check_gate_health исполняет selfTest split'ом по пробелам из корня репо:"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-13"
+  },
+  {
+    "file": "check_orphan_dio_catch.dart",
+    "lines": [
+      "// Ratchet over hand-rolled `on DioException catch` blocks in frontend data",
+      "// Ratchet over hand-rolled `on DioException catch` blocks in frontend data",
+      "// Ratchet over hand-rolled `on DioException catch` blocks in frontend data"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-13"
+  },
+  {
+    "file": "check_token_contrast.dart",
+    "lines": [
+      "// WCAG math mirrors ui_kit wcag_contrast.dart; HSL shift mirrors",
+      "// WCAG math mirrors ui_kit wcag_contrast.dart; HSL shift mirrors",
+      "// WCAG math mirrors ui_kit wcag_contrast.dart; HSL shift mirrors"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-13"
+  },
+  {
+    "file": "check_token_contrast.dart",
+    "lines": [
+      "// ── HSL lightness shift (mirror of ThemePack._lighten/_darken,",
+      "// ── HSL lightness shift (mirror of ThemePack._lighten/_darken,",
+      "// ── HSL lightness shift (mirror of ThemePack._lighten/_darken,"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-13"
+  },
+  {
+    "file": "check_ws_singleton.mjs",
+    "lines": [
+      "  // Midi ambient shell is a separate OS process (Tauri): the singleton rule is",
+      "  // Midi ambient shell is a separate OS process (Tauri): the singleton rule is",
+      "  // Midi ambient shell is a separate OS process (Tauri): the singleton rule is"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-14"
+  },
+  {
+    "file": "commands.py",
+    "lines": [
+      "        # Chrome ignores chrome:// command-line URLs, so only the browser opens.",
+      "        # Chrome ignores chrome:// command-line URLs, so only the browser opens.",
+      "        # Chrome ignores chrome:// command-line URLs, so only the browser opens."
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-13"
+  },
+  {
+    "file": "commands.py",
+    "lines": [
+      "        # Chrome silently drops chrome:// URLs passed on the command line, so we",
+      "        # Chrome silently drops chrome:// URLs passed on the command line, so we",
+      "        # Chrome silently drops chrome:// URLs passed on the command line, so we"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-13"
+  },
+  {
+    "file": "conftest.py",
+    "lines": [
+      "# ------------------------------------------------------------------",
+      "# ------------------------------------------------------------------",
+      "# ------------------------------------------------------------------"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-14"
+  },
+  {
+    "file": "conftest.py",
+    "lines": [
+      "# Flag store resolves its path at module import: must point at a session-local",
+      "# Flag store resolves its path at module import: must point at a session-local",
+      "# Flag store resolves its path at module import: must point at a session-local"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-14"
+  },
+  {
+    "file": "conftest.py",
+    "lines": [
+      "# Flag-store isolation: lifespan-booting tests (with TestClient(app)) run",
+      "# Flag-store isolation: lifespan-booting tests (with TestClient(app)) run",
+      "# Flag-store isolation: lifespan-booting tests (with TestClient(app)) run"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-14"
+  },
+  {
+    "file": "conftest.py",
+    "lines": [
+      "# T-845 sys.modules pollution net: keys already stub-like at interpreter",
+      "# T-845 sys.modules pollution net: keys already stub-like at interpreter",
+      "# T-845 sys.modules pollution net: keys already stub-like at interpreter"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-14"
+  },
+  {
+    "file": "conftest.py",
+    "lines": [
+      "# T-845: test modules stub third-party packages (litellm, crewai, passlib)",
+      "# T-845: test modules stub third-party packages (litellm, crewai, passlib)",
+      "# T-845: test modules stub third-party packages (litellm, crewai, passlib)"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-14"
+  },
+  {
+    "file": "conversation_body.dart",
+    "lines": [
+      "                      // RefreshableList шорт-катит пустой список до дефолтного",
+      "                      // RefreshableList шорт-катит пустой список до дефолтного",
+      "                      // RefreshableList шорт-катит пустой список до дефолтного"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-14"
+  },
+  {
+    "file": "conversation_empty_onboarding_test.dart",
+    "lines": [
+      "  // Phone viewport (390x844) — the fresh-match surface the finding describes;",
+      "  // Phone viewport (390x844) — the fresh-match surface the finding describes;",
+      "  // Phone viewport (390x844) — the fresh-match surface the finding describes;"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-14"
+  },
+  {
+    "file": "conversation_header_states_test.dart",
+    "lines": [
+      "  // StateError (not Failure) — Riverpod defaultRetry only auto-retries",
+      "  // StateError (not Failure) — Riverpod defaultRetry only auto-retries",
+      "  // StateError (not Failure) — Riverpod defaultRetry only auto-retries"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-13"
+  },
+  {
+    "file": "daemon.ts",
+    "lines": [
+      "      // The transport keeps its own reconnect schedule; state is surfaced",
+      "      // The transport keeps its own reconnect schedule; state is surfaced",
+      "      // The transport keeps its own reconnect schedule; state is surfaced"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-14"
+  },
+  {
+    "file": "db-vacuum-async.test.ts",
+    "lines": [
+      "      // Release only when the worker's VACUUM provably failed under the",
+      "      // Release only when the worker's VACUUM provably failed under the",
+      "      // Release only when the worker's VACUUM provably failed under the"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-14"
+  },
+  {
+    "file": "dev-backend.mjs",
+    "lines": [
+      "  // File watching → full respawn (fresh socket per generation), only on",
+      "  // File watching → full respawn (fresh socket per generation), only on",
+      "  // File watching → full respawn (fresh socket per generation), only on"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-13"
+  },
+  {
+    "file": "dev-helpers.ps1",
+    "lines": [
+      "    # session registry consumed by stop.ps1 (scoped stop): this stack's trees + auth token for owner.json matching.",
+      "    # session registry consumed by stop.ps1 (scoped stop): this stack's trees + auth token for owner.json matching.",
+      "    # session registry consumed by stop.ps1 (scoped stop): this stack's trees + auth token for owner.json matching."
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-13"
+  },
+  {
+    "file": "document_service_transfer.py",
+    "lines": [
+      "                    # Existing doc not visible to caller — treat as NEW",
+      "                    # Existing doc not visible to caller — treat as NEW",
+      "                    # Existing doc not visible to caller — treat as NEW"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-13"
+  },
+  {
+    "file": "empty_tap_handlers.yaml",
+    "lines": [
+      "# Empty tap-handler rules; scope/first-arg semantics live in check_empty_tap_handlers.dart.",
+      "# Empty tap-handler rules; scope/first-arg semantics live in check_empty_tap_handlers.dart.",
+      "# Empty tap-handler rules; scope/first-arg semantics live in check_empty_tap_handlers.dart."
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-13"
+  },
+  {
+    "file": "extract.py",
+    "lines": [
+      "        # нулевой прогресс (все отброшенные операции на одном раннем сообщении)",
+      "        # нулевой прогресс (все отброшенные операции на одном раннем сообщении)",
+      "        # нулевой прогресс (все отброшенные операции на одном раннем сообщении)"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-14"
+  },
+  {
+    "file": "feed_card_test.dart",
+    "lines": [
+      "      // Intent eyebrow is uppercased inside the intent box; the goal chip",
+      "      // Intent eyebrow is uppercased inside the intent box; the goal chip",
+      "      // Intent eyebrow is uppercased inside the intent box; the goal chip"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-14"
+  },
+  {
+    "file": "folder_edit_bottom_sheet.dart",
+    "lines": [
+      "    // Icon/include-unread/chat toggles persist immediately; only an",
+      "    // Icon/include-unread/chat toggles persist immediately; only an",
+      "    // Icon/include-unread/chat toggles persist immediately; only an"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-13"
+  },
+  {
+    "file": "gen-product-map.mjs",
+    "lines": [
+      "// loop mounts in _app_routes.py (routers = (pkg.attr, ...); for sub in routers: app.include_router(sub, prefix=...))",
+      "// loop mounts in _app_routes.py (routers = (pkg.attr, ...); for sub in routers: app.include_router(sub, prefix=...))",
+      "// loop mounts in _app_routes.py (routers = (pkg.attr, ...); for sub in routers: app.include_router(sub, prefix=...))"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-13"
+  },
+  {
+    "file": "gen-product-map.mjs",
+    "lines": [
+      "// mounts in _app_routes.py carry the app-level prefix: loop mounts for routers whose own",
+      "// mounts in _app_routes.py carry the app-level prefix: loop mounts for routers whose own",
+      "// mounts in _app_routes.py carry the app-level prefix: loop mounts for routers whose own"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-13"
+  },
+  {
+    "file": "gen_split.py",
+    "lines": [
+      "                        # keeps ruff-isort from merging mirrored statements:",
+      "                        # keeps ruff-isort from merging mirrored statements:",
+      "                        # keeps ruff-isort from merging mirrored statements:"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-13"
+  },
+  {
+    "file": "gen_split.py",
+    "lines": [
+      "    # __all__ moves verbatim to a manifest sibling: 45 per-block try/except",
+      "    # __all__ moves verbatim to a manifest sibling: 45 per-block try/except",
+      "    # __all__ moves verbatim to a manifest sibling: 45 per-block try/except"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-13"
+  },
+  {
+    "file": "generate_feature_docs.dart",
+    "lines": [
+      "// ---------------------------------------------------------------------------",
+      "// ---------------------------------------------------------------------------",
+      "// ---------------------------------------------------------------------------"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-14"
+  },
+  {
+    "file": "git-guard.test.mjs",
+    "lines": [
+      "// Incident (2026-10-14): a pathspec-scoped `git stash push -- <foreign file>` +",
+      "// Incident (2026-10-14): a pathspec-scoped `git stash push -- <foreign file>` +",
+      "// Incident (2026-10-14): a pathspec-scoped `git stash push -- <foreign file>` +"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-14"
+  },
+  {
+    "file": "harvest-issue-bench.ts",
+    "lines": [
+      "// issue->fix decision-bench harvester: mine closing-keyword links from the",
+      "// issue->fix decision-bench harvester: mine closing-keyword links from the",
+      "// issue->fix decision-bench harvester: mine closing-keyword links from the"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-13"
+  },
+  {
+    "file": "hero_bento_tile.dart",
+    "lines": [
+      "    // Стопы проходят white-label гард рампы: на ярком брендовом сидах",
+      "    // Стопы проходят white-label гард рампы: на ярком брендовом сидах",
+      "    // Стопы проходят white-label гард рампы: на ярком брендовом сидах"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-14"
+  },
+  {
+    "file": "hub_memory_ingest.py",
+    "lines": [
+      "                            # Merge caller-provided metadata into the built metadata dict.",
+      "                            # Merge caller-provided metadata into the built metadata dict.",
+      "                            # Merge caller-provided metadata into the built metadata dict."
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-13"
+  },
+  {
+    "file": "hub_memory_ingest.py",
+    "lines": [
+      "                            # Update BM25 index incrementally (add_document, not",
+      "                            # Update BM25 index incrementally (add_document, not",
+      "                            # Update BM25 index incrementally (add_document, not"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-13"
+  },
+  {
+    "file": "hub_memory_ingest.py",
+    "lines": [
+      "                    # Embedding-provider fail-fast: on failure, do NOT persist",
+      "                    # Embedding-provider fail-fast: on failure, do NOT persist",
+      "                    # Embedding-provider fail-fast: on failure, do NOT persist"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-13"
+  },
+  {
+    "file": "hub_memory_ingest.py",
+    "lines": [
+      "            # Override wing when caller provides one that differs from the",
+      "            # Override wing when caller provides one that differs from the",
+      "            # Override wing when caller provides one that differs from the"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-13"
+  },
+  {
+    "file": "hub_memory_ingest.py",
+    "lines": [
+      "        # Content-type detection removed: the substring heuristic",
+      "        # Content-type detection removed: the substring heuristic",
+      "        # Content-type detection removed: the substring heuristic"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-13"
+  },
+  {
+    "file": "invocation-log.ts",
+    "lines": [
+      "// raw query text is logged verbatim: dev-workspace demand telemetry for our",
+      "// raw query text is logged verbatim: dev-workspace demand telemetry for our",
+      "// raw query text is logged verbatim: dev-workspace demand telemetry for our"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-14"
+  },
+  {
+    "file": "issue-bench-measure.test.ts",
+    "lines": [
+      "// import-safety pin: main() must not run when the CLI module is imported",
+      "// import-safety pin: main() must not run when the CLI module is imported",
+      "// import-safety pin: main() must not run when the CLI module is imported"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-14"
+  },
+  {
+    "file": "lancedb_store.py",
+    "lines": [
+      "            # no explicit limit means \"read the whole collection\": a silent cap here",
+      "            # no explicit limit means \"read the whole collection\": a silent cap here",
+      "            # no explicit limit means \"read the whole collection\": a silent cap here"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-13"
+  },
+  {
+    "file": "local-cluster.ps1",
+    "lines": [
+      "    # application-local.yml задаёт app.encryption.key как ${APP_ENCRYPTION_KEY}",
+      "    # application-local.yml задаёт app.encryption.key как ${APP_ENCRYPTION_KEY}",
+      "    # application-local.yml задаёт app.encryption.key как ${APP_ENCRYPTION_KEY}"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-13"
+  },
+  {
+    "file": "marketplace.ts",
+    "lines": [
+      "// ============================================",
+      "// ============================================",
+      "// ============================================"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-14"
+  },
+  {
+    "file": "mask_palette_test.dart",
+    "lines": [
+      "  // Intent-colour contract (design-contract «Intent-цвет масок»): a mask's",
+      "  // Intent-colour contract (design-contract «Intent-цвет масок»): a mask's",
+      "  // Intent-colour contract (design-contract «Intent-цвет масок»): a mask's"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-14"
+  },
+  {
+    "file": "masks_step_intent_color_test.dart",
+    "lines": [
+      "    // Real fonts as in the capture harness — VM fallback metrics fake hairline",
+      "    // Real fonts as in the capture harness — VM fallback metrics fake hairline",
+      "    // Real fonts as in the capture harness — VM fallback metrics fake hairline"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-14"
+  },
+  {
+    "file": "masks_step_screen.dart",
+    "lines": [
+      "              // Single-mask fill: the default mesh leaks romance+collab blobs",
+      "              // Single-mask fill: the default mesh leaks romance+collab blobs",
+      "              // Single-mask fill: the default mesh leaks romance+collab blobs"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-14"
+  },
+  {
+    "file": "measure-console.mjs",
+    "lines": [
+      "    // Navigate to the real chat page (not demo) — the settings drawer mounts",
+      "    // Navigate to the real chat page (not demo) — the settings drawer mounts",
+      "    // Navigate to the real chat page (not demo) — the settings drawer mounts"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-13"
+  },
+  {
+    "file": "measure-console.mjs",
+    "lines": [
+      "// window.openSettings(true); product: dispatch app:settings:open — the",
+      "// window.openSettings(true); product: dispatch app:settings:open — the",
+      "// window.openSettings(true); product: dispatch app:settings:open — the"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-13"
+  },
+  {
+    "file": "measure-restriction-density.ps1",
+    "lines": [
+      "    # Groups that plausibly grant View to every user; a space whose VIEWSPACE",
+      "    # Groups that plausibly grant View to every user; a space whose VIEWSPACE",
+      "    # Groups that plausibly grant View to every user; a space whose VIEWSPACE"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-13"
+  },
+  {
+    "file": "measure-restriction-density.ps1",
+    "lines": [
+      "# T-67/T-47 (a): restriction density on a real Confluence instance.",
+      "# T-67/T-47 (a): restriction density on a real Confluence instance.",
+      "# T-67/T-47 (a): restriction density on a real Confluence instance."
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-13"
+  },
+  {
+    "file": "measure-restriction-density.ps1",
+    "lines": [
+      "<#",
+      "<#",
+      "<#"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-13"
+  },
+  {
+    "file": "media_conversation_test.dart",
+    "lines": [
+      "        // Verify the actual suggestion text is shown (localized fallback —",
+      "        // Verify the actual suggestion text is shown (localized fallback —",
+      "        // Verify the actual suggestion text is shown (localized fallback —"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-13"
+  },
+  {
+    "file": "member_list_sheet.dart",
+    "lines": [
+      "    // web-движок теряет семантику всего диалога, когда тайлы рассчитывают",
+      "    // web-движок теряет семантику всего диалога, когда тайлы рассчитывают",
+      "    // web-движок теряет семантику всего диалога, когда тайлы рассчитывают"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-14"
+  },
+  {
+    "file": "message_bubble.dart",
+    "lines": [
+      "    // тип цитаты — по типу оригинала из sync-карты (превью-эвристика",
+      "    // тип цитаты — по типу оригинала из sync-карты (превью-эвристика",
+      "    // тип цитаты — по типу оригинала из sync-карты (превью-эвристика"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-14"
+  },
+  {
+    "file": "mission_store_models.py",
+    "lines": [
+      "    # Ownership fields (backward-compatible: old serialized rows deserialize",
+      "    # Ownership fields (backward-compatible: old serialized rows deserialize",
+      "    # Ownership fields (backward-compatible: old serialized rows deserialize"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-13"
+  },
+  {
+    "file": "onboarding_screens.dart",
+    "lines": [
+      "  // Onboarding finale — the collected choices as an invitation ticket. Rendered",
+      "  // Onboarding finale — the collected choices as an invitation ticket. Rendered",
+      "  // Onboarding finale — the collected choices as an invitation ticket. Rendered"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-14"
+  },
+  {
+    "file": "pin_guard_snackbar_test.dart",
+    "lines": [
+      "  // Long enough for the long-press action menu to lay out its rows without",
+      "  // Long enough for the long-press action menu to lay out its rows without",
+      "  // Long enough for the long-press action menu to lay out its rows without"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-13"
+  },
+  {
+    "file": "prescreen.cjs",
+    "lines": [
+      "// Offline pre-screen for the finish gate M1 (docs/metadata demotion prior).",
+      "// Offline pre-screen for the finish gate M1 (docs/metadata demotion prior).",
+      "// Offline pre-screen for the finish gate M1 (docs/metadata demotion prior)."
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-14"
+  },
+  {
+    "file": "profile_edit_save_pop_test.dart",
+    "lines": [
+      "    // real network latency: the profile controller sits in loading across",
+      "    // real network latency: the profile controller sits in loading across",
+      "    // real network latency: the profile controller sits in loading across"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-13"
+  },
+  {
+    "file": "protocols_daemon.py",
+    "lines": [
+      "    # Router service surface — used by api/agent_route/llm_router.py and",
+      "    # Router service surface — used by api/agent_route/llm_router.py and",
+      "    # Router service surface — used by api/agent_route/llm_router.py and"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-14"
+  },
+  {
+    "file": "prototype_parity_wave_d_screens_test.dart",
+    "lines": [
+      "// Widget tests for the prototype v3 wave-D parity screens: friends",
+      "// Widget tests for the prototype v3 wave-D parity screens: friends",
+      "// Widget tests for the prototype v3 wave-D parity screens: friends"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-13"
+  },
+  {
+    "file": "provider.py",
+    "lines": [
+      "            # Winged drawers live in per-wing collections; legacy wing-level",
+      "            # Winged drawers live in per-wing collections; legacy wing-level",
+      "            # Winged drawers live in per-wing collections; legacy wing-level"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-13"
+  },
+  {
+    "file": "provider.py",
+    "lines": [
+      "        # The upstream has no email; the fingerprint secret is API-generated — these",
+      "        # The upstream has no email; the fingerprint secret is API-generated — these",
+      "        # The upstream has no email; the fingerprint secret is API-generated — these"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-13"
+  },
+  {
+    "file": "provider.py",
+    "lines": [
+      "        # email/password/name are unused: upstream accounts have no email and the",
+      "        # email/password/name are unused: upstream accounts have no email and the",
+      "        # email/password/name are unused: upstream accounts have no email and the"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-13"
+  },
+  {
+    "file": "reconnectScheduler.ts",
+    "lines": [
+      "    // No permanent give-up: once the attempt budget is exhausted, keep polling",
+      "    // No permanent give-up: once the attempt budget is exhausted, keep polling",
+      "    // No permanent give-up: once the attempt budget is exhausted, keep polling"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-13"
+  },
+  {
+    "file": "recover-stale-indexing-jobs.test.ts",
+    "lines": [
+      "// ─── T-879: classified death reason ────────────────────────────────",
+      "// ─── T-879: classified death reason ────────────────────────────────",
+      "// ─── T-879: classified death reason ────────────────────────────────"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-14"
+  },
+  {
+    "file": "rest-bootstrap.ts",
+    "lines": [
+      "  // Feature layer hook: zone detection runs on every committed vector-write",
+      "  // Feature layer hook: zone detection runs on every committed vector-write",
+      "  // Feature layer hook: zone detection runs on every committed vector-write"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-14"
+  },
+  {
+    "file": "rest-truthfulness.test.ts",
+    "lines": [
+      "// authenticate lives in userService.ts/api.ts; farewell only in DerivedClass.ts:",
+      "// authenticate lives in userService.ts/api.ts; farewell only in DerivedClass.ts:",
+      "// authenticate lives in userService.ts/api.ts; farewell only in DerivedClass.ts:"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-14"
+  },
+  {
+    "file": "scan_patch_capture.py",
+    "lines": [
+      "    # Is the patched attr itself defined at module level in target module? That's fine (patch works).",
+      "    # Is the patched attr itself defined at module level in target module? That's fine (patch works).",
+      "    # Is the patched attr itself defined at module level in target module? That's fine (patch works)."
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-13"
+  },
+  {
+    "file": "scan_patch_capture.py",
+    "lines": [
+      "# ---- index src modules: module-level names bound via from-import, Depends usage ----",
+      "# ---- index src modules: module-level names bound via from-import, Depends usage ----",
+      "# ---- index src modules: module-level names bound via from-import, Depends usage ----"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-13"
+  },
+  {
+    "file": "scan_patch_capture.py",
+    "lines": [
+      "# also map simple \"src.api...\" style: dotted already relative to backend/, so",
+      "# also map simple \"src.api...\" style: dotted already relative to backend/, so",
+      "# also map simple \"src.api...\" style: dotted already relative to backend/, so"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-13"
+  },
+  {
+    "file": "session.py",
+    "lines": [
+      "    # osc133 boundary token from the spawn result: consumed by the injector,",
+      "    # osc133 boundary token from the spawn result: consumed by the injector,",
+      "    # osc133 boundary token from the spawn result: consumed by the injector,"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-14"
+  },
+  {
+    "file": "sessions.py",
+    "lines": [
+      "    # Bare shell on the agent lane: a payload argv would land the hook line in",
+      "    # Bare shell on the agent lane: a payload argv would land the hook line in",
+      "    # Bare shell on the agent lane: a payload argv would land the hook line in"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-14"
+  },
+  {
+    "file": "sessions.py",
+    "lines": [
+      "    # Lane declaration (web TerminalView): opens the envelope-overlay lane and",
+      "    # Lane declaration (web TerminalView): opens the envelope-overlay lane and",
+      "    # Lane declaration (web TerminalView): opens the envelope-overlay lane and"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-14"
+  },
+  {
+    "file": "sessions.py",
+    "lines": [
+      "    # The hook injector writes to PTY stdin: a payload argv (-Command/-c) would",
+      "    # The hook injector writes to PTY stdin: a payload argv (-Command/-c) would",
+      "    # The hook injector writes to PTY stdin: a payload argv (-Command/-c) would"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-14"
+  },
+  {
+    "file": "sessions.py",
+    "lines": [
+      "    # declares its session agent-run to open the envelope-overlay lane AND the",
+      "    # declares its session agent-run to open the envelope-overlay lane AND the",
+      "    # declares its session agent-run to open the envelope-overlay lane AND the"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-14"
+  },
+  {
+    "file": "shell.css",
+    "lines": [
+      "/* Non-colour ON signal (ui-kit §6b): a neutral dot precedes the label whenever",
+      "/* Non-colour ON signal (ui-kit §6b): a neutral dot precedes the label whenever",
+      "/* Non-colour ON signal (ui-kit §6b): a neutral dot precedes the label whenever"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-14"
+  },
+  {
+    "file": "sos_active_screen.dart",
+    "lines": [
+      "      // fake-call escape has no screen behind it yet — marked inactive",
+      "      // fake-call escape has no screen behind it yet — marked inactive",
+      "      // fake-call escape has no screen behind it yet — marked inactive"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-13"
+  },
+  {
+    "file": "start-backend.mjs",
+    "lines": [
+      "// The feeder service is started/attached by the backend lifecycle controller",
+      "// The feeder service is started/attached by the backend lifecycle controller",
+      "// The feeder service is started/attached by the backend lifecycle controller"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-13"
+  },
+  {
+    "file": "start-dev.ps1",
+    "lines": [
+      "# Start the full devbox manually: docker infra + supervisor servers.",
+      "# Start the full devbox manually: docker infra + supervisor servers.",
+      "# Start the full devbox manually: docker infra + supervisor servers."
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-14"
+  },
+  {
+    "file": "start.ps1",
+    "lines": [
+      "# Session registry consumed by stop.ps1 (scoped stop): records the trees THIS",
+      "# Session registry consumed by stop.ps1 (scoped stop): records the trees THIS",
+      "# Session registry consumed by stop.ps1 (scoped stop): records the trees THIS"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-13"
+  },
+  {
+    "file": "startup_health.py",
+    "lines": [
+      "    # ── Feeder: lifecycle controller outcome is the only authority ───────────",
+      "    # ── Feeder: lifecycle controller outcome is the only authority ───────────",
+      "    # ── Feeder: lifecycle controller outcome is the only authority ───────────"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-13"
+  },
+  {
+    "file": "startup_health.py",
+    "lines": [
+      "# FeederLifecycleResult.action -> health status. The lifecycle controller is",
+      "# FeederLifecycleResult.action -> health status. The lifecycle controller is",
+      "# FeederLifecycleResult.action -> health status. The lifecycle controller is"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-13"
+  },
+  {
+    "file": "sticker_picker_section_test.dart",
+    "lines": [
+      "  // AssetImage resolves the manifest before any image key; an empty manifest",
+      "  // AssetImage resolves the manifest before any image key; an empty manifest",
+      "  // AssetImage resolves the manifest before any image key; an empty manifest"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-14"
+  },
+  {
+    "file": "sticker_picker_section_test.dart",
+    "lines": [
+      "// 1x1 transparent PNG — every asset key resolves to a decodable image so the",
+      "// 1x1 transparent PNG — every asset key resolves to a decodable image so the",
+      "// 1x1 transparent PNG — every asset key resolves to a decodable image so the"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-14"
+  },
+  {
+    "file": "stop-scoped.ps1",
+    "lines": [
+      "    # A live pid alone is not proof the registry is fresh: a crashed stack can",
+      "    # A live pid alone is not proof the registry is fresh: a crashed stack can",
+      "    # A live pid alone is not proof the registry is fresh: a crashed stack can"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-13"
+  },
+  {
+    "file": "stop-scoped.ps1",
+    "lines": [
+      "# ============================================================================",
+      "# ============================================================================",
+      "# ============================================================================"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-13"
+  },
+  {
+    "file": "stop-scoped.ps1",
+    "lines": [
+      "# scripts/lib/stop-scoped.ps1 — session-scoped stop decisions for stop.ps1 (registry: backend/.session.json).",
+      "# scripts/lib/stop-scoped.ps1 — session-scoped stop decisions for stop.ps1 (registry: backend/.session.json).",
+      "# scripts/lib/stop-scoped.ps1 — session-scoped stop decisions for stop.ps1 (registry: backend/.session.json)."
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-13"
+  },
+  {
+    "file": "stop-scoped.ps1",
+    "lines": [
+      "# scripts/lib/stop-scoped.ps1 — session-scoped stop decisions for stop.ps1.",
+      "# scripts/lib/stop-scoped.ps1 — session-scoped stop decisions for stop.ps1.",
+      "# scripts/lib/stop-scoped.ps1 — session-scoped stop decisions for stop.ps1."
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-13"
+  },
+  {
+    "file": "stop.ps1",
+    "lines": [
+      "# -All: global cleanup.",
+      "# -All: global cleanup.",
+      "# -All: global cleanup."
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-13"
+  },
+  {
+    "file": "stop.ps1",
+    "lines": [
+      "# Dev Stack Stop Script",
+      "# Dev Stack Stop Script",
+      "# Dev Stack Stop Script"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-13"
+  },
+  {
+    "file": "sync.py",
+    "lines": [
+      "            # слой 229+: getDialogs отклоняет folder_id — берём состав,",
+      "            # слой 229+: getDialogs отклоняет folder_id — берём состав,",
+      "            # слой 229+: getDialogs отклоняет folder_id — берём состав,"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-14"
+  },
+  {
+    "file": "sync.py",
+    "lines": [
+      "    # receive_updates=False: CLI-клиенты только дёргают методы, а приём апдейтов",
+      "    # receive_updates=False: CLI-клиенты только дёргают методы, а приём апдейтов",
+      "    # receive_updates=False: CLI-клиенты только дёргают методы, а приём апдейтов"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-14"
+  },
+  {
+    "file": "test-order-divergence.yml",
+    "lines": [
+      "# Isolated-vs-directory test-order divergence detector (report-mode meta-gate).",
+      "# Isolated-vs-directory test-order divergence detector (report-mode meta-gate).",
+      "# Isolated-vs-directory test-order divergence detector (report-mode meta-gate)."
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-14"
+  },
+  {
+    "file": "test_benchmarks.py",
+    "lines": [
+      "            # The load test's outer finally clears overrides on the way out of",
+      "            # The load test's outer finally clears overrides on the way out of",
+      "            # The load test's outer finally clears overrides on the way out of"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-13"
+  },
+  {
+    "file": "test_benchmarks.py",
+    "lines": [
+      "            # Warmup absorbs TestClient portal/middleware spin-up; the SLA measures steady state",
+      "            # Warmup absorbs TestClient portal/middleware spin-up; the SLA measures steady state",
+      "            # Warmup absorbs TestClient portal/middleware spin-up; the SLA measures steady state"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-13"
+  },
+  {
+    "file": "test_benchmarks.py",
+    "lines": [
+      "            # Warmup: absorb one-time costs (TestClient portal/event-loop",
+      "            # Warmup: absorb one-time costs (TestClient portal/event-loop",
+      "            # Warmup: absorb one-time costs (TestClient portal/event-loop"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-13"
+  },
+  {
+    "file": "test_benchmarks.py",
+    "lines": [
+      "        # Patches are process-global and hoisted out of the per-request path:",
+      "        # Patches are process-global and hoisted out of the per-request path:",
+      "        # Patches are process-global and hoisted out of the per-request path:"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-13"
+  },
+  {
+    "file": "test_benchmarks.py",
+    "lines": [
+      "# =============================================================================",
+      "# =============================================================================",
+      "# ============================================================================="
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-14"
+  },
+  {
+    "file": "test_capability_parity.py",
+    "lines": [
+      "# ---------------------------------------------------------------------------",
+      "# ---------------------------------------------------------------------------",
+      "# ---------------------------------------------------------------------------"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-14"
+  },
+  {
+    "file": "test_groups.py",
+    "lines": [
+      "# ═══════════════════════════════════════════════════════════════════════════",
+      "# ═══════════════════════════════════════════════════════════════════════════",
+      "# ═══════════════════════════════════════════════════════════════════════════"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-14"
+  },
+  {
+    "file": "test_knowledge_graph_populate_feeder.py",
+    "lines": [
+      "            # Production shape: search hits carry no symbol name, so",
+      "            # Production shape: search hits carry no symbol name, so",
+      "            # Production shape: search hits carry no symbol name, so"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-14"
+  },
+  {
+    "file": "test_lesson_memory.py",
+    "lines": [
+      "# ---------------------------------------------------------------------------",
+      "# ---------------------------------------------------------------------------",
+      "# ---------------------------------------------------------------------------"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-14"
+  },
+  {
+    "file": "test_mission_cost.py",
+    "lines": [
+      "# ---------------------------------------------------------------------------",
+      "# ---------------------------------------------------------------------------",
+      "# ---------------------------------------------------------------------------"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-14"
+  },
+  {
+    "file": "test_patch_target_capture.py",
+    "lines": [
+      "    # Facade re-export: consumers use module-ref (sb.X) or lazy imports;",
+      "    # Facade re-export: consumers use module-ref (sb.X) or lazy imports;",
+      "    # Facade re-export: consumers use module-ref (sb.X) or lazy imports;"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-13"
+  },
+  {
+    "file": "test_patch_target_capture.py",
+    "lines": [
+      "    # Lazy-import consumers (main.py, startup_health): patching the defining",
+      "    # Lazy-import consumers (main.py, startup_health): patching the defining",
+      "    # Lazy-import consumers (main.py, startup_health): patching the defining"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-13"
+  },
+  {
+    "file": "test_patch_target_capture.py",
+    "lines": [
+      "    # Patching the defining module works: every consumer resolves these names",
+      "    # Patching the defining module works: every consumer resolves these names",
+      "    # Patching the defining module works: every consumer resolves these names"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-13"
+  },
+  {
+    "file": "test_patch_target_capture.py",
+    "lines": [
+      "# Deferred/low-risk grandfathered entries: \"patch-target|consumer-module\".",
+      "# Deferred/low-risk grandfathered entries: \"patch-target|consumer-module\".",
+      "# Deferred/low-risk grandfathered entries: \"patch-target|consumer-module\"."
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-13"
+  },
+  {
+    "file": "test_session_event_chain.py",
+    "lines": [
+      "    # Field-boundary ambiguity is impossible: length prefixes distinguish",
+      "    # Field-boundary ambiguity is impossible: length prefixes distinguish",
+      "    # Field-boundary ambiguity is impossible: length prefixes distinguish"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-14"
+  },
+  {
+    "file": "test_session_event_chain.py",
+    "lines": [
+      "# ---------------------------------------------------------------------------",
+      "# ---------------------------------------------------------------------------",
+      "# ---------------------------------------------------------------------------"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-14"
+  },
+  {
+    "file": "test_terminal_sessions.py",
+    "lines": [
+      "        # Agent lane: bare interactive shell so the broker shell-hook injector",
+      "        # Agent lane: bare interactive shell so the broker shell-hook injector",
+      "        # Agent lane: bare interactive shell so the broker shell-hook injector"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-14"
+  },
+  {
+    "file": "test_terminal_sessions.py",
+    "lines": [
+      "        # The UTF-8 console setup rides the same stdin lane (typed after the",
+      "        # The UTF-8 console setup rides the same stdin lane (typed after the",
+      "        # The UTF-8 console setup rides the same stdin lane (typed after the"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-14"
+  },
+  {
+    "file": "test_terminal_sessions.py",
+    "lines": [
+      "        # cmd has no hook template: forcing would be theater, the session",
+      "        # cmd has no hook template: forcing would be theater, the session",
+      "        # cmd has no hook template: forcing would be theater, the session"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-14"
+  },
+  {
+    "file": "theme_factory.dart",
+    "lines": [
+      "    // night: подъём читается тёплым подтоном заливки и тёплой тенью —",
+      "    // night: подъём читается тёплым подтоном заливки и тёплой тенью —",
+      "    // night: подъём читается тёплым подтоном заливки и тёплой тенью —"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-13"
+  },
+  {
+    "file": "theme_pack.dart",
+    "lines": [
+      "      // a fixed cool blue-gray that reads off-palette. Kit renders grey as text",
+      "      // a fixed cool blue-gray that reads off-palette. Kit renders grey as text",
+      "      // a fixed cool blue-gray that reads off-palette. Kit renders grey as text"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-14"
+  },
+  {
+    "file": "theme_pack.dart",
+    "lines": [
+      "    // Лестница поверхностей: ступени к фону >=1.25/1.42 (чистый шаг 0.06/0.12",
+      "    // Лестница поверхностей: ступени к фону >=1.25/1.42 (чистый шаг 0.06/0.12",
+      "    // Лестница поверхностей: ступени к фону >=1.25/1.42 (чистый шаг 0.06/0.12"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-13"
+  },
+  {
+    "file": "theme_pack.dart",
+    "lines": [
+      "  // Строгий холст яркости: light — background (темнее белого surface), dark —",
+      "  // Строгий холст яркости: light — background (темнее белого surface), dark —",
+      "  // Строгий холст яркости: light — background (темнее белого surface), dark —"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-13"
+  },
+  {
+    "file": "types.ts",
+    "lines": [
+      "// Safety invariant: input synthesis is the only capability whose result type",
+      "// Safety invariant: input synthesis is the only capability whose result type",
+      "// Safety invariant: input synthesis is the only capability whose result type"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-14"
+  },
+  {
+    "file": "usage_tracking_service.py",
+    "lines": [
+      "    # ------------------------------------------------------------------",
+      "    # ------------------------------------------------------------------",
+      "    # ------------------------------------------------------------------"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-14"
+  },
+  {
+    "file": "useRouterCatalog.ts",
+    "lines": [
+      "        // Failure on the current transport defers retry to the next reconnect; only a",
+      "        // Failure on the current transport defers retry to the next reconnect; only a",
+      "        // Failure on the current transport defers retry to the next reconnect; only a"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-13"
+  },
+  {
+    "file": "useRouterCatalog.ts",
+    "lines": [
+      "      // A transport swap during this burst reset the dedup flags; re-arm so the new",
+      "      // A transport swap during this burst reset the dedup flags; re-arm so the new",
+      "      // A transport swap during this burst reset the dedup flags; re-arm so the new"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-13"
+  },
+  {
+    "file": "useRouterCatalog.ts",
+    "lines": [
+      "  // One burst per connection epoch, scoped to the transport that owns it.",
+      "  // One burst per connection epoch, scoped to the transport that owns it.",
+      "  // One burst per connection epoch, scoped to the transport that owns it."
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-13"
+  },
+  {
+    "file": "useRouterCatalog.ts",
+    "lines": [
+      "  // One burst per connection epoch, scoped to the transport that owns it: in-flight absorbs",
+      "  // One burst per connection epoch, scoped to the transport that owns it: in-flight absorbs",
+      "  // One burst per connection epoch, scoped to the transport that owns it: in-flight absorbs"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-13"
+  },
+  {
+    "file": "values.yaml",
+    "lines": [
+      "#     --from-literal=confluence-password=... \\",
+      "#     --from-literal=confluence-password=... \\",
+      "#     --from-literal=confluence-password=... \\"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-13"
+  },
+  {
+    "file": "venue_bottom_sheet.dart",
+    "lines": [
+      "                  // theme:exempt — ticket drop shadow outside the glass clip",
+      "                  // theme:exempt — ticket drop shadow outside the glass clip",
+      "                  // theme:exempt — ticket drop shadow outside the glass clip"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-13"
+  },
+  {
+    "file": "vite-env.d.ts",
+    "lines": [
+      "// Compile-time shim: @tauri-apps/api types are only resolvable after the",
+      "// Compile-time shim: @tauri-apps/api types are only resolvable after the",
+      "// Compile-time shim: @tauri-apps/api types are only resolvable after the"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-14"
+  },
+  {
+    "file": "win.rs",
+    "lines": [
+      "        // SetForegroundWindow is denied to background threads unless they are",
+      "        // SetForegroundWindow is denied to background threads unless they are",
+      "        // SetForegroundWindow is denied to background threads unless they are"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-14"
+  },
+  {
+    "file": "workspace_manager.py",
+    "lines": [
+      "        # Without its own git root every later git op climbs into the parent",
+      "        # Without its own git root every later git op climbs into the parent",
+      "        # Without its own git root every later git op climbs into the parent"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-14"
+  },
+  {
+    "file": "zone-admission-bounded.test.ts",
+    "lines": [
+      "  // member-less zones fall back to the stored name as the passage — long",
+      "  // member-less zones fall back to the stored name as the passage — long",
+      "  // member-less zones fall back to the stored name as the passage — long"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-13"
+  },
+  {
+    "file": "zone-admission-labels-characterization.test.ts",
+    "lines": [
+      "  // f-main insertion order deliberately differs from symbol_id order so the",
+      "  // f-main insertion order deliberately differs from symbol_id order so the",
+      "  // f-main insertion order deliberately differs from symbol_id order so the"
+    ],
+    "rule": "multi-line-comment",
+    "ts": "2026-10-13"
+  }
+]

@@ -14,6 +14,7 @@ import { cmdAudit } from "./audit.mjs"
 import { cmdMcp } from "./mcp.mjs"
 import { cmdPreTool, cmdStdinPath } from "./pretool.mjs"
 import { cmdBench } from "./bench.mjs"
+import { cmdDetBench } from "./detbench.mjs"
 import { cmdDoctor } from "./doctor.mjs"
 
 export function cmdScan(paths, { writeBaseline = false, strict = false, prune = false, format = "text", annotations = false, fixSuggestions = false } = {}) {
@@ -121,6 +122,7 @@ export const KNOWN_FLAGS = new Set([
   "--baseline-prune",
   "--bench",
   "--bench-write",
+  "--detbench",
   "--audit",
   "--stdin-path",
   "--mcp",
@@ -182,6 +184,7 @@ export const MODES = [
   ["--baseline-prune", (argv) => cmdScan(positionalPaths(argv), { prune: true })],
   ["--bench-write", () => cmdBench(true)],
   ["--bench", () => cmdBench(false)],
+  ["--detbench", () => cmdDetBench()],
   ["--stdin-path", (argv) => cmdStdinPath(argv.includes("--fix-suggestions"))],
   ["--mcp", () => cmdMcp()],
   ["--pre-tool", () => cmdPreTool()],
