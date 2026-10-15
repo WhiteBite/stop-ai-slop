@@ -1,11 +1,12 @@
 # Changelog
 
-## Unreleased
+## 2.1.0
 
 - DetBench: `--detbench` — recall-гейт на корпусе реального агентского слопа (`detbench-corpus.json` в корне, 181 запись из 180 заблокированных write-time-правок аудит-лога; `STOP_AI_SLOP_DETBENCH` переопределяет путь); генератор `gen-detbench.mjs`: `--write` майнит локальный аудит-лог и дропает нестреляющие записи, `--check` — CI-safe трипвайр recall-регрессии (лог не читает), `--normalize` — пересортировка после ручной санитизации текстов; selftest-чек detbench (in-sync, живой прогон, саботаж, форма)
 - docs-integrity: selftest-чек против счётчиков тестов в живых доках (AGENTS/README/TECH_DEBT) — дрейф пойман живьём, счётчики из прозы убраны; CHANGELOG остался вне гейта как историческая запись релизов
 - AGENTS.md: kill-критерии компонентов («exists because / remove when») — от маркерных словарей до MCP-сервера
 - методология заимствована из ameobius-ai/anti-slop-kit (detection benchmark, integrity-гейт, kill-критерии); разбор и отклонённые идеи — `docs/TECH_DEBT.md`, запись сессии 2026-10-15
+- self-test: 759 PASS / 1 SKIP / 0 FAIL; detekt: 187 тестов
 
 ## 2.0.0
 
