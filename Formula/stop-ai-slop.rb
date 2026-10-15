@@ -1,8 +1,8 @@
 class StopAiSlop < Formula
   desc "Zero-dependency linter that blocks AI-generated comment slop"
   homepage "https://github.com/WhiteBite/stop-ai-slop"
-  url "https://registry.npmjs.org/stop-ai-slop/-/stop-ai-slop-2.0.0.tgz"
-  sha256 "06a50cb08eb7dd8fb0144396e9e1e0b01cfdee28697814ed243fffa1d5c606bd"
+  url "https://registry.npmjs.org/stop-ai-slop/-/stop-ai-slop-2.1.0.tgz"
+  sha256 "b63c5329f55b5b782661024f2ed1d8ded90459ce217411545a26d28b03a6a065"
   license "MIT"
 
   depends_on "node"
