@@ -1,7 +1,11 @@
 {
   "name": "stop-ai-slop",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "description": "Comment-slop policy and mechanical gate — zero-dependency scanner that blocks multi-line narrative comments, changelog markers, and other AI-generated slop in code comments.",
-  "author": { "name": "WhiteBite" },
-  "skills": ["./skill"]
+  "author": {
+    "name": "WhiteBite"
+  },
+  "skills": [
+    "./skill"
+  ]
 }

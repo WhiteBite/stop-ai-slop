@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.1.1
+
+- audit: байтовая ротация (512KB→256KB) вместо построчной — убирает readFileSync 1MB на каждом append после 10KB
+- audit: `--audit` группирует unevaluated по инструментам
+- plugin: событие `loaded` одно на уровне модуля вместо двух (V1+V2 dual-form)
+
 ## 2.1.0
 
 - DetBench: `--detbench` — recall-гейт на корпусе реального агентского слопа (`detbench-corpus.json` в корне, 181 запись из 180 заблокированных write-time-правок аудит-лога; `STOP_AI_SLOP_DETBENCH` переопределяет путь); генератор `gen-detbench.mjs`: `--write` майнит локальный аудит-лог и дропает нестреляющие записи, `--check` — CI-safe трипвайр recall-регрессии (лог не читает), `--normalize` — пересортировка после ручной санитизации текстов; selftest-чек detbench (in-sync, живой прогон, саботаж, форма)

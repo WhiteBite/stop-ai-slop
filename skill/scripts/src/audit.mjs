@@ -3,7 +3,8 @@ import { homedir } from "node:os"
 import { dirname, join } from "node:path"
 import { T } from "./i18n.mjs"
 
-const ROTATION_SCAN_BYTES = 10000
+const ROTATE_AT_BYTES = 512 * 1024
+const KEEP_BYTES = 256 * 1024
 
 export function auditLogPath() {
   return process.env.STOP_AI_SLOP_LOG ?? join(homedir(), ".config", "opencode", "logs", "comment-gate.jsonl")
@@ -12,10 +13,12 @@ export function auditLogPath() {
 export function appendAudit(entry, path = auditLogPath()) {
   try {
     mkdirSync(dirname(path), { recursive: true })
-    // lines.length > 10000 needs >= 10000 newlines, so a file under 10000 bytes can never rotate
-    if (existsSync(path) && statSync(path).size >= ROTATION_SCAN_BYTES) {
-      const lines = readFileSync(path, "utf8").split(/\r?\n/)
-      if (lines.length > 10000) writeFileSync(path, lines.slice(-5000).join("\n") + "\n")
+    if (existsSync(path) && statSync(path).size >= ROTATE_AT_BYTES) {
+      const content = readFileSync(path, "utf8")
+      const keepStart = Math.max(0, content.length - KEEP_BYTES)
+      const nl = content.indexOf("\n", keepStart)
+      const start = nl === -1 ? keepStart : nl + 1
+      writeFileSync(path, content.slice(start))
     }
     appendFileSync(path, JSON.stringify({ ts: new Date().toISOString(), ...entry }) + "\n")
   } catch {
@@ -41,11 +44,16 @@ export function cmdAudit(limit) {
     })
     .filter((e) => e !== null)
   const counts = {}
+  const unevalByTool = {}
   for (const e of entries) {
     const key = e.verdict ?? e.event ?? "?"
     counts[key] = (counts[key] ?? 0) + 1
+    if (e.verdict === "unevaluated") unevalByTool[e.tool ?? "?"] = (unevalByTool[e.tool ?? "?"] ?? 0) + 1
   }
   console.log(T("auditSummary", path, entries.length, Object.entries(counts).map(([k, v]) => `${k}: ${v}`).join(", ")))
+  if (Object.keys(unevalByTool).length > 0) {
+    console.log(T("auditUnevaluatedByTool", Object.entries(unevalByTool).map(([k, v]) => `${k}: ${v}`).join(", ")))
+  }
   for (const e of entries.slice(-limit)) {
     const rules = Array.isArray(e.rules) && e.rules.length > 0 ? ` [${e.rules.join(",")}]` : ""
     console.log(`${e.ts} ${e.verdict ?? e.event} ${e.tool ?? ""} ${e.filePath ?? ""}${rules}`)

@@ -1168,10 +1168,19 @@ export async function cmdSelfTest() {
       rmSync(irCreateDir, { recursive: true, force: true })
     }
     const rotatePath = join(dir, "rotate.jsonl")
-    writeFileSync(rotatePath, Array.from({ length: 10000 }, (_, i) => `{"ts":"t${i}","verdict":"passed"}`).join("\n") + "\n")
+    writeFileSync(
+      rotatePath,
+      Array.from({ length: 10000 }, (_, i) =>
+        JSON.stringify({ ts: "2026-01-01T00:00:00.000Z", verdict: "passed", tool: "write", filePath: `f${i}.ts` }) + "\n",
+      ).join(""),
+    )
     appendAudit({ verdict: "passed", tool: "write", filePath: "r.ts" }, rotatePath)
-    const rotated = readFileSync(rotatePath, "utf8").split("\n").filter((l) => l.trim() !== "")
-    check("audit: лог ротируется при превышении 10000 строк", rotated.length === 5000 && rotated[4999].includes("r.ts"), rotated.length)
+    const rotated = readFileSync(rotatePath, "utf8").split(/\r?\n/).filter((l) => l.trim() !== "")
+    check(
+      "audit: лог ротируется при превышении 512KB",
+      statSync(rotatePath).size < 512 * 1024 && rotated[rotated.length - 1].includes("r.ts"),
+      `размер: ${statSync(rotatePath).size}`,
+    )
     const stdinPayload = JSON.stringify({ tool_input: { file_path: join(dir, "sabotage.ts") } })
     let stdinBlocked = false
     try {
