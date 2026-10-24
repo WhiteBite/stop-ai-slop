@@ -1,6 +1,6 @@
 ---
 name: stop-ai-slop
-description: Comment-slop policy and mechanical gate — single source of truth for comment rules. Use when checking comment policy, slop comments, before commit, PR review, deslop, stop-ai-slop, writing code comments, documenting a function, adding TODO — multi-line narrative comments, changelog markers (было/стало/instead/fixes) in code, banner divider lines, step-numbered comments, TODO without ticket, markdown inside comments.
+description: Comment-slop policy and mechanical gate (scan.mjs, pre-commit install). Use only when the user explicitly asks to check comment policy, scan or deslop comments, install the stop-ai-slop gate, or debug why the gate blocked a commit. Do not load for ordinary code edits, commits or delegated subtasks — comment-gate enforces the rules at write time.
 ---
 
 # stop-ai-slop — гейт против slop-комментариев
