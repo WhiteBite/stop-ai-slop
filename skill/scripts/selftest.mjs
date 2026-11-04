@@ -943,7 +943,7 @@ export async function cmdSelfTest() {
       const fresh = runCli(["--install-hooks"], ihDir)
       const codexFirst = ihJson(ihDir, ihFiles[0])?.hooks?.PreToolUse?.[0]
       const devinFirst = ihJson(ihDir, ihFiles[1])?.PreToolUse?.[0]
-      const vscodeFirst = ihJson(ihDir, ihFiles[2])?.hooks?.PreToolUse?.[0]
+      const vscodeFirst = ihJson(ihDir, ihFiles[2])?.hooks?.preToolUse?.[0]
       check(
         "install-hooks-fresh: три файла с верной структурой [exit 0]",
         fresh.status === 0 &&
@@ -954,7 +954,8 @@ export async function cmdSelfTest() {
           !("matcher" in devinFirst) &&
           devinFirst.hooks[0].command.includes("--pre-tool") &&
           vscodeFirst?.type === "command" &&
-          vscodeFirst.timeout === 30 &&
+          vscodeFirst.timeoutSec === 30 &&
+          ihJson(ihDir, ihFiles[2])?.version === 1 &&
           !("matcher" in vscodeFirst),
         `exit ${fresh.status}: ${fresh.out.slice(0, 200)}`,
       )
@@ -1024,12 +1025,12 @@ export async function cmdSelfTest() {
       mkdirSync(join(voDir, ".github", "hooks"), { recursive: true })
       writeFileSync(join(voDir, ".github", "hooks", "stop-ai-slop.json"), "{}")
       const vo = runCli(["--install-hooks"], voDir)
-      const voFirst = ihJson(voDir, ihFiles[2])?.hooks?.PreToolUse?.[0]
+      const voFirst = ihJson(voDir, ihFiles[2])?.hooks?.preToolUse?.[0]
       check(
         "install-hooks-vscode-overwrite: собственный файл перезаписан полностью",
         vo.status === 0 &&
           voFirst?.type === "command" &&
-          voFirst?.timeout === 30 &&
+          voFirst?.timeoutSec === 30 &&
           typeof voFirst?.command === "string" &&
           voFirst.command.includes("--pre-tool") &&
           !("matcher" in voFirst),

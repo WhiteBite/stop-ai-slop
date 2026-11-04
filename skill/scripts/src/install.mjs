@@ -139,7 +139,15 @@ export function cmdInstallHooks() {
   )
   const vscodeRel = hookTarget("copilot")
   const vscodeFile = join(root, vscodeRel)
-  const vscodeObj = { hooks: { PreToolUse: [{ type: "command", command, timeout: 30 }] } }
+  const copilot = hooksOf("copilot")
+  const vscodeObj = {
+    ...(copilot.envelope ?? {}),
+    hooks: {
+      [copilot.events.find((event) => event.startsWith("pre")) ?? "preToolUse"]: [
+        { type: copilot.entryFields.type ?? "command", command, [copilot.entryFields.timeoutUnit]: 30 },
+      ],
+    },
+  }
   const vscodeData = JSON.stringify(vscodeObj, null, 2) + "\n"
   const prev = existsSync(vscodeFile) ? readFileSync(vscodeFile, "utf8") : null
   if (prev !== vscodeData) writeJsonAtomic(vscodeFile, vscodeObj, { backup: false })
