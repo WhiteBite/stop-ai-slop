@@ -12,6 +12,7 @@ function runGit(args, cwd) {
 
 export function resolveHooksDir(root, { exec } = {}) {
   if (!existsSync(join(root, '.git'))) return null;
+  const fallback = join(root, '.git', 'hooks');
   const run = exec ?? runGit;
   try {
     const configured = run(['config', 'core.hooksPath'], root).trim();
@@ -22,7 +23,7 @@ export function resolveHooksDir(root, { exec } = {}) {
     const gitPath = run(['rev-parse', '--git-path', 'hooks'], root).trim();
     if (gitPath !== '') return resolve(root, gitPath);
   } catch {}
-  return join(root, '.git', 'hooks');
+  return fallback;
 }
 
 function finding(id, status, detail) {

@@ -1,4 +1,4 @@
-/** Atomic JSON config writes: validate before touching disk, skip byte-identical rewrites, keep the .bak only until the renamed file re-parses, refuse symlinks, retry locked renames on Windows. */
+/** Atomic JSON config writes: validate before touching disk, skip byte-identical rewrites, optional retained backup, refuse symlinks, retry locked renames on Windows. */
 import { copyFileSync, chmodSync, existsSync, lstatSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join } from 'node:path';
@@ -35,7 +35,7 @@ function sleepSync(ms) {
   Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 }
 
-export function writeJsonAtomic(path, data) {
+export function writeJsonAtomic(path, data, { backup = true } = {}) {
   let stat = null;
   try {
     stat = lstatSync(path);
@@ -49,7 +49,7 @@ export function writeJsonAtomic(path, data) {
   JSON.parse(serialized);
   if (stat !== null && readFileSync(path, 'utf8') === serialized) return;
   mkdirSync(dirname(path), { recursive: true });
-  if (stat) {
+  if (stat && backup) {
     copyFileSync(path, `${path}.bak`);
   }
   const tmp = join(dirname(path), `.${basename(path)}.${process.pid}.tmp`);
@@ -72,7 +72,4 @@ export function writeJsonAtomic(path, data) {
     try { chmodSync(path, stat.mode & 0o7777); } catch { /* mode preservation is best effort */ }
   }
   JSON.parse(readFileSync(path, 'utf8'));
-  if (stat) {
-    try { rmSync(`${path}.bak`, { force: true }); } catch { /* best effort */ }
-  }
 }

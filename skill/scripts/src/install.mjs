@@ -6,14 +6,31 @@ import { RULES } from "./rules.mjs"
 import {
   ConfigParseError,
   collectCommands,
+  harness,
+  loadRegistry,
   mergeHooks,
   readJsonConfig,
+  renderPath,
   resolveHooksDir,
   writeJsonAtomic,
   writeMarkerBlock,
 } from "../vendor/harness-kit/src/index.mjs"
 
 export const SLOP_GATE_ID = "slop-gate"
+
+const REGISTRY = loadRegistry()
+const TOOL = "stop-ai-slop"
+const hooksOf = (id) => {
+  const hooks = harness(REGISTRY, id).hooks
+  if (hooks === null || hooks === undefined) throw new Error(`stop-ai-slop: harness "${id}" has no hooks config`)
+  return hooks
+}
+const hookTarget = (id) => renderPath(hooksOf(id).config.project, { tool: TOOL })
+const ruleTarget = (id) => {
+  const rules = harness(REGISTRY, id).rules
+  if (!Array.isArray(rules) || rules.length === 0) throw new Error(`stop-ai-slop: harness "${id}" has no rules path`)
+  return renderPath(rules[0].path, { id: TOOL, tool: TOOL })
+}
 
 export function hooksDirFor(root) {
   return resolveHooksDir(root)
@@ -107,29 +124,29 @@ export function cmdInstallHooks() {
       return
     }
     const hadOwn = existing !== null && collectCommands(existing, { shape }).some(isMine)
-    writeJsonAtomic(file, merged)
+    writeJsonAtomic(file, merged, { backup: false })
     console.log(`slop-gate: ${rel} — ${hadOwn ? "хук обновлён" : "хук добавлен"}`)
   }
   mergeHook(
-    ".codex/hooks.json",
+    hookTarget("codex"),
     { hooks: { PreToolUse: [{ matcher, hooks: [{ type: "command", command }] }] } },
-    "nested-hooks",
+    hooksOf("codex").shape,
   )
   mergeHook(
-    ".devin/hooks.v1.json",
+    hookTarget("devin"),
     { PreToolUse: [{ hooks: [{ type: "command", command }] }] },
-    "root-events",
+    hooksOf("devin").shape,
   )
-  const vscodeRel = ".github/hooks/stop-ai-slop.json"
+  const vscodeRel = hookTarget("copilot")
   const vscodeFile = join(root, vscodeRel)
   const vscodeObj = { hooks: { PreToolUse: [{ type: "command", command, timeout: 30 }] } }
   const vscodeData = JSON.stringify(vscodeObj, null, 2) + "\n"
   const prev = existsSync(vscodeFile) ? readFileSync(vscodeFile, "utf8") : null
-  if (prev !== vscodeData) writeJsonAtomic(vscodeFile, vscodeObj)
+  if (prev !== vscodeData) writeJsonAtomic(vscodeFile, vscodeObj, { backup: false })
   console.log(`slop-gate: ${vscodeRel} — ${prev === null ? "создан" : prev === vscodeData ? "уже на месте" : "обновлён"}`)
-  console.log("slop-gate: добавьте в .gemini/settings.json:")
+  console.log(`slop-gate: добавьте в ${hookTarget("gemini")}:`)
   console.log(`"hooks": ${JSON.stringify({ BeforeTool: [{ matcher: "write_file|replace", hooks: [{ type: "command", command: "npx stop-ai-slop --pre-tool", timeout: 60000 }] }] }, null, 2)}`)
-  console.log("slop-gate: добавьте в .qwen/settings.json:")
+  console.log(`slop-gate: добавьте в ${hookTarget("qwen")}:`)
   console.log(`"hooks": ${JSON.stringify({ PreToolUse: [{ matcher: "write_file|replace", hooks: [{ type: "command", command: "npx stop-ai-slop --pre-tool" }] }] }, null, 2)}`)
   return 0
 }
@@ -177,7 +194,7 @@ export function cmdInstallRules() {
     writeFileSync(file, content)
     console.log(`slop-gate: ${rel} — ${prev === null ? "создан" : "обновлён"}`)
   }
-  writeMarked(".cursor/rules/stop-ai-slop.mdc", null, {
+  writeMarked(ruleTarget("cursor"), null, {
     variant: "mdc-frontmatter",
     fields: [
       ["description", "stop-ai-slop — политика комментариев: одна строка, только WHY"],
@@ -186,11 +203,11 @@ export function cmdInstallRules() {
     ],
     body,
   })
-  writeMarked(".windsurfrules", `${hashMarker}\n${body}`, { variant: "first-line-marker", marker: hashMarker })
-  writeMarked("CONVENTIONS.md", `${generatedMarker}\n\n${body}`, { variant: "first-line-marker", marker: generatedMarker })
-  writeMarked(".clinerules", `${hashMarker}\n${body}`, { variant: "first-line-marker", marker: hashMarker })
-  writeOwned(".devin/rules/stop-ai-slop.md", `${generatedMarker}\n\n${body}`)
-  writeMarked(".github/copilot-instructions.md", `${blockOpen}\n# stop-ai-slop\n\n${body}${blockClose}\n`, {
+  writeMarked(ruleTarget("windsurf"), `${hashMarker}\n${body}`, { variant: "first-line-marker", marker: hashMarker })
+  writeMarked(ruleTarget("aider"), `${generatedMarker}\n\n${body}`, { variant: "first-line-marker", marker: generatedMarker })
+  writeMarked(ruleTarget("cline"), `${hashMarker}\n${body}`, { variant: "first-line-marker", marker: hashMarker })
+  writeOwned(ruleTarget("devin"), `${generatedMarker}\n\n${body}`)
+  writeMarked(ruleTarget("copilot"), `${blockOpen}\n# stop-ai-slop\n\n${body}${blockClose}\n`, {
     variant: "html-block",
     id: "stop-ai-slop",
   })
