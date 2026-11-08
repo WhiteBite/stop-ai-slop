@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 2.1.2
 
 - OpenCode write-time плагин: `evaluateEdit` отдаёт `reason` (`not-shape`/`no-target`/`unparsed`), `unevaluated` пишется в аудит-лог только для реального пробела (`unparsed`) — правки не-кодовых файлов (`.json`, `.txt`) и пустой apply_patch больше не зашумляют счётчик `--audit`
 
