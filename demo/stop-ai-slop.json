@@ -1,64 +1,37 @@
 {
   "theme": "claude-code",
   "windowTitle": "add cache lookup to loadUser",
-  "arrowCaption": "stop-ai-slop gate",
-  "statusLeft": "esc to interrupt",
-  "statusRight": "? for shortcuts",
+  "takeaway": "The gate blocks 12 slop comments and keeps the one that matters",
 
   "before": {
     "caption": "without the gate",
     "sessionTitle": "# add cache lookup to loadUser",
-    "usage": "12 comment lines",
     "blocks": [
       { "type": "user", "text": "add a cache lookup to loadUser" },
       { "type": "prose", "text": "I'll add the cache lookup." },
-      { "type": "tool", "kind": "write", "text": "Write src/user.ts" },
       { "type": "diff", "lines": [
         { "type": "add", "text": "// ===== cache lookup =====" },
         { "type": "add", "text": "// Step 1: check the cache first" },
         { "type": "add", "text": "// this fixes the slow loadUser path" },
-        { "type": "add", "text": "// was: no cache, now: cached" },
-        { "type": "add", "text": "// check if the cache has the user" },
-        { "type": "add", "text": "// if not, load from the database" },
-        { "type": "add", "text": "// then store the result in the cache" },
-        { "type": "add", "text": "// this is important for performance" },
         { "type": "add", "text": "// TODO: add a TTL later" },
-        { "type": "add", "text": "// see db.ts:42 for the query" },
-        { "type": "add", "text": "// returns the user object" },
-        { "type": "add", "text": "// **note**: keep in sync with loadUser" },
-        { "type": "add", "text": "const cached = cache.get(id)" },
-        { "type": "add", "text": "return cached ?? loadUser(id)" }
+        { "type": "add", "text": "// ... 8 more comment lines" }
       ] },
-      { "type": "status", "text": "writing src/user.ts..." }
-    ],
-    "agentName": "Claude",
-    "agentModel": "· claude-sonnet-4-5",
-    "inputAgent": "Claude",
-    "inputModel": "Claude Sonnet 4.5",
-    "inputProvider": "Anthropic"
+      { "type": "status", "text": "12 comment lines written" }
+    ]
   },
 
   "after": {
     "caption": "with the gate",
     "sessionTitle": "# add cache lookup to loadUser",
-    "usage": "1 comment line",
     "blocks": [
       { "type": "user", "text": "add a cache lookup to loadUser" },
-      { "type": "prose", "text": "I'll add the cache lookup." },
-      { "type": "tool", "kind": "write", "text": "Write src/user.ts" },
-      { "type": "tool", "kind": "call", "text": "scan.mjs --pre-tool" },
       { "type": "status", "text": "gate: 12 comment lines -> 1" },
       { "type": "diff", "lines": [
-        { "type": "add", "text": "// cache hit avoids the DB round-trip on repeat loads" },
+        { "type": "add", "text": "// cache hit avoids the DB round-trip" },
         { "type": "add", "text": "const cached = cache.get(id)" },
         { "type": "add", "text": "return cached ?? loadUser(id)" }
       ] },
       { "type": "done", "text": "done in 1.8s" }
-    ],
-    "agentName": "Claude",
-    "agentModel": "· claude-sonnet-4-5",
-    "inputAgent": "Claude",
-    "inputModel": "Claude Sonnet 4.5",
-    "inputProvider": "Anthropic"
+    ]
   }
 }
