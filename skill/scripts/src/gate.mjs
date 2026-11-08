@@ -146,13 +146,13 @@ export function evaluateEdit(tool, args, opts) {
   const filePathArg = typeof raw.filePath === "string" ? raw.filePath : typeof raw.file_path === "string" ? raw.file_path : null
   const shaped = typeof tool === "string" ? shapeTool(tool, raw) : null
   if (shaped === null) {
-    return { tool, evaluated: false, blocked: false, filePath: filePathArg, addedCount: 0, violations: [], message: null }
+    return { tool, evaluated: false, blocked: false, reason: "not-shape", filePath: filePathArg, addedCount: 0, violations: [], message: null }
   }
   if (shaped === "apply_patch") {
     const text = [raw.command, raw.input, raw.patch, raw.text].find((v) => typeof v === "string")
     const deltas = typeof text === "string" ? extractPatchDeltas(text) : []
     if (deltas.length === 0) {
-      return { tool: shaped, evaluated: false, blocked: false, filePath: null, addedCount: 0, violations: [], message: null }
+      return { tool: shaped, evaluated: false, blocked: false, reason: "no-target", filePath: null, addedCount: 0, violations: [], message: null }
     }
     const groups = []
     let addedCount = 0
@@ -167,6 +167,7 @@ export function evaluateEdit(tool, args, opts) {
       tool: shaped,
       evaluated: true,
       blocked: merged.length > 0,
+      reason: null,
       filePath: deltas[0].filePath,
       addedCount,
       violations: merged,
@@ -178,7 +179,8 @@ export function evaluateEdit(tool, args, opts) {
   const root = typeof opts?.root === "string" ? opts.root : filePathArg === null ? null : resolveConfigRoot(filePathArg)
   const extracted = addedFromToolArgs(shaped, normalizeToolArgs(raw), root === null ? opts : { ...opts, keepGenerated: true })
   if (extracted === null) {
-    return { tool: shaped, evaluated: false, blocked: false, filePath: filePathArg, addedCount: 0, violations: [], message: null }
+    const reason = filePathArg !== null && !isCodePath(filePathArg) ? "no-target" : "unparsed"
+    return { tool: shaped, evaluated: false, blocked: false, reason, filePath: filePathArg, addedCount: 0, violations: [], message: null }
   }
   const violations = locateViolations(
     configFindings(root, extracted.filePath, extracted.added, true).filter((v) => v.severity === "error"),
@@ -188,6 +190,7 @@ export function evaluateEdit(tool, args, opts) {
     tool: shaped,
     evaluated: true,
     blocked: violations.length > 0,
+    reason: null,
     filePath: extracted.filePath,
     addedCount: extracted.added.length,
     violations,

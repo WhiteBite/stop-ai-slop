@@ -17,7 +17,7 @@ description: Comment-slop policy and mechanical gate (scan.mjs, pre-commit insta
 node <SKILL_DIR>/scripts/scan.mjs --staged
 ```
 
-В OpenCode-сессиях write/edit/multiedit дополнительно блокируются на записи плагином comment-gate (error-правила); незнакомые имена инструментов с write-формой payload гейтятся по форме, а неоценённый мутирующий вызов пишется в аудит-лог с вердиктом `unevaluated`. В Claude Code и вне сессий — через pre-commit hook (`--install` ниже) или вручную.
+В OpenCode-сессиях write/edit/multiedit дополнительно блокируются на записи плагином comment-gate (error-правила); незнакомые имена инструментов с write-формой payload гейтятся по форме, а неоценённый мутирующий вызов к линтуемому файлу пишется в аудит-лог с вердиктом `unevaluated`. В Claude Code и вне сессий — через pre-commit hook (`--install` ниже) или вручную.
 
 ## Правила
 

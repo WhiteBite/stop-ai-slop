@@ -67,6 +67,7 @@ export declare function addedFromToolArgs(
 interface GateResultBase {
   tool: string
   evaluated: boolean
+  reason: string | null
   filePath: string | null
   addedCount: number
   violations: Violation[]

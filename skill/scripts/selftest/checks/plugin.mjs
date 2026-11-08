@@ -131,11 +131,17 @@ export default async function ({ check, selfRoot }) {
       patchNamed.evaluated === true && patchNamed.blocked === true && patchNamed.tool === "apply_patch",
       JSON.stringify({ evaluated: patchNamed.evaluated, blocked: patchNamed.blocked, tool: patchNamed.tool }),
     )
-    const unevaluated = evaluateEdit("Write", { filePath: join(shapeDir, "notes.txt"), content: SLOP })
+    const noTarget = evaluateEdit("Write", { filePath: join(shapeDir, "notes.txt"), content: SLOP })
+    const unparsed = evaluateEdit("Write", { filePath: join(shapeDir, "no-content.ts") })
     check(
-      "plugin-shape: Write в не-кодовый путь — evaluated:false, filePath сохранён",
-      unevaluated.evaluated === false && unevaluated.filePath === join(shapeDir, "notes.txt"),
-      JSON.stringify({ evaluated: unevaluated.evaluated, filePath: unevaluated.filePath }),
+      "plugin-shape: не-кодовый путь — evaluated:false, reason no-target, filePath сохранён",
+      noTarget.evaluated === false && noTarget.reason === "no-target" && noTarget.filePath === join(shapeDir, "notes.txt"),
+      JSON.stringify({ evaluated: noTarget.evaluated, reason: noTarget.reason, filePath: noTarget.filePath }),
+    )
+    check(
+      "plugin-shape: кодовый путь без payload — evaluated:false, reason unparsed",
+      unparsed.evaluated === false && unparsed.reason === "unparsed" && unparsed.filePath === join(shapeDir, "no-content.ts"),
+      JSON.stringify({ evaluated: unparsed.evaluated, reason: unparsed.reason }),
     )
 
     const nodeMajor = Number(process.versions.node.split(".")[0])
@@ -174,6 +180,7 @@ try {
   })
   assert(captured !== null && captured.name === "execute.before", "setup did not register execute.before")
   const slopTs = ${JSON.stringify(join(shapeDir, "mod-slop.ts"))}
+  const unparsedPath = ${JSON.stringify(join(shapeDir, "mod-unparsed.ts"))}
   const txtPath = ${JSON.stringify(join(shapeDir, "mod-notes.txt"))}
   const slop = ${JSON.stringify(SLOP)}
   let threwWrite = false
@@ -183,6 +190,13 @@ try {
     threwWrite = true
   }
   assert(threwWrite === true, "capitalized Write with slop did not throw")
+  let threwUnparsed = false
+  try {
+    await captured.cb({ tool: "Write", input: { filePath: unparsedPath } })
+  } catch {
+    threwUnparsed = true
+  }
+  assert(threwUnparsed === false, "Write without content threw")
   let threwTxt = false
   try {
     await captured.cb({ tool: "Write", input: { filePath: txtPath, content: slop } })
@@ -223,15 +237,17 @@ try {
       const blockedEntry = auditEntries.find((e) => e.verdict === "blocked" && e.tool === "Write")
       const unevalEntry = auditEntries.find((e) => e.verdict === "unevaluated" && e.tool === "Write")
       const readAudited = auditEntries.some((e) => e.tool === "read")
+      const txtAudited = auditEntries.some((e) => e.verdict === "unevaluated" && e.filePath === join(shapeDir, "mod-notes.txt"))
       check(
-        "plugin-module: guard блокирует Write, аудирует unevaluated, read молчит",
+        "plugin-module: guard блокирует Write, аудирует только реальный пробел, read и не-кодовый путь молчат",
         run.status === 0 &&
           moduleResult !== null &&
           moduleResult.ok === true &&
           blockedEntry !== undefined &&
           unevalEntry !== undefined &&
-          unevalEntry.filePath === join(shapeDir, "mod-notes.txt") &&
-          !readAudited,
+          unevalEntry.filePath === join(shapeDir, "mod-unparsed.ts") &&
+          !readAudited &&
+          !txtAudited,
         moduleResult && moduleResult.error ? moduleResult.error : `exit ${run.status}: ${(run.stderr ?? "").slice(0, 300)}`,
       )
     }
