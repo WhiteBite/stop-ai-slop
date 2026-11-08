@@ -1,7 +1,7 @@
 {
   "theme": "claude-code",
   "windowTitle": "add cache lookup to loadUser",
-  "takeaway": "The gate blocks 12 slop comments and keeps the one that matters",
+  "takeaway": "The gate blocks the slop write and keeps the one useful comment",
 
   "before": {
     "caption": "without the gate",
@@ -16,7 +16,7 @@
         { "type": "add", "text": "// TODO: add a TTL later" },
         { "type": "add", "text": "// ... 8 more comment lines" }
       ] },
-      { "type": "status", "text": "12 comment lines written" }
+      { "type": "status", "text": "the slop lands - 12 comment lines" }
     ]
   },
 
@@ -25,13 +25,13 @@
     "sessionTitle": "# add cache lookup to loadUser",
     "blocks": [
       { "type": "user", "text": "add a cache lookup to loadUser" },
-      { "type": "status", "text": "gate: 12 comment lines -> 1" },
+      { "type": "status", "text": "slop-gate: 8 finding(s), 2 error(s)" },
       { "type": "diff", "lines": [
         { "type": "add", "text": "// cache hit avoids the DB round-trip" },
         { "type": "add", "text": "const cached = cache.get(id)" },
         { "type": "add", "text": "return cached ?? loadUser(id)" }
       ] },
-      { "type": "done", "text": "done in 1.8s" }
+      { "type": "done", "text": "slop-gate: clean" }
     ]
   }
 }
