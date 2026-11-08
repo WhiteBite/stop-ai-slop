@@ -7,6 +7,8 @@
 [![node](https://img.shields.io/badge/node-%3E%3D18-brightgreen)](package.json)
 [![zero-deps](https://img.shields.io/badge/dependencies-0-brightgreen)](package.json)
 
+![stop-ai-slop demo: 12 slop comment lines reduced to 1](assets/stop-ai-slop.png)
+
 > **stop-ai-slop is a zero-dependency comment linter and gate that blocks AI-generated comment slop before it lands in your codebase.** One scanner (`skill/scripts/scan.mjs`, the `RULES` table) is the single source of truth for a one-line, why-only comment policy. It is enforced at write-time (OpenCode plugin, Claude Code PreToolUse hook), at commit-time (pre-commit hook installed with `--install`), and in CI (GitHub Action, GitLab CI template) — and it also runs as an MCP server. Node >= 18, zero npm dependencies, MIT licensed, works on Windows, Linux and macOS.
 
 AI coding agents over-comment: multi-line narrative blocks, `// was X, now Y` changelog notes, `Step 1 / Step 2` filler, banner dividers, markdown inside comments, `TODO` without a ticket, comments that restate the code line beneath them, rotting `file.py:123` pointers, even invisible zero-width and BiDi characters. stop-ai-slop catches all of it deterministically — no LLM, no scoring threshold, no network — and blocks the offending edit or commit.
