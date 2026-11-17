@@ -7,6 +7,8 @@
 [![node](https://img.shields.io/badge/node-%3E%3D18-brightgreen)](package.json)
 [![zero-deps](https://img.shields.io/badge/dependencies-0-brightgreen)](package.json)
 
+<p align="center"><img src="./assets/stop-ai-slop-hero.png" width="100%" alt="превью stop-ai-slop: гейт комментариев с 19 правилами и без runtime-зависимостей"></p>
+
 > **stop-ai-slop — линтер и гейт комментариев с нулевыми зависимостями, который блокирует AI-слоп в комментариях до попадания в кодовую базу.** Один сканер (`skill/scripts/scan.mjs`, таблица `RULES`) — единый источник правды для политики «комментарий — одна строка и только why». Гейт применяется в момент записи (плагин OpenCode, PreToolUse-хук Claude Code), на коммите (pre-commit hook, ставится через `--install`) и в CI (GitHub Action, шаблон GitLab CI), а также работает как MCP-сервер. Node >= 18, нулевые npm-зависимости, лицензия MIT, работает на Windows, Linux и macOS.
 
 AI-агенты перекомментируют: многострочные нарративы, `// было X, стало Y`, «Step 1 / Step 2», баннеры-разделители, markdown внутри комментариев, `TODO` без тикета, комментарии-пересказы строки под ними, гниющие указатели `file.py:123`, невидимые zero-width и BiDi-символы. stop-ai-slop ловит всё это детерминированно — без LLM, без скоринга, без сети — и блокирует правку или коммит.

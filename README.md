@@ -7,6 +7,8 @@
 [![node](https://img.shields.io/badge/node-%3E%3D18-brightgreen)](package.json)
 [![zero-deps](https://img.shields.io/badge/dependencies-0-brightgreen)](package.json)
 
+<p align="center"><img src="./assets/stop-ai-slop-hero.png" width="100%" alt="stop-ai-slop preview: a comment gate with 19 rules and zero runtime dependencies"></p>
+
 ![stop-ai-slop demo: 12 slop comment lines reduced to 1](assets/stop-ai-slop.png)
 
 > **stop-ai-slop is a zero-dependency comment linter and gate that blocks AI-generated comment slop before it lands in your codebase.** One scanner (`skill/scripts/scan.mjs`, the `RULES` table) is the single source of truth for a one-line, why-only comment policy. It is enforced at write-time (OpenCode plugin, Claude Code PreToolUse hook), at commit-time (pre-commit hook installed with `--install`), and in CI (GitHub Action, GitLab CI template) — and it also runs as an MCP server. Node >= 18, zero npm dependencies, MIT licensed, works on Windows, Linux and macOS.

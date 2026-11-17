@@ -1,0 +1,31 @@
+{
+  "kind": "hero",
+  "palette": "dark",
+  "mode": "split",
+
+  "eyebrow": "COMMENT GATE",
+  "title": "Block AI slop\nbefore it lands",
+  "subtitle": "One deterministic policy for AI comments: enforced at write, commit and CI time.",
+  "meta": "19 rules · 0 runtime deps",
+
+  "cards": [
+    {
+      "heading": "Rules",
+      "body": "19 deterministic checks",
+      "tone": "accent1",
+      "rotate": -0.8
+    },
+    {
+      "heading": "Surfaces",
+      "body": "Write, commit, CI, MCP",
+      "tone": "accent2",
+      "rotate": 0.5
+    },
+    {
+      "heading": "Zero deps",
+      "body": "No LLM, no network",
+      "tone": "accent3",
+      "rotate": -0.3
+    }
+  ]
+}
